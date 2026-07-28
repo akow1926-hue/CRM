@@ -259,10 +259,20 @@ def inject_theme():
     """, unsafe_allow_html=True)
 
 
-def render_top_header(title="Cosmo CRM", subtitle="", user_name="", user_role="", user_email=""):
-    logo_html = ""
+import base64
+
+def get_logo_base64():
     if os.path.exists("cosmo_logo.jpg"):
-        logo_html = '<img src="app/static/cosmo_logo.jpg" class="cosmo-logo-img" alt="Logo" onerror="this.style.display=\'none\'">'
+        try:
+            with open("cosmo_logo.jpg", "rb") as f:
+                return base64.b64encode(f.read()).decode("utf-8")
+        except Exception:
+            pass
+    return ""
+
+def render_top_header(title="Cosmo CRM", subtitle="", user_name="", user_role="", user_email=""):
+    b64_logo = get_logo_base64()
+    logo_html = f'<img src="data:image/jpeg;base64,{b64_logo}" class="cosmo-logo-img" alt="Logo">' if b64_logo else ""
     
     st.markdown(f"""
         <div class="cosmo-header">

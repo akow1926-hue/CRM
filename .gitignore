@@ -1,0 +1,16 @@
+# Secrets & Configs
+key.json
+telegram_config.json
+sms_config.json
+sms_history.json
+gsheet_config.json
+backup_orders.json
+backup_users.json
+
+# Python & IDE
+__pycache__/
+*.py[cod]
+.vscode/
+.devcontainer/
+.claude/
+.agents/

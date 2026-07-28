@@ -310,6 +310,28 @@ def get_next_order_id(df):
         return 5200
 
 
+GSHEET_CONFIG_FILE = "gsheet_config.json"
+
+
+def get_gsheet_config():
+    if os.path.exists(GSHEET_CONFIG_FILE):
+        try:
+            with open(GSHEET_CONFIG_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"gsheet_url": ""}
+
+
+def save_gsheet_config(url):
+    try:
+        with open(GSHEET_CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump({"gsheet_url": url.strip()}, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception:
+        return False
+
+
 # Подключение к Google Таблицам
 @st.cache_resource
 def connect_gsheet():
@@ -338,16 +360,19 @@ def connect_gsheet():
             if "private_key" in key_dict and isinstance(key_dict["private_key"], str):
                 key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
             client = gspread.service_account_from_dict(key_dict)
-        except Exception as e:
+        except Exception:
             pass
 
     if client is None:
-        raise RuntimeError("Учетные данные Google Sheets не найдены в st.secrets или key.json")
+        raise RuntimeError("Учетные данные Google Service Account не найдены в st.secrets или key.json")
 
-    # 3. Открытие таблицы (с автосозданием если не найдена или поддержкой GSHEET_URL)
+    # 3. Открытие таблицы
+    cfg = get_gsheet_config()
+    gsheet_url = cfg.get("gsheet_url", "").strip() or (st.secrets.get("GSHEET_URL", "").strip() if hasattr(st, "secrets") and "GSHEET_URL" in st.secrets else "")
+
     sheet_name = "Мойка Ковров CRM"
-    if "GSHEET_URL" in st.secrets:
-        db = client.open_by_url(st.secrets["GSHEET_URL"])
+    if gsheet_url:
+        db = client.open_by_url(gsheet_url)
     else:
         try:
             db = client.open(sheet_name)
@@ -377,9 +402,10 @@ db, sheet, user_sheet = None, None, None
 try:
     db, sheet, user_sheet = connect_gsheet()
     use_gsheet = True
+    st.session_state["gsheet_error"] = ""
 except Exception as e:
-    st.warning(f"⚠️ Google Sheets не подключен ({e}). Работает локальная резервная база CRM.")
     use_gsheet = False
+    st.session_state["gsheet_error"] = str(e)
 
 qp = st.query_params
 if "logged_in" not in st.session_state:
@@ -393,10 +419,39 @@ if "logged_in" not in st.session_state:
         st.session_state["role"] = ""
 
 BACKUP_FILE = "backup_orders.json"
+USERS_BACKUP_FILE = "backup_users.json"
+
+DEFAULT_USERS_DATA = [
+    {"Username": "admin", "Password": "admin123", "Role": "Администратор", "Status": "Активен"},
+    {"Username": "Алишер Каримов", "Password": "123456", "Role": "Доставщик (Курьер)", "Status": "Активен"},
+    {"Username": "Бобур Ибрагимов", "Password": "123456", "Role": "Доставщик (Курьер)", "Status": "Активен"},
+    {"Username": "Сардор Турсунов", "Password": "123456", "Role": "Доставщик (Курьер)", "Status": "Активен"},
+    {"Username": "washer", "Password": "123456", "Role": "Мойщик", "Status": "Активен"}
+]
+
+
+def save_local_users(df):
+    """Авто-бекап пользователей в локальный JSON файл"""
+    try:
+        df.to_json(USERS_BACKUP_FILE, orient="records", force_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def load_local_users():
+    """Загрузка данных пользователей из локального бекапа"""
+    if os.path.exists(USERS_BACKUP_FILE):
+        try:
+            return pd.read_json(USERS_BACKUP_FILE)
+        except Exception:
+            pass
+    df = pd.DataFrame(DEFAULT_USERS_DATA)
+    save_local_users(df)
+    return df
 
 
 def save_local_backup(df):
-    """Авто-бекап данных в локальный JSON файл"""
+    """Авто-бекап данных заказов в локальный JSON файл"""
     try:
         df.to_json(BACKUP_FILE, orient="records", force_ascii=False, indent=2)
     except Exception:
@@ -404,7 +459,7 @@ def save_local_backup(df):
 
 
 def load_local_backup():
-    """Загрузка данных из локального бекапа при отсутствии сети"""
+    """Загрузка данных заказов из локального бекапа при отсутствии сети"""
     if os.path.exists(BACKUP_FILE):
         try:
             return pd.read_json(BACKUP_FILE)
@@ -692,82 +747,136 @@ def generate_receipt_html(row):
 
 
 def get_clean_orders():
-    try:
-        data = sheet.get_all_values()
-        
-        if len(data) > 1:
-            headers = [str(h).strip() for h in data[0]]
-            records = data[1:]
-            
-            df = pd.DataFrame(records, columns=headers)
-            df = df.loc[:, ~df.columns.duplicated()]
-            
-            for col in EXPECTED_HEADERS:
-                if col not in df.columns:
-                    df[col] = ""
-            save_local_backup(df)
-            return df
-        return pd.DataFrame(columns=EXPECTED_HEADERS)
-    except Exception as e:
-        st.warning(f"⚠️ Google Sheets недоступен ({e}). Данные загружены из локального бекапа.")
-        return load_local_backup()
+    if use_gsheet and sheet is not None:
+        try:
+            data = sheet.get_all_values()
+            if len(data) > 1:
+                headers = [str(h).strip() for h in data[0]]
+                records = data[1:]
+                df = pd.DataFrame(records, columns=headers)
+                df = df.loc[:, ~df.columns.duplicated()]
+                for col in EXPECTED_HEADERS:
+                    if col not in df.columns:
+                        df[col] = ""
+                save_local_backup(df)
+                return df
+        except Exception:
+            pass
+    return load_local_backup()
+
 
 def get_users_df():
+    if use_gsheet and user_sheet is not None:
+        try:
+            data = user_sheet.get_all_records()
+            if data:
+                df = pd.DataFrame([{str(k).strip(): v for k, v in d.items()} for d in data])
+                save_local_users(df)
+                return df
+        except Exception:
+            pass
+    return load_local_users()
+
+
+def add_user_to_db(username, password, role, status="Ожидает одобрения"):
     try:
-        data = user_sheet.get_all_records()
-        if data:
-            return pd.DataFrame([{str(k).strip(): v for k, v in d.items()} for d in data])
-    except Exception:
-        pass
-    return pd.DataFrame(columns=["Username", "Password", "Role", "Status"])
+        u_df = get_users_df()
+        new_row = pd.DataFrame([{"Username": str(username).strip(), "Password": str(password).strip(), "Role": role, "Status": status}])
+        u_df = pd.concat([u_df, new_row], ignore_index=True)
+        save_local_users(u_df)
+
+        if use_gsheet and user_sheet is not None:
+            try:
+                user_sheet.append_row([username, password, role, status])
+            except Exception:
+                pass
+        return True
+    except Exception as e:
+        st.error(f"Ошибка при добавлении пользователя: {e}")
+        return False
+
 
 def update_user_status(username, new_status):
     try:
-        try:
-            cell = user_sheet.find(str(username), in_column=1)
-        except Exception:
-            cell = user_sheet.find(str(username))
-        row = cell.row
-        header_row = [str(h).strip() for h in user_sheet.row_values(1)]
-        col_idx = 4
-        if "Status" in header_row:
-            col_idx = header_row.index("Status") + 1
-        elif "Статус" in header_row:
-            col_idx = header_row.index("Статус") + 1
-        user_sheet.update_cell(row, col_idx, new_status)
+        u_df = get_users_df()
+        if not u_df.empty and "Username" in u_df.columns:
+            u_df.loc[u_df["Username"].astype(str) == str(username), "Status"] = new_status
+            save_local_users(u_df)
+
+        if use_gsheet and user_sheet is not None:
+            try:
+                try:
+                    cell = user_sheet.find(str(username), in_column=1)
+                except Exception:
+                    cell = user_sheet.find(str(username))
+                row = cell.row
+                header_row = [str(h).strip() for h in user_sheet.row_values(1)]
+                col_idx = 4
+                if "Status" in header_row:
+                    col_idx = header_row.index("Status") + 1
+                elif "Статус" in header_row:
+                    col_idx = header_row.index("Статус") + 1
+                user_sheet.update_cell(row, col_idx, new_status)
+            except Exception:
+                pass
         return True
     except Exception as e:
         st.error(f"Ошибка обновления пользователя: {e}")
         return False
 
+
 def delete_user(username):
     try:
-        try:
-            cell = user_sheet.find(str(username), in_column=1)
-        except Exception:
-            cell = user_sheet.find(str(username))
-        row = cell.row
-        user_sheet.delete_rows(row)
+        u_df = get_users_df()
+        if not u_df.empty and "Username" in u_df.columns:
+            u_df = u_df[u_df["Username"].astype(str) != str(username)]
+            save_local_users(u_df)
+
+        if use_gsheet and user_sheet is not None:
+            try:
+                try:
+                    cell = user_sheet.find(str(username), in_column=1)
+                except Exception:
+                    cell = user_sheet.find(str(username))
+                user_sheet.delete_rows(cell.row)
+            except Exception:
+                pass
         return True
     except Exception as e:
         st.error(f"Ошибка удаления пользователя: {e}")
         return False
 
+
 def update_order_in_sheet(order_id, updates):
     try:
-        try:
-            cell = sheet.find(str(order_id), in_column=1)
-        except Exception:
-            cell = sheet.find(str(order_id))
-        row = cell.row
-        header_row = [str(h).strip() for h in sheet.row_values(1)]
-        
-        for col_key, value in updates.items():
-            if isinstance(col_key, str) and col_key in header_row:
-                col_idx = header_row.index(col_key) + 1
-                sheet.update_cell(row, col_idx, value)
-            elif isinstance(col_key, int):
-                sheet.update_cell(row, col_key, value)
+        current_df = get_clean_orders()
+        if not current_df.empty and "ID" in current_df.columns:
+            mask = current_df["ID"].astype(str) == str(order_id)
+            if mask.any():
+                for col_key, val in updates.items():
+                    if isinstance(col_key, str):
+                        if col_key not in current_df.columns:
+                            current_df[col_key] = ""
+                        current_df.loc[mask, col_key] = val
+                save_local_backup(current_df)
+
+        if use_gsheet and sheet is not None:
+            try:
+                try:
+                    cell = sheet.find(str(order_id), in_column=1)
+                except Exception:
+                    cell = sheet.find(str(order_id))
+                row = cell.row
+                header_row = [str(h).strip() for h in sheet.row_values(1)]
+                
+                for col_key, value in updates.items():
+                    if isinstance(col_key, str) and col_key in header_row:
+                        col_idx = header_row.index(col_key) + 1
+                        sheet.update_cell(row, col_idx, value)
+                    elif isinstance(col_key, int):
+                        sheet.update_cell(row, col_key, value)
+            except Exception:
+                pass
         return True
     except Exception as e:
         st.error(f"Ошибка обновления заказа: {e}")
@@ -777,27 +886,46 @@ def update_order_in_sheet(order_id, updates):
 def add_order_to_sheet(order_data):
     try:
         current_df = get_clean_orders()
-        order_id = get_next_order_id(current_df)
+        order_id = order_data.get("ID") or get_next_order_id(current_df)
         date_now = datetime.now().strftime("%d.%m.%Y, %H:%M:%S")
-        sheet.append_row([
-            order_id,
-            date_now,
-            order_data.get("Клиент", ""),
-            order_data.get("Телефон", ""),
-            order_data.get("Адрес", ""),
-            order_data.get("Размеры", ""),
-            0,
-            0,
-            order_data.get("Статус", "Ожидает забора"),
-            order_data.get("Курьер", ""),
-            order_data.get("Диспетчер", ""),
-            order_data.get("Район", ""),
-            order_data.get("Язык", ""),
-            order_data.get("Локация", "-"),
-            "-",
-            "-",
-            "-"
-        ])
+
+        new_row = {
+            "ID": order_id,
+            "Дата": date_now,
+            "Клиент": order_data.get("Клиент", ""),
+            "Телефон": order_data.get("Телефон", ""),
+            "Адрес": order_data.get("Адрес", ""),
+            "Размеры": order_data.get("Размеры", ""),
+            "Площадь": order_data.get("Площадь", 0),
+            "Сумма": order_data.get("Сумма", 0),
+            "Статус": order_data.get("Статус", "Ожидает забора"),
+            "Курьер": order_data.get("Курьер", ""),
+            "Диспетчер": order_data.get("Диспетчер", ""),
+            "Район": order_data.get("Район", ""),
+            "Язык": order_data.get("Язык", ""),
+            "Локация": order_data.get("Локация", "-"),
+            "Оплачено": order_data.get("Оплачено", 0),
+            "Тип оплаты": order_data.get("Тип оплаты", "-"),
+            "Причина": order_data.get("Причина", "-")
+        }
+
+        updated_df = pd.concat([current_df, pd.DataFrame([new_row])], ignore_index=True)
+        save_local_backup(updated_df)
+
+        if use_gsheet and sheet is not None:
+            try:
+                sheet.append_row([
+                    order_id, date_now, order_data.get("Клиент", ""),
+                    order_data.get("Телефон", ""), order_data.get("Адрес", ""),
+                    order_data.get("Размеры", ""), order_data.get("Площадь", 0),
+                    order_data.get("Сумма", 0), order_data.get("Статус", "Ожидает забора"),
+                    order_data.get("Курьер", ""), order_data.get("Диспетчер", ""),
+                    order_data.get("Район", ""), order_data.get("Язык", ""),
+                    order_data.get("Локация", "-"), order_data.get("Оплачено", 0),
+                    order_data.get("Тип оплаты", "-"), order_data.get("Причина", "-")
+                ])
+            except Exception:
+                pass
         return True
     except Exception as e:
         st.error(f"Ошибка сохранения заказа: {e}")
@@ -924,7 +1052,7 @@ if not st.session_state["logged_in"]:
             reg_password = st.text_input(t["password"], type="password").strip()
             reg_role = st.selectbox(
                 t["role_select"],
-                [t["Courier"], t["Washer"], t["Cleaner"], t["Dispatcher"]]
+                [t["Courier"], t["Washer"]]
             )
             reg_submit = st.form_submit_button(t["submit_reg"])
             
@@ -934,8 +1062,8 @@ if not st.session_state["logged_in"]:
             elif reg_username in users_df["Username"].values:
                 st.error(t["reg_error_exists"])
             else:
-                user_sheet.append_row([reg_username, reg_password, reg_role, "Ожидает одобрения"])
-                st.success(t["reg_success"])
+                if add_user_to_db(reg_username, reg_password, reg_role, "Ожидает одобрения"):
+                    st.success(t["reg_success"])
     st.stop()
 
 # --- БОКОВАЯ ПАНЕЛЬ ---
@@ -982,6 +1110,11 @@ disp_role_map = {
     "Cleaner": t["Cleaner"]
 }
 st.sidebar.write(f"💼 **{t['role_label']}:** `{disp_role_map.get(st.session_state['role'], st.session_state['role'])}`")
+
+if use_gsheet:
+    st.sidebar.success("🌐 База: Google Sheets (Online)")
+else:
+    st.sidebar.info("💻 База: Локальная (Offline)")
 
 with st.sidebar.expander("📲 Telegram Уведомления", expanded=False):
     cfg = get_tg_config()
@@ -1030,7 +1163,9 @@ if role in ["Dispatcher", "Диспетчер", "Dispetcher"]:
     dispatcher_view.render_dispatcher_view(
         df=df, t=t, courier_list=courier_list,
         get_next_order_id_func=get_next_order_id,
-        sheet_obj=sheet, send_tg_func=send_telegram_notification,
+        add_order_func=add_order_to_sheet,
+        update_order_func=update_order_in_sheet,
+        send_tg_func=send_telegram_notification,
         sms_mgr=sms_manager
     )
 
@@ -1361,26 +1496,76 @@ elif role in ["Administrator", "Admin", "Администратор"]:
             with st.form("admin_add_user_form", clear_on_submit=True):
                 new_login = st.text_input(t["employee_login"])
                 new_pass = st.text_input(t["employee_password"], type="password")
-                new_role = st.selectbox(t["employee_role"], ["Диспетчер", "Курьер", "Мойщик", "Чистильщик от волос", "Администратор"])
+                new_role_preset = st.selectbox(t["employee_role"], ["Доставщик (Курьер)", "Мойщик", "Администратор", "Диспетчер", "Чистильщик от волос", "✍️ Ввести другую должность..."])
+                if new_role_preset == "✍️ Ввести другую должность...":
+                    new_role = st.text_input("Название должности:").strip()
+                else:
+                    new_role = new_role_preset
+                
                 submit_new_user = st.form_submit_button("➕ " + t["add_to_system"], type="primary")
                 
                 if submit_new_user:
-                    if new_login and new_pass:
-                        try:
-                            user_sheet.append_row([new_login, new_pass, new_role, "Активен"])
+                    if new_login and new_pass and new_role:
+                        if add_user_to_db(new_login, new_pass, new_role, "Активен"):
                             st.success(t["employee_added"].format(login=new_login))
                             st.rerun()
-                        except Exception as e:
-                            st.error(f"Ошибка при добавлении пользователя: {e}")
                     else:
                         st.error(t["fill_login_password"])
 
     # ===================== ВКЛАДКА 6: НАСТРОЙКИ СИСТЕМЫ =====================
     with tab_settings:
-        subtab_sms_cfg, subtab_sms_hist, subtab_pricing, subtab_backup = st.tabs([
-            "📱 Настройки SMS", "📜 История SMS", "🏷️ Прейскурант цен", "💾 Бекап и Резервное копирование"
+        subtab_gsheet, subtab_sms_cfg, subtab_sms_hist, subtab_pricing, subtab_backup = st.tabs([
+            "🌐 Google Таблица", "📱 Настройки SMS", "📜 История SMS", "🏷️ Прейскурант цен", "💾 Бекап и Резервное копирование"
         ])
         
+        with subtab_gsheet:
+            st.subheader("🌐 Интеграция с Google Таблицей")
+            
+            gs_err = st.session_state.get("gsheet_error", "")
+            if use_gsheet:
+                st.success("🟢 Google Таблица успешно подключена и работает в онлайн-режиме!")
+            elif gs_err:
+                if "Invalid JWT Signature" in gs_err or "invalid_grant" in gs_err:
+                    st.error("⚠️ **Ошибка авторизации Google:** Файл `key.json` содержит недействительный ключ сервисного аккаунта (`Invalid JWT Signature`).\n\n💡 **Решение:** Пожалуйста, загрузите свежий рабочий файл `key.json` ниже.")
+                elif "SpreadsheetNotFound" in gs_err or "404" in gs_err:
+                    st.error("⚠️ **Таблица не найдена или нет доступа:** Убедитесь, что вы предоставили доступ к вашей Google Таблице для сервисного бота со статусом **Редактор (Editor)**.")
+                else:
+                    st.warning(f"⚠️ Ошибка подключения к Google Sheets: {gs_err}")
+
+            st.markdown("""
+            **Инструкция по подключению вашей Google Таблицы:**
+            1. Откройте вашу Google Таблицу в браузере.
+            2. Нажмите синюю кнопку **«Настройки доступа» (Share)** в правом верхнем углу.
+            3. Добавьте этот email сервисного аккаунта с правами **«Редактор» (Editor)**:  
+               `moyka-crm@moyka-kovrov-crm.iam.gserviceaccount.com`
+            4. Скопируйте ссылку (URL) из адресной строки браузера и вставьте её ниже.
+            """)
+            
+            g_cfg = get_gsheet_config()
+            curr_url = g_cfg.get("gsheet_url", "")
+            
+            new_url = st.text_input("Ссылка на Google Таблицу (GSHEET_URL):", value=curr_url, placeholder="https://docs.google.com/spreadsheets/d/...")
+            
+            st.markdown("##### 🔑 Файл ключей Google Service Account (key.json):")
+            st.caption("Загрузите свежий JSON файл ключей Google Service Account (`key.json`) ниже:")
+            uploaded_key = st.file_uploader("Загрузить новый key.json", type=["json"], key="admin_key_upload")
+            if uploaded_key is not None:
+                try:
+                    key_bytes = uploaded_key.read()
+                    key_data = json.loads(key_bytes.decode('utf-8'))
+                    with open("key.json", "w", encoding="utf-8") as f:
+                        json.dump(key_data, f, ensure_ascii=False, indent=2)
+                    st.cache_resource.clear()
+                    st.success("✅ Файл ключей key.json успешно обновлен! Кэш очищен.")
+                except Exception as e:
+                    st.error(f"Ошибка чтения key.json: {e}")
+                    
+            if st.button("🚀 Сохранить и Подключить Google Таблицу", type="primary", use_container_width=True):
+                if save_gsheet_config(new_url):
+                    st.cache_resource.clear()
+                    st.success("✅ Настройки Google Таблицы сохранены! Перезагрузка системы...")
+                    st.rerun()
+                
         with subtab_sms_cfg:
             render_sms_settings_ui(key_prefix="admin_tab_sms")
             

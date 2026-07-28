@@ -4,26 +4,9 @@ import ui_theme
 import locales
 from datetime import datetime
 
-def render_dispatcher_view(df, t, courier_list, get_next_order_id_func, sheet_obj, send_tg_func, sms_mgr=None):
+def render_dispatcher_view(df, t, courier_list, get_next_order_id_func, add_order_func, update_order_func, send_tg_func, sms_mgr=None):
     """
     Панель Диспетчера с полной поддержкой двух языков (Русский / Uzbekcha)
-    """
-    ui_theme.inject_theme()
-    lang = st.session_state.get("lang", "ru")
-
-    title_txt = locales.get_text("dispatcher_panel", lang)
-    subtitle_txt = "Прием заказов и назначение курьеров" if lang == "ru" else "Buyurtmalarni qabul qilish va kuryerlarni tayinlash"
-
-    ui_theme.render_top_header(
-        title=title_txt,
-        subtitle=subtitle_txt,
-        user_name=st.session_state.get("username", "Диспетчер"),
-        user_role="Dispatcher"
-    )
-
-def render_dispatcher_view(df, t, courier_list, get_next_order_id_func, sheet_obj, send_tg_func, sms_mgr=None):
-    """
-    Панель Диспетчера с поддержкой двух языков (Русский / Uzbekcha)
     """
     ui_theme.inject_theme()
     lang = st.session_state.get("lang", "ru")
@@ -105,7 +88,6 @@ def render_dispatcher_view(df, t, courier_list, get_next_order_id_func, sheet_ob
                 else:
                     full_phone = f"+998 {clean_tel[:2]} {clean_tel[2:5]} {clean_tel[5:7]} {clean_tel[7:]}"
                     order_id = get_next_order_id_func(df)
-                    date_now = pd.Timestamp.now().strftime("%d.%m.%Y, %H:%M:%S")
 
                     full_izoh = f"Время забора: {pickup_time_slot}"
                     if extra_note.strip():
@@ -115,12 +97,24 @@ def render_dispatcher_view(df, t, courier_list, get_next_order_id_func, sheet_ob
                         full_izoh = f"🔥 СРОЧНО ({delivery_date_str} {delivery_time_str})! {full_izoh}"
 
                     try:
-                        sheet_obj.append_row([
-                            order_id, date_now, mijoz_ismi, full_phone, manzil,
-                            full_izoh, 0, 0, "Ожидает забора",
-                            courier, disp_name, hudud, til,
-                            "-", "-", "-", "-"
-                        ])
+                        order_payload = {
+                            "ID": order_id,
+                            "Клиент": mijoz_ismi,
+                            "Телефон": full_phone,
+                            "Адрес": manzil,
+                            "Размеры": full_izoh,
+                            "Статус": "Ожидает забора",
+                            "Курьер": courier,
+                            "Диспетчер": disp_name,
+                            "Район": hudud,
+                            "Язык": til,
+                            "Локация": "-",
+                            "Оплачено": 0,
+                            "Тип оплаты": "-",
+                            "Причина": "-"
+                        }
+                        if add_order_func:
+                            add_order_func(order_payload)
 
                         # Отправка Telegram уведомления курьеру
                         tg_msg = (
@@ -189,14 +183,8 @@ def render_dispatcher_view(df, t, courier_list, get_next_order_id_func, sheet_ob
                 
                 if st.button("💾 Сохранить изменения заказа", type="primary", key=f"disp_save_btn_{sel_id_disp}", use_container_width=True):
                     try:
-                        cell = sheet_obj.find(str(sel_id_disp))
-                        row_num = cell.row
-                        header_row = [str(h).strip() for h in sheet_obj.row_values(1)]
-                        
-                        if "Статус" in header_row:
-                            sheet_obj.update_cell(row_num, header_row.index("Статус") + 1, new_st)
-                        if "Курьер" in header_row:
-                            sheet_obj.update_cell(row_num, header_row.index("Курьер") + 1, new_cour)
+                        if update_order_func:
+                            update_order_func(sel_id_disp, {"Статус": new_st, "Курьер": new_cour})
                             
                         send_tg_func(f"✏️ <b>Диспетчер {st.session_state.get('username','')} обновил заказ №{sel_id_disp}!</b>\nНовый статус: {new_st} | Курьер: {new_cour}")
                         st.success("✅ Заказ успешно обновлен!")
