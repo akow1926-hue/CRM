@@ -338,7 +338,19 @@ def connect_gsheet():
     if client is None:
         raise RuntimeError("Критическая ошибка: учетные данные Google Sheets не найдены ни в st.secrets (GCP_JSON / gcp_service_account), ни в локальном файле key.json!")
 
-    db = client.open("Мойка Ковров CRM")
+    # 3. Открытие таблицы (с автосозданием если не найдена или поддержкой GSHEET_URL)
+    sheet_name = "Мойка Ковров CRM"
+    try:
+        if "GSHEET_URL" in st.secrets:
+            db = client.open_by_url(st.secrets["GSHEET_URL"])
+        else:
+            db = client.open(sheet_name)
+    except Exception:
+        try:
+            db = client.create(sheet_name)
+        except Exception as e_create:
+            raise RuntimeError(f"Не удалось открыть или создать Google Таблицу '{sheet_name}'. Проверьте права доступа. Ошибка: {e_create}")
+
     sheet1 = db.sheet1
 
     # ПРИНУДИТЕЛЬНО обновляем первую строку заголовков в Google Таблице
@@ -360,7 +372,8 @@ try:
     db, sheet, user_sheet = connect_gsheet()
 except Exception as e:
     st.error(f"Ошибка подключения к Google Sheets: {e}")
-    st.info("Убедитесь, что файл key.json лежит в папке проекта и таблица 'Мойка Ковров CRM' создана.")
+    service_email = "moyka-crm@moyka-kovrov-crm.iam.gserviceaccount.com"
+    st.info(f"💡 Убедитесь, что ваша Google Таблица создана под именем 'Мойка Ковров CRM' и в настройках доступа ей предоставлены права Редактора для e-mail: **{service_email}**")
     st.stop()
 
 qp = st.query_params
