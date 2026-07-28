@@ -309,54 +309,38 @@ def get_next_order_id(df):
     except:
         return 5200
 
-# 2. Подключение к Google Таблицам с безопасным резервным режимом
+# 2. Подключение к Google Таблицам
 @st.cache_resource
 def connect_gsheet():
-    client = None
     if os.path.exists("key.json"):
-        try:
-            client = gspread.service_account(filename="key.json")
-        except Exception:
-            pass
+        client = gspread.service_account(filename="key.json")
+    elif "gcp_service_account" in st.secrets:
+        client = gspread.service_account_from_dict(dict(st.secrets["gcp_service_account"]))
+    else:
+        client = gspread.service_account(filename="key.json")
+    db = client.open("Мойка Ковров CRM")
     
-    if not client and hasattr(st, "secrets"):
-        try:
-            if "gcp_service_account" in st.secrets:
-                client = gspread.service_account_from_dict(dict(st.secrets["gcp_service_account"]))
-            elif "private_key" in st.secrets:
-                client = gspread.service_account_from_dict(dict(st.secrets))
-        except Exception:
-            pass
-            
-    if not client:
-        return None, None, None
-
+    sheet1 = db.sheet1
+    
+    # ПРИНУДИТЕЛЬНО обновляем первую строку заголовков в Google Таблице
+    # Исправлено: используем именованные аргументы для совместимости с новыми версиями gspread
+    sheet1.update(values=[EXPECTED_HEADERS], range_name="A1")
+    
     try:
-        db = client.open("Мойка Ковров CRM")
-        sheet1 = db.sheet1
-        try:
-            sheet1.update(values=[EXPECTED_HEADERS], range_name="A1")
-        except Exception:
-            pass
-
-        try:
-            user_sheet = db.worksheet("Пользователи")
-        except Exception:
-            user_sheet = db.add_worksheet(title="Пользователи", rows="100", cols="4")
-            user_sheet.append_row(["Username", "Password", "Role", "Status"])
-            user_sheet.append_row(["admin", "admin123", "Администратор", "Активен"])
-
-        return db, sheet1, user_sheet
-    except Exception as e:
-        return None, None, None
+        user_sheet = db.worksheet("Пользователи")
+    except gspread.exceptions.WorksheetNotFound:
+        user_sheet = db.add_worksheet(title="Пользователи", rows="100", cols="4")
+        user_sheet.append_row(["Username", "Password", "Role", "Status"])
+        user_sheet.append_row(["admin", "admin123", "Администратор", "Активен"])
+        
+    return db, sheet1, user_sheet
 
 try:
     db, sheet, user_sheet = connect_gsheet()
-    if not sheet:
-        st.warning("🌐 Автономный режим: Google Таблица не подключена, используем резервную базу CRM.")
 except Exception as e:
-    db, sheet, user_sheet = None, None, None
-
+    st.error(f"Ошибка подключения к Google Sheets: {e}")
+    st.info("Убедитесь, что файл key.json лежит в папке проекта и таблица 'Мойка Ковров CRM' создана.")
+    st.stop()
 
 qp = st.query_params
 if "logged_in" not in st.session_state:
@@ -690,30 +674,13 @@ def get_clean_orders():
         return load_local_backup()
 
 def get_users_df():
-    default_users = pd.DataFrame([
-        {"Username": "admin", "Password": "admin123", "Role": "Администратор", "Status": "Активен"},
-        {"Username": "Akobir", "Password": "admin123", "Role": "Диспетчер", "Status": "Активен"},
-        {"Username": "Firuz", "Password": "123456", "Role": "Курьер", "Status": "Активен"},
-        {"Username": "Nazarov01", "Password": "123456", "Role": "Курьер", "Status": "Активен"},
-        {"Username": "Washer1", "Password": "123456", "Role": "Мойщик", "Status": "Активен"},
-    ])
-    if user_sheet is not None:
-        try:
-            data = user_sheet.get_all_records()
-            if data:
-                df_u = pd.DataFrame([{str(k).strip(): v for k, v in d.items()} for d in data])
-                if not df_u.empty and "Username" in df_u.columns:
-                    return df_u
-            # Если в таблице еще нет пользователей, добавим базовых
-            try:
-                for u in default_users.to_dict("records"):
-                    user_sheet.append_row([u["Username"], u["Password"], u["Role"], u["Status"]])
-            except Exception:
-                pass
-        except Exception:
-            pass
-    return default_users
-
+    try:
+        data = user_sheet.get_all_records()
+        if data:
+            return pd.DataFrame([{str(k).strip(): v for k, v in d.items()} for d in data])
+    except Exception:
+        pass
+    return pd.DataFrame(columns=["Username", "Password", "Role", "Status"])
 
 def update_user_status(username, new_status):
     try:
@@ -875,15 +842,13 @@ if not st.session_state["logged_in"]:
             login_submit = st.form_submit_button(t["submit_login"])
             
         if login_submit:
-            users_df["Username_clean"] = users_df["Username"].astype(str).str.strip().str.lower()
-            user_row = users_df[users_df["Username_clean"] == username_input.lower()]
+            user_row = users_df[users_df["Username"] == username_input]
             if user_row.empty:
                 st.error(t["error_not_found"])
             else:
                 db_password = str(user_row.iloc[0]["Password"]).strip()
-                db_status = str(user_row.iloc[0]["Status"]).strip()
-                db_role = str(user_row.iloc[0]["Role"]).strip()
-
+                db_status = user_row.iloc[0]["Status"]
+                db_role = user_row.iloc[0]["Role"]
                 
                 role_eng_map = {
                     "Администратор": "Administrator", "Administrator": "Administrator",
