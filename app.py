@@ -20,17 +20,24 @@ import dispatcher_view
 import courier_view
 import washer_view
 
-# Берем данные авторизации из раздела Secrets, который мы только что заполнили
+# --- Единый блок подключения к Google Таблицам ---
+try:
+    if "GCP_JSON" in st.secrets:
+        # 1. Если запущены на Streamlit Cloud — берем из Secrets
+        key_dict = json.loads(st.secrets["GCP_JSON"])
+        gc = gspread.service_account_from_dict(key_dict)
+    elif os.path.exists("key.json"):
+        # 2. Если запущены локально на компьютере — берем из key.json
+        gc = gspread.service_account(filename="key.json")
+    else:
+        st.error("Критическая ошибка: секреты GCP_JSON не настроены, а файл key.json отсутствует!")
+        st.stop()
 
-# Проверяем, есть ли секрет на сервере
-if "GCP_JSON" in st.secrets:
-    key_dict = json.loads(st.secrets["GCP_JSON"])
-    client = gspread.service_account_from_dict(key_dict)
-elif os.path.exists("key.json"):
-    # Для запуска локально на твоем компьютере
-    client = gspread.service_account(filename="key.json")
-else:
-    st.error("Секреты не найдены!")
+    # Подключаемся к базе CRM
+    db = gc.open("Мойка Ковров CRM")
+    sheet1 = db.sheet1
+except Exception as e:
+    st.error(f"Ошибка подключения к Google Sheets: {e}")
     st.stop()
 
 # Подключаемся к Google Sheets
