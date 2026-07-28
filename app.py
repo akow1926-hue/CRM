@@ -503,45 +503,83 @@ def get_tg_config():
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                cfg = json.load(f)
+                if "courier_chats" not in cfg:
+                    cfg["courier_chats"] = {}
+                return cfg
         except Exception:
             pass
-    return {"bot_token": "", "chat_id": ""}
+    return {"bot_token": "", "chat_id": "", "courier_chats": {}}
 
 
-def save_tg_config(bot_token, chat_id):
+def save_tg_config(bot_token, chat_id, courier_chats=None):
     try:
+        data = {
+            "bot_token": str(bot_token).strip(),
+            "chat_id": str(chat_id).strip(),
+            "courier_chats": courier_chats if courier_chats is not None else {}
+        }
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump({"bot_token": bot_token, "chat_id": chat_id}, f, ensure_ascii=False, indent=2)
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
     except Exception:
-        pass
+        return False
 
 
-def send_telegram_notification(msg):
-    """Отправка уведомлений в Telegram чат/группу"""
+def send_telegram_notification(msg, target_couriers=None):
+    """
+    Отправка уведомлений через Telegram Бота персонально каждому выбранному курьеру и/или в общую группу.
+    """
     cfg = get_tg_config()
     bot_token = st.session_state.get("tg_bot_token") or cfg.get("bot_token", "")
-    chat_id = st.session_state.get("tg_chat_id") or cfg.get("chat_id", "")
     
-    if not bot_token or not chat_id:
+    if not bot_token:
         return False
-        
-    try:
-        url = f"https://api.telegram.org/bot{bot_token.strip()}/sendMessage"
-        payload = json.dumps({"chat_id": str(chat_id).strip(), "text": msg, "parse_mode": "HTML"}).encode('utf-8')
-        req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json'})
-        with urllib.request.urlopen(req, timeout=5) as response:
-            if response.status == 200:
-                return True
-    except urllib.error.HTTPError as e:
-        err_body = e.read().decode('utf-8', errors='ignore')
-        st.error(f"⚠️ Ошибка Telegram API ({e.code}): {err_body}")
-        if "chat not found" in err_body or "blocked" in err_body or "Forbidden" in err_body:
-            st.warning("💡 Обязательно откройте вашего бота в Telegram и нажмите кнопку /start!")
+
+    chat_ids_to_send = set()
+    
+    # 1. Основной Chat ID группы / администратора
+    main_chat_id = (st.session_state.get("tg_chat_id") or cfg.get("chat_id", "")).strip()
+    if main_chat_id:
+        for cid in main_chat_id.split(","):
+            if cid.strip():
+                chat_ids_to_send.add(cid.strip())
+
+    # 2. Персональные Chat ID выбранных курьеров
+    courier_chats = cfg.get("courier_chats", {})
+    if target_couriers:
+        if isinstance(target_couriers, str):
+            c_names = [c.strip() for c in target_couriers.split(",") if c.strip()]
+        elif isinstance(target_couriers, list):
+            c_names = target_couriers
+        else:
+            c_names = []
+
+        for cname in c_names:
+            if cname in courier_chats and str(courier_chats[cname]).strip():
+                chat_ids_to_send.add(str(courier_chats[cname]).strip())
+
+    if not chat_ids_to_send:
         return False
-    except Exception as e:
-        st.error(f"⚠️ Ошибка отправки Telegram: {e}")
-        return False
+
+    success = False
+    for cid in chat_ids_to_send:
+        try:
+            url = f"https://api.telegram.org/bot{bot_token.strip()}/sendMessage"
+            payload = json.dumps({"chat_id": str(cid).strip(), "text": msg, "parse_mode": "HTML"}).encode('utf-8')
+            req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json'})
+            with urllib.request.urlopen(req, timeout=5) as response:
+                if response.status == 200:
+                    success = True
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode('utf-8', errors='ignore')
+            st.error(f"⚠️ Ошибка Telegram API для Chat ID ({cid}): {err_body}")
+            if "chat not found" in err_body or "blocked" in err_body or "Forbidden" in err_body:
+                st.warning(f"💡 Убедитесь, что курьер/пользователь (Chat ID: {cid}) открыл бота в Telegram и нажал кнопку /start!")
+        except Exception as e:
+            st.error(f"⚠️ Ошибка отправки Telegram: {e}")
+
+    return success
 
 
 # --- SMS УВЕДОМЛЕНИЯ И ИНТЕРФЕЙС / SMS SOZLAMALARI ---
@@ -1602,10 +1640,35 @@ elif role in ["Administrator", "Admin", "Администратор"]:
 
     # ===================== ВКЛАДКА 6: НАСТРОЙКИ СИСТЕМЫ =====================
     with tab_settings:
-        subtab_gsheet, subtab_sms_cfg, subtab_sms_hist, subtab_pricing, subtab_backup = st.tabs([
-            "🌐 Google Таблица", "📱 Настройки SMS", "📜 История SMS", "🏷️ Прейскурант цен", "💾 Бекап и Резервное копирование"
+        subtab_tg, subtab_gsheet, subtab_sms_cfg, subtab_sms_hist, subtab_pricing, subtab_backup = st.tabs([
+            "🤖 Telegram Бот и Курьеры", "🌐 Google Таблица", "📱 Настройки SMS", "📜 История SMS", "🏷️ Прейскурант цен", "💾 Бекап и Резервное копирование"
         ])
         
+        with subtab_tg:
+            st.subheader("🤖 Настройка Telegram Бота и Chat ID курьеров")
+            tg_cfg = get_tg_config()
+            
+            bot_token_input = st.text_input("Telegram Bot Token:", value=tg_cfg.get("bot_token", ""), placeholder="1234567890:ABCdefGhIJKlmNoPQR...", key="admin_tg_token")
+            main_chat_input = st.text_input("Основной Chat ID (Группа / Общий чат):", value=tg_cfg.get("chat_id", ""), placeholder="-1001234567890 или 12345678", key="admin_tg_main_chat")
+            
+            st.markdown("#### 👥 Персональные Chat ID курьеров (для точечной рассылки):")
+            st.caption("Каждый курьер должен написать боту в Telegram сообщение `/start` и ввести свой Chat ID ниже:")
+            
+            courier_chats_input = {}
+            u_df = get_users_df()
+            cour_names = u_df[u_df["Role"].astype(str).str.contains("Курьер|Courier|Yuboruvchi", case=False, na=False)]["Username"].tolist() if not u_df.empty else ["Алишер Каримов", "Бобур Ибрагимов", "Сардор Турсунов"]
+            
+            existing_c_chats = tg_cfg.get("courier_chats", {})
+            for cname in cour_names:
+                cid_val = st.text_input(f"Chat ID курьера `{cname}`:", value=existing_c_chats.get(cname, ""), key=f"tg_cid_{cname}")
+                if cid_val.strip():
+                    courier_chats_input[cname] = cid_val.strip()
+            
+            if st.button("🚀 Сохранить настройки Telegram Бота", type="primary", use_container_width=True, key="save_tg_btn"):
+                if save_tg_config(bot_token_input, main_chat_input, courier_chats_input):
+                    st.success("✅ Настройки Telegram Бота успешно сохранены!")
+                    st.rerun()
+
         with subtab_gsheet:
             st.subheader("🌐 Интеграция с Google Таблицей")
             

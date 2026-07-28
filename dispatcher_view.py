@@ -135,7 +135,7 @@ def render_dispatcher_view(df, t, courier_list, get_next_order_id_func, add_orde
                         if extra_note.strip():
                             tg_msg += f"📍 <b>Ориентир:</b> {extra_note.strip()}\n"
 
-                        send_tg_func(tg_msg)
+                        send_tg_func(tg_msg, target_couriers=courier)
 
                         # SMS клиенту
                         if sms_mgr:
@@ -199,7 +199,7 @@ def render_dispatcher_view(df, t, courier_list, get_next_order_id_func, add_orde
                         if update_order_func:
                             update_order_func(sel_id_disp, {"Статус": new_st, "Курьер": new_cour})
                             
-                        send_tg_func(f"✏️ <b>Диспетчер {st.session_state.get('username','')} обновил заказ №{sel_id_disp}!</b>\nНовый статус: {new_st} | Назначенные курьеры: {new_cour}")
+                        send_tg_func(f"✏️ <b>Диспетчер {st.session_state.get('username','')} обновил заказ №{sel_id_disp}!</b>\nНовый статус: {new_st} | Назначенные курьеры: {new_cour}", target_couriers=new_cour)
                         st.success("✅ Заказ успешно обновлен!")
                         st.rerun()
                     except Exception as e:
@@ -227,7 +227,7 @@ def render_dispatcher_view(df, t, courier_list, get_next_order_id_func, add_orde
                 st.error("Введите текст сообщения!" if lang == "ru" else "Xabar matnini kiriting!")
             else:
                 c_str = ", ".join(msg_couriers)
-                send_tg_func(f"📢 <b>Уведомление для курьеров ({c_str}):</b>\n\n{custom_msg.strip()}\n\n<i>Отправитель: Диспетчер {st.session_state.get('username','')}</i>")
+                send_tg_func(f"📢 <b>Уведомление для курьеров ({c_str}):</b>\n\n{custom_msg.strip()}\n\n<i>Отправитель: Диспетчер {st.session_state.get('username','')}</i>", target_couriers=msg_couriers)
                 st.success(f"Сообщение успешно отправлено курьерам: {c_str}!")
 
 
