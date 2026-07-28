@@ -120,7 +120,23 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
         user_role="Courier"
     )
 
-    my_orders = df[df["Курьер"].astype(str).str.contains(courier_name, case=False, na=False)] if not df.empty and "Курьер" in df.columns else df
+    col_flt1, col_flt2 = st.columns([2, 3])
+    with col_flt1:
+        st.markdown(f"👤 **Курьер:** `{courier_name}`")
+    with col_flt2:
+        filter_options = ["📌 Назначенные мне", "🌐 Все свободные заявки"] if lang == "ru" else ["📌 Menga tayinlanganlar", "🌐 Barcha bo'sh arizalar"]
+        view_mode = st.radio(
+            "Фильтр заказов:" if lang == "ru" else "Buyurtmalar filtri:",
+            filter_options,
+            horizontal=True,
+            key=f"cour_view_mode_{courier_name}"
+        )
+
+    if "Все" in view_mode or "Barcha" in view_mode:
+        my_orders = df
+    else:
+        my_orders = df[df["Курьер"].astype(str).str.contains(courier_name, case=False, na=False)] if not df.empty and "Курьер" in df.columns else df
+
     today_cnt = len(my_orders)
     done_cnt = len(my_orders[my_orders["Статус"] == "Выполнен"]) if not my_orders.empty and "Статус" in my_orders.columns else 0
     remain_cnt = max(0, today_cnt - done_cnt)
@@ -253,7 +269,10 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                         st.success(f"Заказ №{o_id} принят, адрес и геолокация сохранены, статус переведен в 'В цеху'!")
                         st.rerun()
         else:
-            st.info("🎉 " + ("Нет новых заявок на забор ковров." if lang == "ru" else "Yangi olib ketish arizalari yo'q."))
+            if "Назначенные" in view_mode or "Menga" in view_mode:
+                st.info("ℹ️ " + ("У вас пока нет персонально назначенных заявок. Выберите выше переключатель '🌐 Все свободные заявки', чтобы увидеть все невыполненные заказы!" if lang == "ru" else "Sizga shaxsan tayinlangan arizalar yo'q. Tepadagi '🌐 Barcha bo'sh arizalar' tugmasini bosing!"))
+            else:
+                st.info("🎉 " + ("Все заявки на забор ковров обработаны!" if lang == "ru" else "Barcha olib ketish arizalari bajarildi!"))
 
     # ==================== ВКЛАДКА: ПРИЕМ ЗАКАЗА С УЛИЦЫ (РЕКЛАМА / СОСЕДИ) ====================
     with tab_add_street:
