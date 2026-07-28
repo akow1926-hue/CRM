@@ -1033,10 +1033,32 @@ def get_yandex_route_url(district, address, loc_str):
     return web_url, False, navi_deeplink
 
 
+def update_lang_from_login():
+    val = st.session_state.get("login_lang_radio")
+    if val == "🇷🇺 Русский":
+        st.session_state["lang"] = "ru"
+    else:
+        st.session_state["lang"] = "uz"
+
+
+def update_lang_from_sidebar():
+    val = st.session_state.get("sidebar_lang_select")
+    if val == "🇷🇺 Русский":
+        st.session_state["lang"] = "ru"
+    else:
+        st.session_state["lang"] = "uz"
+
+
 # --- ВХОД И РЕГИСТРАЦИЯ ---
 if not st.session_state["logged_in"]:
-    lang_sel = st.radio("Language / Тил:", ["🇷🇺 Русский", "🇺🇿 O'zbekcha"], horizontal=True, index=0 if st.session_state["lang"] == "ru" else 1)
-    st.session_state["lang"] = "ru" if lang_sel == "🇷🇺 Русский" else "uz"
+    st.radio(
+        "Language / Тил:",
+        ["🇷🇺 Русский", "🇺🇿 O'zbekcha"],
+        horizontal=True,
+        index=0 if st.session_state.get("lang", "ru") == "ru" else 1,
+        key="login_lang_radio",
+        on_change=update_lang_from_login
+    )
     t = LOCALES[st.session_state["lang"]]
     
     choice = st.radio(f"{t['user_label']}:", [t["login"], t["register_tab"]], horizontal=True)
@@ -1125,9 +1147,9 @@ st.sidebar.markdown(f"### ✨ {LOCALES[st.session_state['lang']]['brand']}")
 st.sidebar.selectbox(
     "Language / Тил", 
     ["🇷🇺 Русский", "🇺🇿 O'zbekcha"], 
-    index=0 if st.session_state["lang"] == "ru" else 1,
-    key="lang_selector",
-    on_change=set_lang
+    index=0 if st.session_state.get("lang", "ru") == "ru" else 1,
+    key="sidebar_lang_select",
+    on_change=update_lang_from_sidebar
 )
 
 t = LOCALES[st.session_state["lang"]]

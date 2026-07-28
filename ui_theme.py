@@ -234,12 +234,40 @@ def get_dark_theme_css():
         font-weight: 800 !important;
     }}
     
+    /* Radio Buttons & Checkboxes */
+    div[role="radiogroup"] label, div[data-testid="stCheckbox"] label {{
+        color: {text_color} !important;
+        font-weight: 500 !important;
+    }}
+
     /* Alerts & Notifications Dark Mode Overrides */
     div[data-testid="stNotification"], .stAlert {{
         background-color: #111827 !important;
         border-radius: 10px !important;
         border: 1px solid #1f2937 !important;
         color: {text_color} !important;
+    }}
+    
+    div[data-baseweb="toast"] {{
+        background-color: #111827 !important;
+        color: #ffffff !important;
+    }}
+
+    /* File Uploader */
+    div[data-testid="stFileUploader"] {{
+        background-color: #111827 !important;
+        border: 1px dashed #374151 !important;
+        border-radius: 12px !important;
+        padding: 16px !important;
+    }}
+    div[data-testid="stFileUploader"] section {{
+        background-color: #1f2937 !important;
+    }}
+
+    /* Dividers */
+    hr {{
+        border-color: #1f2937 !important;
+        margin: 1.5rem 0 !important;
     }}
     </style>
     """
