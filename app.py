@@ -1173,6 +1173,8 @@ elif role in ["Courier", "Доставщик (Курьер)", "Yuboruvchi (Kurye
     courier_view.render_courier_view(
         df=df, t=t, courier_name=st.session_state.get("username", "Курьер"),
         update_order_func=update_order_in_sheet,
+        add_order_func=add_order_to_sheet,
+        get_next_order_id_func=get_next_order_id,
         get_yandex_route_url_func=get_yandex_route_url,
         send_tg_func=send_telegram_notification,
         active_couriers=courier_list
@@ -1458,24 +1460,55 @@ elif role in ["Administrator", "Admin", "Администратор"]:
         col_users_list, col_add_user = st.columns([2, 1])
         
         with col_users_list:
-            st.markdown(f"#### **{t['current_employees']}**")
             u_df = get_users_df() 
-            st.dataframe(u_df, use_container_width=True, hide_index=True)
+            
+            # 1. СЕКЦИЯ: ЗАЯВКИ НА РЕГИСТРАЦИЮ (ОЖИДАЮТ ОДОБРЕНИЯ)
+            status_col = "Status" if "Status" in u_df.columns else "Статус"
+            pending_users = pd.DataFrame()
+            if not u_df.empty and status_col in u_df.columns:
+                pending_users = u_df[u_df[status_col].isin(["Ожидает одобрения", "Ожидает", "Pending"])]
+            
+            if not pending_users.empty:
+                st.markdown("#### 📥 **Заявки на регистрацию (Ожидают одобрения):**")
+                for p_idx, p_row in pending_users.iterrows():
+                    p_name = p_row.get("Username", p_row.get("Логин", ""))
+                    p_role = p_row.get("Role", p_row.get("Должность", ""))
+                    
+                    st.info(f"⏳ **{p_name}** | Должность: `{p_role}` | Статус: **Ожидает одобрения**")
+                    cp1, cp2 = st.columns(2)
+                    if cp1.button(f"✅ Одобрить {p_name}", key=f"appr_usr_{p_name}_{p_idx}", type="primary"):
+                        if update_user_status(p_name, "Активен"):
+                            st.success(f"Сотрудник {p_name} успешно одобрен!")
+                            st.rerun()
+                    if cp2.button(f"❌ Отклонить {p_name}", key=f"rej_usr_{p_name}_{p_idx}"):
+                        if delete_user(p_name):
+                            st.warning(f"Заявка сотрудника {p_name} отклонена.")
+                            st.rerun()
+                st.divider()
+            
+            # 2. СЕКЦИЯ: ДЕЙСТВУЮЩИЕ И УВОЛЕННЫЕ СОТРУДНИКИ
+            active_fired_users = u_df
+            if not u_df.empty and status_col in u_df.columns:
+                active_fired_users = u_df[~u_df[status_col].isin(["Ожидает одобрения", "Ожидает", "Pending"])]
+            
+            st.markdown(f"#### **{t['current_employees']}**")
+            st.dataframe(active_fired_users, use_container_width=True, hide_index=True)
             
             st.divider()
             st.markdown("#### ⚙️ Управление сотрудниками (Увольнение / Восстановление / Удаление):")
-            if not u_df.empty:
-                for u_idx, u_row in u_df.iterrows():
+            if not active_fired_users.empty:
+                for u_idx, u_row in active_fired_users.iterrows():
                     u_name = u_row.get("Username", u_row.get("Логин", ""))
                     u_role = u_row.get("Role", u_row.get("Должность", ""))
-                    u_status = u_row.get("Status", u_row.get("Статус", "Активен"))
+                    u_status = u_row.get(status_col, "Активен")
                     
                     if u_name:
                         c_info, c_act1, c_act2 = st.columns([2, 1, 1])
-                        status_badge = "🟢 Активен" if u_status in ["Активен", "Одобрен"] else "🔴 Уволен"
+                        is_active = u_status in ["Активен", "Одобрен"]
+                        status_badge = "🟢 Активен" if is_active else "🔴 Уволен"
                         c_info.write(f"👤 **{u_name}** (`{u_role}`) | {status_badge}")
                         
-                        if u_status in ["Активен", "Одобрен"]:
+                        if is_active:
                             if c_act1.button("🛑 Уволить", key=f"fire_usr_{u_name}_{u_idx}"):
                                 if update_user_status(u_name, "Уволен"):
                                     st.success(f"Сотрудник {u_name} уволен!")

@@ -103,9 +103,9 @@ def generate_receipt_html(row, lang="ru"):
     </html>
     """
 
-def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route_url_func, send_tg_func, active_couriers=None):
+def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route_url_func, send_tg_func, active_couriers=None, add_order_func=None, get_next_order_id_func=None):
     """
-    Панель Курьера с поддержкой двух языков
+    Панель Курьера с поддержкой принятия заказов с улицы (Реклама / Соседи) и двух языков
     """
     ui_theme.inject_theme()
     lang = st.session_state.get("lang", "ru")
@@ -132,9 +132,10 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
 
     st.divider()
 
-    # 3 ВКЛАДКИ ДЛЯ КУРЬЕРА
-    tab_pickup, tab_all, tab_delivery = st.tabs([
+    # 4 ВКЛАДКИ ДЛЯ КУРЬЕРА
+    tab_pickup, tab_add_street, tab_all, tab_delivery = st.tabs([
         "📥 " + ("Заявки на забор" if lang == "ru" else "Olib ketish arizalari"),
+        "➕ " + ("Принять заказ с улицы (Реклама)" if lang == "ru" else "Ko'chadan buyurtma qabul qilish"),
         "📋 " + locales.get_text("all_orders", lang),
         "📦 " + ("Готовые доставки" if lang == "ru" else "Topshirishga tayyor")
     ])
@@ -237,6 +238,101 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                         st.rerun()
         else:
             st.info("🎉 " + ("Нет новых заявок на забор ковров." if lang == "ru" else "Yangi olib ketish arizalari yo'q."))
+
+    # ==================== ВКЛАДКА: ПРИЕМ ЗАКАЗА С УЛИЦЫ (РЕКЛАМА / СОСЕДИ) ====================
+    with tab_add_street:
+        st.subheader("➕ " + ("Оформить новый заказ с улицы (Реклама / Соседи)" if lang == "ru" else "Ko'chadan yangi buyurtma qabul qilish"))
+        st.info("ℹ️ " + ("Заполните эту форму, если во время выезда к вам обратился новый клиент с улицы (увидел машину/рекламу)." if lang == "ru" else "Mijoz ko'chadan murojaat qilsa ushbu shaklni to'ldiring."))
+        
+        with st.form(key=f"courier_add_street_form_{courier_name}"):
+            st.write(f"🚗 **Принимает курьер:** `{courier_name}`")
+            
+            c_cl1, c_cl2 = st.columns(2)
+            street_client = c_cl1.text_input("Имя клиента *" if lang == "ru" else "Mijoz ismi *", placeholder="Алишер (сосед)", key=f"st_cl_{courier_name}")
+            street_tel = c_cl2.text_input("Телефон (9 цифр) *" if lang == "ru" else "Telefon (9 raqam) *", placeholder="901234567", max_chars=9, key=f"st_phone_{courier_name}")
+            
+            c_adr1, c_adr2 = st.columns(2)
+            street_district = c_adr1.selectbox("Район клиента *" if lang == "ru" else "Tuman *", ["Сиёб (Siyob)", "Багишамальский", "Согдиана", "Микрорайон", "Саттепо", "Железнодорожный", "Самаркандский р-н"], key=f"st_distr_{courier_name}")
+            street_address = c_adr2.text_input("Точный адрес *" if lang == "ru" else "Aniq manzil *", placeholder="ул. Навои 14, дом 2, кв 5", key=f"st_addr_{courier_name}")
+            
+            st.markdown("##### 📍 GPS координаты клиента")
+            render_gps_button(f"street_{courier_name}", lang=lang)
+            street_loc = st.text_input("GPS Координаты (например 39.6542, 66.9750):" if lang == "ru" else "GPS Koordinatalar:", placeholder="39.6542, 66.9750", key=f"cour_street_gps_{courier_name}")
+            
+            st.markdown("##### 🧺 Забираемые вещи")
+            ci1, ci2, ci3 = st.columns(3)
+            cnt_k = ci1.number_input("🧼 Ковры (шт):" if lang == "ru" else "🧼 Gilamlar (dona):", min_value=0, value=1, step=1, key=f"st_cnt_k_{courier_name}")
+            cnt_kp = ci2.number_input("🛋️ Курпачи (шт):" if lang == "ru" else "🛋️ Ko'rpa (dona):", min_value=0, value=0, step=1, key=f"st_cnt_kp_{courier_name}")
+            cnt_z = ci3.number_input("🪟 Занавески (шт):" if lang == "ru" else "🪟 Pardalar (dona):", min_value=0, value=0, step=1, key=f"st_cnt_z_{courier_name}")
+
+            ci4, ci5, ci6 = st.columns(3)
+            cnt_o = ci4.number_input("🛏️ Одеяла (шт):" if lang == "ru" else "🛏️ Adyollar (dona):", min_value=0, value=0, step=1, key=f"st_cnt_o_{courier_name}")
+            cnt_pk = ci5.number_input("🛌 Покрывала (шт):" if lang == "ru" else "🛌 Yopinchiq (dona):", min_value=0, value=0, step=1, key=f"st_cnt_pk_{courier_name}")
+            cnt_pd = ci6.number_input("🛋️ Подушки (шт):" if lang == "ru" else "🛋️ Yostiqlar (dona):", min_value=0, value=0, step=1, key=f"st_cnt_pd_{courier_name}")
+
+            street_extra = st.text_input("Примечание / Доп. изделия:" if lang == "ru" else "Qo'shimcha izoh:", placeholder="Например: Заказ с рекламы на машине", key=f"st_extra_{courier_name}")
+
+            street_submit = st.form_submit_button("🚚 Принять заказ и отправить в цех", type="primary", use_container_width=True)
+
+            if street_submit:
+                clean_tel = ''.join(filter(str.isdigit, street_tel))
+                if not street_client or not clean_tel or not street_address:
+                    st.error("Заполните имя клиента, телефон и адрес!" if lang == "ru" else "Mijoz ismi, telefon va manzilni kiriting!")
+                elif len(clean_tel) != 9:
+                    st.error("Номер телефона должен содержать 9 цифр!" if lang == "ru" else "Telefon 9 raqam bo'lishi kerak!")
+                else:
+                    full_phone = f"+998 {clean_tel[:2]} {clean_tel[2:5]} {clean_tel[5:7]} {clean_tel[7:]}"
+                    new_id = get_next_order_id_func(df) if get_next_order_id_func else 5200
+                    
+                    items_parts = []
+                    if cnt_k > 0: items_parts.append(f"Ковёр: {cnt_k} шт")
+                    if cnt_kp > 0: items_parts.append(f"Курпача: {cnt_kp} шт")
+                    if cnt_z > 0: items_parts.append(f"Занавески: {cnt_z} шт")
+                    if cnt_o > 0: items_parts.append(f"Одеяло: {cnt_o} шт")
+                    if cnt_pk > 0: items_parts.append(f"Покрывало: {cnt_pk} шт")
+                    if cnt_pd > 0: items_parts.append(f"Подушка: {cnt_pd} шт")
+                    if street_extra.strip(): items_parts.append(f"Заметка: {street_extra.strip()}")
+
+                    items_summary = ", ".join(items_parts) if items_parts else "Приняты вещи с улицы"
+                    final_loc = street_loc.strip() if street_loc.strip() else f"🗺️ Ориентир: {street_district}"
+
+                    order_payload = {
+                        "ID": new_id,
+                        "Клиент": street_client.strip(),
+                        "Телефон": full_phone,
+                        "Адрес": street_address.strip(),
+                        "Размеры": items_summary,
+                        "Статус": "В цеху",
+                        "Курьер": courier_name,
+                        "Диспетчер": f"Курьер {courier_name} (Реклама)",
+                        "Район": street_district,
+                        "Язык": "Русский язык" if lang == "ru" else "O'zbek tili",
+                        "Локация": final_loc,
+                        "Оплачено": 0,
+                        "Тип оплаты": "-",
+                        "Причина": "-"
+                    }
+
+                    if add_order_func:
+                        add_order_func(order_payload)
+
+                    tg_msg = (
+                        f"🚚 <b>НОВЫЙ ЗАКАЗ С УЛИЦЫ (РЕКЛАМА) №{new_id}!</b>\n"
+                        f"🚗 <b>Принял курьер:</b> {courier_name}\n"
+                        f"👤 <b>Клиент:</b> {street_client} ({full_phone})\n"
+                        f"🏠 <b>Адрес:</b> {street_district}, {street_address}\n"
+                        f"📍 <b>GPS:</b> {final_loc}\n"
+                        f"🧺 <b>Принятые вещи:</b> {items_summary}"
+                    )
+                    send_tg_func(tg_msg)
+
+                    sms_cfg = sms_manager.get_sms_config()
+                    if sms_cfg.get("enabled", True) and sms_cfg.get("auto_on_create", True):
+                        sms_body = sms_manager.format_sms_message(sms_cfg.get("template_create_ru" if lang == "ru" else "template_create_uz", ""), {"client": street_client, "order_id": new_id, "courier": courier_name, "sum": 0, "items": items_summary})
+                        sms_manager.send_sms_notification(full_phone, sms_body, order_id=new_id)
+
+                    st.success(f"🎉 Заказ №{new_id} от клиента {street_client} принят с улицы и отправлен в цех!")
+                    st.rerun()
 
     # ==================== ВКЛАДКА 2: ВСЕ ЗАКАЗЫ ====================
     with tab_all:
