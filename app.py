@@ -339,12 +339,12 @@ def connect_gsheet():
     
     # 1. Секреты в st.secrets (GCP_JSON или gcp_service_account)
     try:
-        if "GCP_JSON" in st.secrets:
+        if hasattr(st, "secrets") and "GCP_JSON" in st.secrets:
             key_dict = json.loads(st.secrets["GCP_JSON"])
             if "private_key" in key_dict and isinstance(key_dict["private_key"], str):
                 key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
             client = gspread.service_account_from_dict(key_dict)
-        elif "gcp_service_account" in st.secrets:
+        elif hasattr(st, "secrets") and "gcp_service_account" in st.secrets:
             acc_info = dict(st.secrets["gcp_service_account"])
             if "private_key" in acc_info and isinstance(acc_info["private_key"], str):
                 acc_info["private_key"] = acc_info["private_key"].replace("\\n", "\n")
@@ -364,48 +364,52 @@ def connect_gsheet():
             pass
 
     if client is None:
-        raise RuntimeError("Учетные данные Google Service Account не найдены в st.secrets или key.json")
+        return None, None, None, "Учетные данные Google Service Account не найдены в st.secrets или key.json"
 
     # 3. Открытие таблицы
     cfg = get_gsheet_config()
     gsheet_url = cfg.get("gsheet_url", "").strip() or (st.secrets.get("GSHEET_URL", "").strip() if hasattr(st, "secrets") and "GSHEET_URL" in st.secrets else "")
 
     sheet_name = "Мойка Ковров CRM"
-    if gsheet_url:
-        db = client.open_by_url(gsheet_url)
-    else:
+    try:
+        if gsheet_url:
+            db = client.open_by_url(gsheet_url)
+        else:
+            try:
+                db = client.open(sheet_name)
+            except Exception:
+                db = client.create(sheet_name)
+
+        sheet1 = db.sheet1
+
         try:
-            db = client.open(sheet_name)
+            sheet1.update(values=[EXPECTED_HEADERS], range_name="A1")
         except Exception:
-            db = client.create(sheet_name)
+            pass
 
-    sheet1 = db.sheet1
+        try:
+            user_sheet = db.worksheet("Пользователи")
+        except gspread.exceptions.WorksheetNotFound:
+            user_sheet = db.add_worksheet(title="Пользователи", rows="100", cols="4")
+            user_sheet.append_row(["Username", "Password", "Role", "Status"])
+            user_sheet.append_row(["admin", "admin123", "Администратор", "Активен"])
 
-    # ПРИНУДИТЕЛЬНО обновляем первую строку заголовков в Google Таблице
-    try:
-        sheet1.update(values=[EXPECTED_HEADERS], range_name="A1")
-    except Exception:
-        pass
+        return db, sheet1, user_sheet, ""
+    except Exception as e:
+        return None, None, None, str(e)
 
-    try:
-        user_sheet = db.worksheet("Пользователи")
-    except gspread.exceptions.WorksheetNotFound:
-        user_sheet = db.add_worksheet(title="Пользователи", rows="100", cols="4")
-        user_sheet.append_row(["Username", "Password", "Role", "Status"])
-        user_sheet.append_row(["admin", "admin123", "Администратор", "Активен"])
-
-    return db, sheet1, user_sheet
 
 use_gsheet = False
 db, sheet, user_sheet = None, None, None
 
-try:
-    db, sheet, user_sheet = connect_gsheet()
+_db, _sheet, _user_sheet, _err = connect_gsheet()
+if _db is not None and _sheet is not None:
+    db, sheet, user_sheet = _db, _sheet, _user_sheet
     use_gsheet = True
     st.session_state["gsheet_error"] = ""
-except Exception as e:
+else:
     use_gsheet = False
-    st.session_state["gsheet_error"] = str(e)
+    st.session_state["gsheet_error"] = _err
 
 qp = st.query_params
 if "logged_in" not in st.session_state:
