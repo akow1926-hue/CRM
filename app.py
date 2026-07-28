@@ -761,7 +761,8 @@ def update_order_in_sheet(order_id, updates):
 
 def add_order_to_sheet(order_data):
     try:
-        order_id = get_next_order_id(df)
+        current_df = get_clean_orders()
+        order_id = get_next_order_id(current_df)
         date_now = datetime.now().strftime("%d.%m.%Y, %H:%M:%S")
         sheet.append_row([
             order_id,
