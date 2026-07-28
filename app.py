@@ -309,38 +309,54 @@ def get_next_order_id(df):
     except:
         return 5200
 
-# 2. Подключение к Google Таблицам
+# 2. Подключение к Google Таблицам с безопасным резервным режимом
 @st.cache_resource
 def connect_gsheet():
+    client = None
     if os.path.exists("key.json"):
-        client = gspread.service_account(filename="key.json")
-    elif "gcp_service_account" in st.secrets:
-        client = gspread.service_account_from_dict(dict(st.secrets["gcp_service_account"]))
-    else:
-        client = gspread.service_account(filename="key.json")
-    db = client.open("Мойка Ковров CRM")
+        try:
+            client = gspread.service_account(filename="key.json")
+        except Exception:
+            pass
     
-    sheet1 = db.sheet1
-    
-    # ПРИНУДИТЕЛЬНО обновляем первую строку заголовков в Google Таблице
-    # Исправлено: используем именованные аргументы для совместимости с новыми версиями gspread
-    sheet1.update(values=[EXPECTED_HEADERS], range_name="A1")
-    
+    if not client and hasattr(st, "secrets"):
+        try:
+            if "gcp_service_account" in st.secrets:
+                client = gspread.service_account_from_dict(dict(st.secrets["gcp_service_account"]))
+            elif "private_key" in st.secrets:
+                client = gspread.service_account_from_dict(dict(st.secrets))
+        except Exception:
+            pass
+            
+    if not client:
+        return None, None, None
+
     try:
-        user_sheet = db.worksheet("Пользователи")
-    except gspread.exceptions.WorksheetNotFound:
-        user_sheet = db.add_worksheet(title="Пользователи", rows="100", cols="4")
-        user_sheet.append_row(["Username", "Password", "Role", "Status"])
-        user_sheet.append_row(["admin", "admin123", "Администратор", "Активен"])
-        
-    return db, sheet1, user_sheet
+        db = client.open("Мойка Ковров CRM")
+        sheet1 = db.sheet1
+        try:
+            sheet1.update(values=[EXPECTED_HEADERS], range_name="A1")
+        except Exception:
+            pass
+
+        try:
+            user_sheet = db.worksheet("Пользователи")
+        except Exception:
+            user_sheet = db.add_worksheet(title="Пользователи", rows="100", cols="4")
+            user_sheet.append_row(["Username", "Password", "Role", "Status"])
+            user_sheet.append_row(["admin", "admin123", "Администратор", "Активен"])
+
+        return db, sheet1, user_sheet
+    except Exception as e:
+        return None, None, None
 
 try:
     db, sheet, user_sheet = connect_gsheet()
+    if not sheet:
+        st.warning("🌐 Автономный режим: Google Таблица не подключена, используем резервную базу CRM.")
 except Exception as e:
-    st.error(f"Ошибка подключения к Google Sheets: {e}")
-    st.info("Убедитесь, что файл key.json лежит в папке проекта и таблица 'Мойка Ковров CRM' создана.")
-    st.stop()
+    db, sheet, user_sheet = None, None, None
+
 
 qp = st.query_params
 if "logged_in" not in st.session_state:
