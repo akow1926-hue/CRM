@@ -20,19 +20,35 @@ import dispatcher_view
 import courier_view
 import washer_view
 
-# --- Единый блок подключения к Google Таблицам ---
-try:
-    if "GCP_JSON" in st.secrets:
-        # 1. Если запущены на Streamlit Cloud — берем из Secrets
-        key_dict = json.loads(st.secrets["GCP_JSON"])
-        gc = gspread.service_account_from_dict(key_dict)
-    elif os.path.exists("key.json"):
-        # 2. Если запущены локально на компьютере — берем из key.json
-        gc = gspread.service_account(filename="key.json")
+# 2. Подключение к Google Таблицам
+@st.cache_resource
+def connect_gsheet():
+    if os.path.exists("key.json"):
+        client = gspread.service_account(filename="key.json")
+    elif "gcp_service_account" in st.secrets:
+        # Автоматически чиним переносы строк в private_key из st.secrets
+        acc_info = dict(st.secrets["gcp_service_account"])
+        if "private_key" in acc_info:
+            acc_info["private_key"] = acc_info["private_key"].replace("\\n", "\n")
+        client = gspread.service_account_from_dict(acc_info)
     else:
-        st.error("Критическая ошибка: секреты GCP_JSON не настроены, а файл key.json отсутствует!")
-        st.stop()
-
+        client = gspread.service_account(filename="key.json")
+        
+    db = client.open("Мойка Ковров CRM")
+    
+    sheet1 = db.sheet1
+    
+    # ПРИНУДИТЕЛЬНО обновляем первую строку заголовков в Google Таблице
+    sheet1.update(values=[EXPECTED_HEADERS], range_name="A1")
+    
+    try:
+        user_sheet = db.worksheet("Пользователи")
+    except gspread.exceptions.WorksheetNotFound:
+        user_sheet = db.add_worksheet(title="Пользователи", rows="100", cols="4")
+        user_sheet.append_row(["Username", "Password", "Role", "Status"])
+        user_sheet.append_row(["admin", "admin123", "Администратор", "Активен"])
+        
+    return db, sheet1, user_sheet
     # Подключаемся к базе CRM
     db = gc.open("Мойка Ковров CRM")
     sheet1 = db.sheet1
