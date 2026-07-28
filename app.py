@@ -21,7 +21,17 @@ import courier_view
 import washer_view
 
 # Берем данные авторизации из раздела Secrets, который мы только что заполнили
-credentials = st.secrets["gcp_service_account"]
+
+# Проверяем, есть ли секрет на сервере
+if "GCP_JSON" in st.secrets:
+    key_dict = json.loads(st.secrets["GCP_JSON"])
+    client = gspread.service_account_from_dict(key_dict)
+elif os.path.exists("key.json"):
+    # Для запуска локально на твоем компьютере
+    client = gspread.service_account(filename="key.json")
+else:
+    st.error("Секреты не найдены!")
+    st.stop()
 
 # Подключаемся к Google Sheets
 gc = gspread.service_account_from_dict(credentials)
