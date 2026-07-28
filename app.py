@@ -20,19 +20,12 @@ import dispatcher_view
 import courier_view
 import washer_view
 
-# Подключение через Streamlit Secrets
-try:
-    # Проверяем, есть ли секреты на сервере Streamlit
-    if "gcp_service_account" in st.secrets:
-        gc = gspread.service_account_from_dict(st.secrets["gcp_service_account"])
-    else:
-        # Локальный запуск на компьютере из файла key.json
-        gc = gspread.service_account(filename="key.json")
-        
-    sh = gc.open("Мойка Ковров CRM")
-    st.success("Успешное подключение к Google Sheets!")
-except Exception as e:
-    st.error(f"Ошибка подключения к Google Sheets: {e}")
+# Берем данные авторизации из раздела Secrets, который мы только что заполнили
+credentials = st.secrets["gcp_service_account"]
+
+# Подключаемся к Google Sheets
+gc = gspread.service_account_from_dict(credentials)
+
 # 1. Настройка страницы / Sahifa sozlamalari
 st.set_page_config(page_title="Cosmo Cleaning Service CRM", layout="wide", page_icon="🧼")
 ui_theme.inject_theme()
