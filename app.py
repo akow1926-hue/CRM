@@ -718,7 +718,10 @@ def get_users_df():
 
 def update_user_status(username, new_status):
     try:
-        cell = user_sheet.find(str(username))
+        try:
+            cell = user_sheet.find(str(username), in_column=1)
+        except Exception:
+            cell = user_sheet.find(str(username))
         row = cell.row
         header_row = [str(h).strip() for h in user_sheet.row_values(1)]
         col_idx = 4
@@ -734,7 +737,10 @@ def update_user_status(username, new_status):
 
 def delete_user(username):
     try:
-        cell = user_sheet.find(str(username))
+        try:
+            cell = user_sheet.find(str(username), in_column=1)
+        except Exception:
+            cell = user_sheet.find(str(username))
         row = cell.row
         user_sheet.delete_rows(row)
         return True
@@ -744,17 +750,17 @@ def delete_user(username):
 
 def update_order_in_sheet(order_id, updates):
     try:
-        cell = sheet.find(str(order_id))
+        try:
+            cell = sheet.find(str(order_id), in_column=1)
+        except Exception:
+            cell = sheet.find(str(order_id))
         row = cell.row
-        # Получаем актуальные заголовки, чтобы избежать поломок при смещении колонок
         header_row = [str(h).strip() for h in sheet.row_values(1)]
         
         for col_key, value in updates.items():
-            # Если передано имя колонки (например, "Статус")
             if isinstance(col_key, str) and col_key in header_row:
                 col_idx = header_row.index(col_key) + 1
                 sheet.update_cell(row, col_idx, value)
-            # Для обратной совместимости, если все еще передаются числа (индексы)
             elif isinstance(col_key, int):
                 sheet.update_cell(row, col_key, value)
         return True
@@ -886,9 +892,9 @@ if not st.session_state["logged_in"]:
                 db_role = user_row.iloc[0]["Role"]
                 
                 role_eng_map = {
-                    "Администратор": "Administrator", "Administrator": "Administrator",
+                    "Администратор": "Administrator", "Administrator": "Administrator", "Admin": "Administrator",
                     "Диспетчер": "Dispatcher", "Dispetcher": "Dispatcher",
-                    "Доставщик (Курьер)": "Courier", "Yuboruvchi (Kuryer)": "Courier",
+                    "Доставщик (Курьер)": "Courier", "Yuboruvchi (Kuryer)": "Courier", "Курьер": "Courier",
                     "Мойщик": "Washer", "Yuvuvchi (Sex xodimi)": "Washer",
                     "Чистильщик от волос": "Cleaner", "Yung va sochdan tozalovchi": "Cleaner"
                 }
@@ -1015,7 +1021,7 @@ if not couriers_df.empty and "Role" in couriers_df.columns:
 if not courier_list:
     courier_list = ["Алишер Каримов", "Бобур Ибрагимов", "Сардор Турсунов"]
 
-if role == "Dispatcher":
+if role in ["Dispatcher", "Диспетчер", "Dispetcher"]:
     dispatcher_view.render_dispatcher_view(
         df=df, t=t, courier_list=courier_list,
         get_next_order_id_func=get_next_order_id,
@@ -1023,7 +1029,7 @@ if role == "Dispatcher":
         sms_mgr=sms_manager
     )
 
-elif role == "Courier":
+elif role in ["Courier", "Доставщик (Курьер)", "Yuboruvchi (Kuryer)", "Курьер"]:
     courier_view.render_courier_view(
         df=df, t=t, courier_name=st.session_state.get("username", "Курьер"),
         update_order_func=update_order_in_sheet,
@@ -1032,14 +1038,14 @@ elif role == "Courier":
         active_couriers=courier_list
     )
 
-elif role in ["Washer", "Cleaner"]:
+elif role in ["Washer", "Cleaner", "Мойщик", "Чистильщик от волос", "Yuvuvchi (Sex xodimi)", "Yung va sochdan tozalovchi"]:
     washer_view.render_washer_view(
         df=df, t=t, washer_name=st.session_state.get("username", "Мойщик"),
         update_order_func=update_order_in_sheet,
         send_tg_func=send_telegram_notification
     )
 
-elif role == "Administrator":
+elif role in ["Administrator", "Admin", "Администратор"]:
     lang = st.session_state.get("lang", "ru")
     tab_stat, tab_orders, tab_debts, tab_users, tab_map, tab_settings = st.tabs([
         f"📊 {locales.get_text('main_panel', lang)}",
