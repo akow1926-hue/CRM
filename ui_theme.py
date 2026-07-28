@@ -117,6 +117,7 @@ def get_dark_theme_css():
     }}
 
     /* Inputs, Selectboxes, Textareas, Date/Time Inputs */
+    /* Mobile Touch-Friendly Inputs & Prevent iOS Safari Auto-Zoom */
     .stTextInput input,
     .stSelectbox div[role="button"],
     .stMultiSelect div[role="button"],
@@ -128,8 +129,10 @@ def get_dark_theme_css():
     div[data-baseweb="input"] {{
         background-color: {input_bg} !important;
         color: {text_color} !important;
-        border-radius: 10px !important;
+        border-radius: 12px !important;
         border: 1px solid {input_border} !important;
+        min-height: 48px !important;
+        font-size: 16px !important; /* 16px prevents iOS Safari auto-zoom on input focus */
     }}
     
     /* Popovers, Dropdown Menus & Modals */
@@ -140,12 +143,15 @@ def get_dark_theme_css():
         background-color: {card_bg} !important;
         border: 1px solid {card_border} !important;
         color: {text_color} !important;
-        border-radius: 10px !important;
+        border-radius: 12px !important;
     }}
     
     li[role="option"] {{
         color: {text_color} !important;
         background-color: {card_bg} !important;
+        min-height: 44px !important;
+        display: flex !important;
+        align-items: center !important;
     }}
     
     li[role="option"]:hover, li[aria-selected="true"] {{
@@ -153,19 +159,28 @@ def get_dark_theme_css():
         color: #ffffff !important;
     }}
 
-    /* Buttons */
-    .stButton > button {{
-        border-radius: 10px !important;
-        font-weight: 600 !important;
-        padding: 0.5rem 1.2rem !important;
+    /* Touch-Friendly Large Mobile Buttons */
+    .stButton > button,
+    .stDownloadButton > button,
+    .stLinkButton > a {{
+        border-radius: 12px !important;
+        font-weight: 700 !important;
+        min-height: 48px !important;
+        font-size: 15px !important;
         border: 1px solid #3b82f6 !important;
         background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
         color: #ffffff !important;
         box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3) !important;
         transition: all 0.2s ease !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100% !important;
     }}
 
-    .stButton > button:hover {{
+    .stButton > button:hover,
+    .stDownloadButton > button:hover,
+    .stLinkButton > a:hover {{
         background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
         border-color: #60a5fa !important;
         transform: translateY(-1px) !important;
@@ -175,40 +190,54 @@ def get_dark_theme_css():
     /* Expanders & Accordions */
     .streamlit-expanderHeader, div[data-testid="stExpander"] {{
         background-color: {card_bg} !important;
-        border-radius: 10px !important;
+        border-radius: 14px !important;
         color: {text_color} !important;
         border: 1px solid {card_border} !important;
+        margin-bottom: 12px !important;
     }}
     
     div[data-testid="stExpanderDetails"] {{
         background-color: #0d121f !important;
         border-top: 1px solid {card_border} !important;
+        border-bottom-left-radius: 14px !important;
+        border-bottom-right-radius: 14px !important;
     }}
     
     /* Dataframes & Tables */
     .stDataFrame, div[data-testid="stTable"], div[data-testid="stDataFrame"] {{
         background-color: {card_bg} !important;
-        border-radius: 12px !important;
+        border-radius: 14px !important;
         border: 1px solid {card_border} !important;
     }}
 
-    /* Tabs Styling */
+    /* Mobile Scrollable Horizontal Tabs */
     .stTabs [data-baseweb="tab-list"] {{
-        gap: 8px;
+        gap: 6px;
         background-color: #111827 !important;
         padding: 6px !important;
-        border-radius: 12px !important;
+        border-radius: 14px !important;
         border: 1px solid #1f2937 !important;
+        overflow-x: auto !important;
+        scroll-behavior: smooth !important;
+        -webkit-overflow-scrolling: touch !important;
+        flex-wrap: nowrap !important;
+        scrollbar-width: none !important;
+    }}
+
+    .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar {{
+        display: none !important;
     }}
 
     .stTabs [data-baseweb="tab"] {{
-        height: 42px !important;
-        white-space: pre !important;
-        border-radius: 8px !important;
+        height: 44px !important;
+        white-space: nowrap !important;
+        border-radius: 10px !important;
         color: #9ca3af !important;
         font-weight: 600 !important;
-        padding: 0 16px !important;
+        font-size: 14px !important;
+        padding: 0 14px !important;
         background-color: transparent !important;
+        flex-shrink: 0 !important;
     }}
 
     .stTabs [aria-selected="true"] {{
@@ -221,7 +250,7 @@ def get_dark_theme_css():
         background-color: #111827 !important;
         border: 1px solid #1f2937 !important;
         padding: 14px 18px !important;
-        border-radius: 12px !important;
+        border-radius: 14px !important;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
     }}
     div[data-testid="stMetricLabel"] {{
@@ -238,12 +267,13 @@ def get_dark_theme_css():
     div[role="radiogroup"] label, div[data-testid="stCheckbox"] label {{
         color: {text_color} !important;
         font-weight: 500 !important;
+        padding: 6px 10px !important;
     }}
 
     /* Alerts & Notifications Dark Mode Overrides */
     div[data-testid="stNotification"], .stAlert {{
         background-color: #111827 !important;
-        border-radius: 10px !important;
+        border-radius: 12px !important;
         border: 1px solid #1f2937 !important;
         color: {text_color} !important;
     }}
@@ -257,7 +287,7 @@ def get_dark_theme_css():
     div[data-testid="stFileUploader"] {{
         background-color: #111827 !important;
         border: 1px dashed #374151 !important;
-        border-radius: 12px !important;
+        border-radius: 14px !important;
         padding: 16px !important;
     }}
     div[data-testid="stFileUploader"] section {{
@@ -267,7 +297,37 @@ def get_dark_theme_css():
     /* Dividers */
     hr {{
         border-color: #1f2937 !important;
-        margin: 1.5rem 0 !important;
+        margin: 1.25rem 0 !important;
+    }}
+
+    /* Responsive Mobile Media Queries (iPhone / Android) */
+    @media (max-width: 768px) {{
+        .main .block-container {{
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
+            padding-top: 0.5rem !important;
+            padding-bottom: 2rem !important;
+        }}
+        .cosmo-header {{
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 10px !important;
+            padding: 14px 16px !important;
+        }}
+        .user-badge {{
+            align-self: flex-start !important;
+        }}
+        div[data-testid="column"] {{
+            width: 100% !important;
+            flex: 1 1 100% !important;
+            min-width: 100% !important;
+        }}
+        div[data-testid="stMetric"] {{
+            margin-bottom: 8px !important;
+        }}
+        .cosmo-title {{
+            font-size: 18px !important;
+        }}
     }}
     </style>
     """
