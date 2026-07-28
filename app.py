@@ -20,59 +20,13 @@ import dispatcher_view
 import courier_view
 import washer_view
 
-# 2. Подключение к Google Таблицам
-@st.cache_resource
-def connect_gsheet():
-    if os.path.exists("key.json"):
-        client = gspread.service_account(filename="key.json")
-    elif "gcp_service_account" in st.secrets:
-        # Автоматически чиним переносы строк в private_key из st.secrets
-        acc_info = dict(st.secrets["gcp_service_account"])
-        if "private_key" in acc_info:
-            acc_info["private_key"] = acc_info["private_key"].replace("\\n", "\n")
-        client = gspread.service_account_from_dict(acc_info)
-    else:
-        client = gspread.service_account(filename="key.json")
-        
-    db = client.open("Мойка Ковров CRM")
-    
-    sheet1 = db.sheet1
-    
-    # ПРИНУДИТЕЛЬНО обновляем первую строку заголовков в Google Таблице
-    sheet1.update(values=[EXPECTED_HEADERS], range_name="A1")
-    
-    try:
-        user_sheet = db.worksheet("Пользователи")
-    except gspread.exceptions.WorksheetNotFound:
-        user_sheet = db.add_worksheet(title="Пользователи", rows="100", cols="4")
-        user_sheet.append_row(["Username", "Password", "Role", "Status"])
-        user_sheet.append_row(["admin", "admin123", "Администратор", "Активен"])
-        
-    return db, sheet1, user_sheet
-
-# ==========================================
-# 1. Настройка страницы (ОБЯЗАТЕЛЬНО ПЕРЕД ВСЕМ ОСТАЛЬНЫМ)
-st.set_page_config(page_title="Cosmo Cleaning Service CRM", layout="wide", page_icon="🧶")
-ui_theme.inject_theme()
-
-# 2. ВЫЗОВ ФУНКЦИИ И ПОДКЛЮЧЕНИЕ К БАЗЕ С ПРОВЕРКОЙ ОШИБОК
-try:
-    db, sheet1, user_sheet = connect_gsheet()
-except Exception as e:
-    st.error(f"Ошибка подключения к Google Sheets: {e}")
-    st.stop()
-
-# --- ЯЗЫКОВОЙ ПАКЕТ (РУССКИЙ / O'ZBEKCHA) ---
-if "lang" not in st.session_state:
-    st.session_state["lang"] = "ru"
-# 1. Настройка страницы / Sahifa sozlamalari
 st.set_page_config(page_title="Cosmo Cleaning Service CRM", layout="wide", page_icon="🧼")
 ui_theme.inject_theme()
 
-
 # --- ЯЗЫКОВОЙ ПАКЕТ (РУССКИЙ / O'ZBEKCHA) ---
 if "lang" not in st.session_state:
     st.session_state["lang"] = "ru"
+
 
 def set_lang():
     if st.session_state.get("lang_selector") == "🇷🇺 Русский":
@@ -359,32 +313,47 @@ def get_next_order_id(df):
 # Подключение к Google Таблицам
 @st.cache_resource
 def connect_gsheet():
-    # 1. Проверяем секреты на сервере Streamlit Cloud
-    if "GCP_JSON" in st.secrets:
-        key_dict = json.loads(st.secrets["GCP_JSON"])
-        client = gspread.service_account_from_dict(key_dict)
-    # 2. Если запускаем локально на компьютере
-    elif os.path.exists("key.json"):
-        client = gspread.service_account(filename="key.json")
-    else:
-        st.error("Критическая ошибка: секрет GCP_JSON не найден в Secrets, а файл key.json отсутствует локально!")
-        st.stop()
-        
+    client = None
+    
+    # 1. Секреты в st.secrets (GCP_JSON или gcp_service_account)
+    try:
+        if "GCP_JSON" in st.secrets:
+            key_dict = json.loads(st.secrets["GCP_JSON"])
+            client = gspread.service_account_from_dict(key_dict)
+        elif "gcp_service_account" in st.secrets:
+            acc_info = dict(st.secrets["gcp_service_account"])
+            if "private_key" in acc_info:
+                acc_info["private_key"] = acc_info["private_key"].replace("\\n", "\n")
+            client = gspread.service_account_from_dict(acc_info)
+    except Exception:
+        pass
+
+    # 2. Локальный файл key.json
+    if client is None and os.path.exists("key.json"):
+        try:
+            client = gspread.service_account(filename="key.json")
+        except Exception as e:
+            st.warning(f"Ошибка чтения key.json: {e}")
+
+    if client is None:
+        raise RuntimeError("Критическая ошибка: учетные данные Google Sheets не найдены ни в st.secrets (GCP_JSON / gcp_service_account), ни в локальном файле key.json!")
+
     db = client.open("Мойка Ковров CRM")
     sheet1 = db.sheet1
-    return sheet1
-    
+
     # ПРИНУДИТЕЛЬНО обновляем первую строку заголовков в Google Таблице
-    # Исправлено: используем именованные аргументы для совместимости с новыми версиями gspread
-    sheet1.update(values=[EXPECTED_HEADERS], range_name="A1")
-    
+    try:
+        sheet1.update(values=[EXPECTED_HEADERS], range_name="A1")
+    except Exception:
+        pass
+
     try:
         user_sheet = db.worksheet("Пользователи")
     except gspread.exceptions.WorksheetNotFound:
         user_sheet = db.add_worksheet(title="Пользователи", rows="100", cols="4")
         user_sheet.append_row(["Username", "Password", "Role", "Status"])
         user_sheet.append_row(["admin", "admin123", "Администратор", "Активен"])
-        
+
     return db, sheet1, user_sheet
 
 try:
