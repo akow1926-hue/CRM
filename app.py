@@ -49,16 +49,22 @@ def connect_gsheet():
         user_sheet.append_row(["admin", "admin123", "Администратор", "Активен"])
         
     return db, sheet1, user_sheet
-    # Подключаемся к базе CRM
-    db = gc.open("Мойка Ковров CRM")
-    sheet1 = db.sheet1
-    except Exception as e:
+
+# ==========================================
+# 1. Настройка страницы (ОБЯЗАТЕЛЬНО ПЕРЕД ВСЕМ ОСТАЛЬНЫМ)
+st.set_page_config(page_title="Cosmo Cleaning Service CRM", layout="wide", page_icon="🧶")
+ui_theme.inject_theme()
+
+# 2. ВЫЗОВ ФУНКЦИИ И ПОДКЛЮЧЕНИЕ К БАЗЕ С ПРОВЕРКОЙ ОШИБОК
+try:
+    db, sheet1, user_sheet = connect_gsheet()
+except Exception as e:
     st.error(f"Ошибка подключения к Google Sheets: {e}")
     st.stop()
 
-# Подключаемся к Google Sheets
-gc = gspread.service_account_from_dict(credentials)
-
+# --- ЯЗЫКОВОЙ ПАКЕТ (РУССКИЙ / O'ZBEKCHA) ---
+if "lang" not in st.session_state:
+    st.session_state["lang"] = "ru"
 # 1. Настройка страницы / Sahifa sozlamalari
 st.set_page_config(page_title="Cosmo Cleaning Service CRM", layout="wide", page_icon="🧼")
 ui_theme.inject_theme()
