@@ -690,13 +690,30 @@ def get_clean_orders():
         return load_local_backup()
 
 def get_users_df():
-    try:
-        data = user_sheet.get_all_records()
-        if data:
-            return pd.DataFrame([{str(k).strip(): v for k, v in d.items()} for d in data])
-    except Exception:
-        pass
-    return pd.DataFrame(columns=["Username", "Password", "Role", "Status"])
+    default_users = pd.DataFrame([
+        {"Username": "admin", "Password": "admin123", "Role": "Администратор", "Status": "Активен"},
+        {"Username": "Akobir", "Password": "admin123", "Role": "Диспетчер", "Status": "Активен"},
+        {"Username": "Firuz", "Password": "123456", "Role": "Курьер", "Status": "Активен"},
+        {"Username": "Nazarov01", "Password": "123456", "Role": "Курьер", "Status": "Активен"},
+        {"Username": "Washer1", "Password": "123456", "Role": "Мойщик", "Status": "Активен"},
+    ])
+    if user_sheet is not None:
+        try:
+            data = user_sheet.get_all_records()
+            if data:
+                df_u = pd.DataFrame([{str(k).strip(): v for k, v in d.items()} for d in data])
+                if not df_u.empty and "Username" in df_u.columns:
+                    return df_u
+            # Если в таблице еще нет пользователей, добавим базовых
+            try:
+                for u in default_users.to_dict("records"):
+                    user_sheet.append_row([u["Username"], u["Password"], u["Role"], u["Status"]])
+            except Exception:
+                pass
+        except Exception:
+            pass
+    return default_users
+
 
 def update_user_status(username, new_status):
     try:
@@ -858,13 +875,15 @@ if not st.session_state["logged_in"]:
             login_submit = st.form_submit_button(t["submit_login"])
             
         if login_submit:
-            user_row = users_df[users_df["Username"] == username_input]
+            users_df["Username_clean"] = users_df["Username"].astype(str).str.strip().str.lower()
+            user_row = users_df[users_df["Username_clean"] == username_input.lower()]
             if user_row.empty:
                 st.error(t["error_not_found"])
             else:
                 db_password = str(user_row.iloc[0]["Password"]).strip()
-                db_status = user_row.iloc[0]["Status"]
-                db_role = user_row.iloc[0]["Role"]
+                db_status = str(user_row.iloc[0]["Status"]).strip()
+                db_role = str(user_row.iloc[0]["Role"]).strip()
+
                 
                 role_eng_map = {
                     "Администратор": "Administrator", "Administrator": "Administrator",
