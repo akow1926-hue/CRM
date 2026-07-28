@@ -332,6 +332,28 @@ def save_gsheet_config(url):
         return False
 
 
+def safe_get_secret(key_name, default=""):
+    try:
+        if hasattr(st, "secrets"):
+            return st.secrets.get(key_name, default)
+    except Exception:
+        pass
+    return default
+
+
+def safe_get_secret_dict(key_name):
+    try:
+        if hasattr(st, "secrets") and key_name in st.secrets:
+            val = st.secrets[key_name]
+            if isinstance(val, str):
+                return json.loads(val)
+            elif isinstance(val, dict):
+                return dict(val)
+    except Exception:
+        pass
+    return None
+
+
 # Подключение к Google Таблицам
 @st.cache_resource
 def connect_gsheet():
@@ -339,16 +361,17 @@ def connect_gsheet():
     
     # 1. Секреты в st.secrets (GCP_JSON или gcp_service_account)
     try:
-        if hasattr(st, "secrets") and "GCP_JSON" in st.secrets:
-            key_dict = json.loads(st.secrets["GCP_JSON"])
-            if "private_key" in key_dict and isinstance(key_dict["private_key"], str):
-                key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
-            client = gspread.service_account_from_dict(key_dict)
-        elif hasattr(st, "secrets") and "gcp_service_account" in st.secrets:
-            acc_info = dict(st.secrets["gcp_service_account"])
-            if "private_key" in acc_info and isinstance(acc_info["private_key"], str):
-                acc_info["private_key"] = acc_info["private_key"].replace("\\n", "\n")
-            client = gspread.service_account_from_dict(acc_info)
+        gcp_json = safe_get_secret_dict("GCP_JSON")
+        if gcp_json:
+            if "private_key" in gcp_json and isinstance(gcp_json["private_key"], str):
+                gcp_json["private_key"] = gcp_json["private_key"].replace("\\n", "\n")
+            client = gspread.service_account_from_dict(gcp_json)
+        else:
+            gcp_acc = safe_get_secret_dict("gcp_service_account")
+            if gcp_acc:
+                if "private_key" in gcp_acc and isinstance(gcp_acc["private_key"], str):
+                    gcp_acc["private_key"] = gcp_acc["private_key"].replace("\\n", "\n")
+                client = gspread.service_account_from_dict(gcp_acc)
     except Exception:
         pass
 
@@ -368,7 +391,8 @@ def connect_gsheet():
 
     # 3. Открытие таблицы
     cfg = get_gsheet_config()
-    gsheet_url = cfg.get("gsheet_url", "").strip() or (st.secrets.get("GSHEET_URL", "").strip() if hasattr(st, "secrets") and "GSHEET_URL" in st.secrets else "")
+    secret_url = safe_get_secret("GSHEET_URL", "").strip()
+    gsheet_url = cfg.get("gsheet_url", "").strip() or secret_url
 
     sheet_name = "Мойка Ковров CRM"
     try:
