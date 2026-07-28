@@ -120,7 +120,7 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
         user_role="Courier"
     )
 
-    my_orders = df[df["Курьер"] == courier_name] if not df.empty and "Курьер" in df.columns else df
+    my_orders = df[df["Курьер"].astype(str).str.contains(courier_name, case=False, na=False)] if not df.empty and "Курьер" in df.columns else df
     today_cnt = len(my_orders)
     done_cnt = len(my_orders[my_orders["Статус"] == "Выполнен"]) if not my_orders.empty and "Статус" in my_orders.columns else 0
     remain_cnt = max(0, today_cnt - done_cnt)

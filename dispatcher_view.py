@@ -43,7 +43,13 @@ def render_dispatcher_view(df, t, courier_list, get_next_order_id_func, add_orde
         st.subheader(form_title)
         with st.form("dispatcher_add_form", clear_on_submit=False):
             disp_name = st.text_input(locales.get_text("Dispatcher", lang), value=st.session_state.get("username", "Admin"), disabled=True)
-            courier = st.selectbox(locales.get_text("assign_courier", lang), courier_list)
+            
+            selected_couriers = st.multiselect(
+                locales.get_text("assign_courier", lang) + (" (выберите одного или нескольких)" if lang == "ru" else " (bir nechta kuryerni tanlash)"),
+                courier_list,
+                default=[courier_list[0]] if courier_list else []
+            )
+            courier = ", ".join(selected_couriers) if selected_couriers else (courier_list[0] if courier_list else "Не назначен")
 
             c1, c2 = st.columns(2)
             mijoz_ismi = c1.text_input(locales.get_text("client_name", lang), placeholder="Алишер Назаров" if lang == "uz" else "Иван Иванов")
@@ -179,18 +185,50 @@ def render_dispatcher_view(df, t, courier_list, get_next_order_id_func, add_orde
                 st_idx = all_st_list.index(curr_st) if curr_st in all_st_list else 0
                 
                 new_st = st.selectbox("Новый статус заказа:", all_st_list, index=st_idx, key=f"disp_new_st_{sel_id_disp}")
-                new_cour = st.selectbox("Изменить курьера:", courier_list, index=courier_list.index(sel_row_disp.get("Курьер", courier_list[0])) if sel_row_disp.get("Курьер") in courier_list else 0, key=f"disp_new_cour_{sel_id_disp}")
                 
+                curr_c_str = str(sel_row_disp.get("Курьер", ""))
+                default_cour_sel = [c for c in courier_list if c in curr_c_str]
+                if not default_cour_sel and courier_list:
+                    default_cour_sel = [courier_list[0]]
+
+                new_cour_list = st.multiselect("Изменить курьеров (нескольких):", courier_list, default=default_cour_sel, key=f"disp_new_cour_{sel_id_disp}")
+                new_cour = ", ".join(new_cour_list) if new_cour_list else curr_c_str
+
                 if st.button("💾 Сохранить изменения заказа", type="primary", key=f"disp_save_btn_{sel_id_disp}", use_container_width=True):
                     try:
                         if update_order_func:
                             update_order_func(sel_id_disp, {"Статус": new_st, "Курьер": new_cour})
                             
-                        send_tg_func(f"✏️ <b>Диспетчер {st.session_state.get('username','')} обновил заказ №{sel_id_disp}!</b>\nНовый статус: {new_st} | Курьер: {new_cour}")
+                        send_tg_func(f"✏️ <b>Диспетчер {st.session_state.get('username','')} обновил заказ №{sel_id_disp}!</b>\nНовый статус: {new_st} | Назначенные курьеры: {new_cour}")
                         st.success("✅ Заказ успешно обновлен!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Ошибка обновления заказа: {e}")
+
+    # Панель быстрой рассылки/уведомления курьерам
+    st.divider()
+    st.markdown("### 📢 " + ("Отправить уведомление нескольким курьерам" if lang == "ru" else "Kuryerlarga o'zaro xabar yuborish"))
+    with st.expander("💬 Написать объявление / сообщение курьерам", expanded=False):
+        msg_couriers = st.multiselect(
+            "Выберите курьеров-получателей:" if lang == "ru" else "Qabul qiluvchi kuryerlarni tanlang:",
+            courier_list,
+            default=courier_list,
+            key="msg_couriers_sel"
+        )
+        custom_msg = st.text_area(
+            "Текст сообщения / Поручения:" if lang == "ru" else "Xabar matni:",
+            placeholder="Например: В районе Сиёб появился срочный забор ковров, кто из вас ближе?" if lang == "ru" else "Masalan: Siyob tumanida tezkor chaqiruv bor!",
+            key="custom_msg_text"
+        )
+        if st.button("🚀 Отправить сообщение курьерам в Telegram", type="primary", key="send_couriers_broadcast"):
+            if not msg_couriers:
+                st.error("Выберите хотя бы одного курьера!" if lang == "ru" else "Kamida bitta kuryerni tanlang!")
+            elif not custom_msg.strip():
+                st.error("Введите текст сообщения!" if lang == "ru" else "Xabar matnini kiriting!")
+            else:
+                c_str = ", ".join(msg_couriers)
+                send_tg_func(f"📢 <b>Уведомление для курьеров ({c_str}):</b>\n\n{custom_msg.strip()}\n\n<i>Отправитель: Диспетчер {st.session_state.get('username','')}</i>")
+                st.success(f"Сообщение успешно отправлено курьерам: {c_str}!")
 
 
 
