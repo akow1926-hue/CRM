@@ -319,10 +319,12 @@ def connect_gsheet():
     try:
         if "GCP_JSON" in st.secrets:
             key_dict = json.loads(st.secrets["GCP_JSON"])
+            if "private_key" in key_dict and isinstance(key_dict["private_key"], str):
+                key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
             client = gspread.service_account_from_dict(key_dict)
         elif "gcp_service_account" in st.secrets:
             acc_info = dict(st.secrets["gcp_service_account"])
-            if "private_key" in acc_info:
+            if "private_key" in acc_info and isinstance(acc_info["private_key"], str):
                 acc_info["private_key"] = acc_info["private_key"].replace("\\n", "\n")
             client = gspread.service_account_from_dict(acc_info)
     except Exception:
@@ -331,25 +333,26 @@ def connect_gsheet():
     # 2. Локальный файл key.json
     if client is None and os.path.exists("key.json"):
         try:
-            client = gspread.service_account(filename="key.json")
+            with open("key.json", "r", encoding="utf-8") as f:
+                key_dict = json.load(f)
+            if "private_key" in key_dict and isinstance(key_dict["private_key"], str):
+                key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
+            client = gspread.service_account_from_dict(key_dict)
         except Exception as e:
-            st.warning(f"Ошибка чтения key.json: {e}")
+            pass
 
     if client is None:
-        raise RuntimeError("Критическая ошибка: учетные данные Google Sheets не найдены ни в st.secrets (GCP_JSON / gcp_service_account), ни в локальном файле key.json!")
+        raise RuntimeError("Учетные данные Google Sheets не найдены в st.secrets или key.json")
 
     # 3. Открытие таблицы (с автосозданием если не найдена или поддержкой GSHEET_URL)
     sheet_name = "Мойка Ковров CRM"
-    try:
-        if "GSHEET_URL" in st.secrets:
-            db = client.open_by_url(st.secrets["GSHEET_URL"])
-        else:
-            db = client.open(sheet_name)
-    except Exception:
+    if "GSHEET_URL" in st.secrets:
+        db = client.open_by_url(st.secrets["GSHEET_URL"])
+    else:
         try:
+            db = client.open(sheet_name)
+        except Exception:
             db = client.create(sheet_name)
-        except Exception as e_create:
-            raise RuntimeError(f"Не удалось открыть или создать Google Таблицу '{sheet_name}'. Проверьте права доступа. Ошибка: {e_create}")
 
     sheet1 = db.sheet1
 
@@ -368,13 +371,15 @@ def connect_gsheet():
 
     return db, sheet1, user_sheet
 
+use_gsheet = False
+db, sheet, user_sheet = None, None, None
+
 try:
     db, sheet, user_sheet = connect_gsheet()
+    use_gsheet = True
 except Exception as e:
-    st.error(f"Ошибка подключения к Google Sheets: {e}")
-    service_email = "moyka-crm@moyka-kovrov-crm.iam.gserviceaccount.com"
-    st.info(f"💡 Убедитесь, что ваша Google Таблица создана под именем 'Мойка Ковров CRM' и в настройках доступа ей предоставлены права Редактора для e-mail: **{service_email}**")
-    st.stop()
+    st.warning(f"⚠️ Google Sheets не подключен ({e}). Работает локальная резервная база CRM.")
+    use_gsheet = False
 
 qp = st.query_params
 if "logged_in" not in st.session_state:
