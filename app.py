@@ -316,16 +316,20 @@ def get_next_order_id(df):
     except:
         return 5200
 
-# 2. Подключение к Google Таблицам
+
+# Подключение к Google Таблицам
 @st.cache_resource
 def connect_gsheet():
-    if os.path.exists("key.json"):
+    # 1. Проверяем секреты на сервере Streamlit Cloud
+    if "GCP_JSON" in st.secrets:
+        key_dict = json.loads(st.secrets["GCP_JSON"])
+        client = gspread.service_account_from_dict(key_dict)
+    # 2. Если запускаем локально на компьютере
+    elif os.path.exists("key.json"):
         client = gspread.service_account(filename="key.json")
-    elif "gcp_service_account" in st.secrets:
-        client = gspread.service_account_from_dict(dict(st.secrets["gcp_service_account"]))
     else:
-        st.error("Критическая ошибка: файл key.json не найден, а секреты [gcp_service_account] не настроены в Streamlit Cloud!")
-        st.stop() # Останавливаем выполнение, чтобы не было каскада ошибок
+        st.error("Критическая ошибка: секрет GCP_JSON не найден в Secrets, а файл key.json отсутствует локально!")
+        st.stop()
         
     db = client.open("Мойка Ковров CRM")
     sheet1 = db.sheet1
