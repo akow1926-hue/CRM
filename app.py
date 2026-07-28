@@ -324,10 +324,12 @@ def connect_gsheet():
     elif "gcp_service_account" in st.secrets:
         client = gspread.service_account_from_dict(dict(st.secrets["gcp_service_account"]))
     else:
-        client = gspread.service_account(filename="key.json")
+        st.error("Критическая ошибка: файл key.json не найден, а секреты [gcp_service_account] не настроены в Streamlit Cloud!")
+        st.stop() # Останавливаем выполнение, чтобы не было каскада ошибок
+        
     db = client.open("Мойка Ковров CRM")
-    
     sheet1 = db.sheet1
+    return sheet1
     
     # ПРИНУДИТЕЛЬНО обновляем первую строку заголовков в Google Таблице
     # Исправлено: используем именованные аргументы для совместимости с новыми версиями gspread
