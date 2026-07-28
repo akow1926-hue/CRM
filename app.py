@@ -986,23 +986,23 @@ def extract_coords(loc_str, district=None):
 
 def get_yandex_route_url(district, address, loc_str):
     """
-    Строит навигационный маршрут Яндекс.Навигатора / Карт по ТОЧНОЙ локации или адресу курьера
+    Строит прямую ссылку для открывания навигатора по ТОЧНОЙ геолокации или адресу курьера.
+    Возвращает tuple: (web_url, is_exact_gps, navi_deeplink)
     """
-    # 1. Приоритет: извлекаем точные GPS координаты, сохраненные курьером при приеме/заборе
     coords_res = extract_coords(loc_str, district)
     if coords_res:
         lat, lng, is_exact = coords_res
         if is_exact:
-            # Прямая ссылка для Яндекс.Навигатора / Карт на смартфоне курьера
-            url = f'https://yandex.ru/maps/?rtext=~{lat},{lng}&rtt=auto'
-            return url, True
+            web_url = f'https://yandex.ru/maps/?rtext=~{lat},{lng}&rtt=auto'
+            navi_deeplink = f'yandexnavi://build_route_on_map?lat_to={lat}&lon_to={lng}'
+            return web_url, True, navi_deeplink
     
-    # 2. Если GPS не снят, строим маршрут по точному адресу курьера
     clean_addr = str(address).strip() if address and str(address).strip() not in ["-", ""] else ""
     full_address = f'Самарканд, {district}, {clean_addr}'.strip(', ')
     encoded_address = urllib.parse.quote(full_address)
-    url = f'https://yandex.ru/maps/?rtext=~{encoded_address}&rtt=auto'
-    return url, False
+    web_url = f'https://yandex.ru/maps/?rtext=~{encoded_address}&rtt=auto'
+    navi_deeplink = f'yandexnavi://build_route_on_map?lat_to=&lon_to=&text={encoded_address}'
+    return web_url, False, navi_deeplink
 
 
 # --- ВХОД И РЕГИСТРАЦИЯ ---

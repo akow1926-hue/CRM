@@ -203,9 +203,20 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                     clean_tel = ''.join(filter(str.isdigit, str(phone)))
                     c_nav1.link_button(locales.get_text("call_client", lang), f"tel:+{clean_tel}", use_container_width=True)
 
-                    r_url_pk, is_exact_pk = get_yandex_route_url_func(district, cour_exact_address if cour_exact_address else address, loc_val if loc_val else existing_loc)
-                    nav_pk_lbl = "🧭 Яндекс.Навигатор (GPS)" if is_exact_pk else "🧭 Яндекс.Навигатор (Адрес)"
-                    c_nav2.link_button(nav_pk_lbl, r_url_pk, use_container_width=True)
+                    res_pk = get_yandex_route_url_func(district, cour_exact_address if cour_exact_address else address, loc_val if loc_val else existing_loc)
+                    if len(res_pk) == 3:
+                        r_url_pk, is_exact_pk, deeplink_pk = res_pk
+                    else:
+                        r_url_pk, is_exact_pk = res_pk[0], res_pk[1]
+                        deeplink_pk = r_url_pk
+
+                    st.markdown(f"""
+                    <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px; margin: 8px 0; text-align: center;">
+                        <a href="{deeplink_pk}" style="background: #dc2626; color: white; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block; box-shadow: 0 3px 6px rgba(220,38,38,0.25);">
+                            🧭 Яндекс.Навигатор к клиенту (Поехали 🚗)
+                        </a>
+                    </div>
+                    """, unsafe_allow_html=True)
 
                     st.markdown("---")
                     btn_pickup_label = "🚚 Принять заказ и отправить в цех" if lang == "ru" else "🚚 Buyurtmani qabul qilib sexga yuborish"
@@ -376,9 +387,28 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                     c1.link_button(locales.get_text("call_client", lang), f"tel:+{clean_tel}", use_container_width=True)
 
                     # Автоматическое построение маршрута по ТОЧНОЙ геолокации/адресу курьера
-                    r_url, is_exact_gps = get_yandex_route_url_func(district, address, loc_saved)
-                    route_btn_label = "🧭 Яндекс.Навигатор (Точный GPS)" if is_exact_gps else "🧭 Яндекс.Навигатор (Точный адрес)"
-                    c2.link_button(route_btn_label, r_url, use_container_width=True, type="primary")
+                    res_tuple = get_yandex_route_url_func(district, address, loc_saved)
+                    if len(res_tuple) == 3:
+                        r_url, is_exact_gps, navi_deeplink = res_tuple
+                    else:
+                        r_url, is_exact_gps = res_tuple[0], res_tuple[1]
+                        navi_deeplink = r_url
+
+                    st.markdown(f"""
+                    <div style="background: {'#f0fdf4' if is_exact_gps else '#fffbeb'}; border: 2px solid {'#22c55e' if is_exact_gps else '#f59e0b'}; border-radius: 12px; padding: 12px 16px; margin: 12px 0; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                        <div style="font-size: 14px; font-weight: 700; color: {'#15803d' if is_exact_gps else '#b45309'}; margin-bottom: 8px;">
+                            {'🟢 ТОЧНАЯ ГЕОЛОКАЦИЯ КЛИЕНТА (Снята при заборе)' if is_exact_gps else '📍 Навигация по адресу клиента'}
+                        </div>
+                        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                            <a href="{navi_deeplink}" style="background: #dc2626; color: white; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; display: inline-block; box-shadow: 0 4px 8px rgba(220, 38, 38, 0.3);">
+                                🧭 Открыть в Яндекс.Навигаторе (Поехали 🚗)
+                            </a>
+                            <a href="{r_url}" target="_blank" style="background: #0284c7; color: white; padding: 12px 18px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">
+                                🗺️ Яндекс.Карты (Веб)
+                            </a>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
                     # Передача другому курьеру
                     with c3:
