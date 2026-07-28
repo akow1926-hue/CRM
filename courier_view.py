@@ -199,12 +199,17 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                         key=f"extra_note_{o_id}_{idx}"
                     )
 
-                    c1, c2 = st.columns(2)
+                    c_nav1, c_nav2 = st.columns(2)
                     clean_tel = ''.join(filter(str.isdigit, str(phone)))
-                    c1.link_button(locales.get_text("call_client", lang), f"tel:+{clean_tel}", use_container_width=True)
+                    c_nav1.link_button(locales.get_text("call_client", lang), f"tel:+{clean_tel}", use_container_width=True)
 
+                    r_url_pk, is_exact_pk = get_yandex_route_url_func(district, cour_exact_address if cour_exact_address else address, loc_val if loc_val else existing_loc)
+                    nav_pk_lbl = "🧭 Яндекс.Навигатор (GPS)" if is_exact_pk else "🧭 Яндекс.Навигатор (Адрес)"
+                    c_nav2.link_button(nav_pk_lbl, r_url_pk, use_container_width=True)
+
+                    st.markdown("---")
                     btn_pickup_label = "🚚 Принять заказ и отправить в цех" if lang == "ru" else "🚚 Buyurtmani qabul qilib sexga yuborish"
-                    if c2.button(btn_pickup_label, type="primary", key=f"cour_pickup_{o_id}_{idx}", use_container_width=True):
+                    if st.button(btn_pickup_label, type="primary", key=f"cour_pickup_{o_id}_{idx}", use_container_width=True):
                         final_addr = cour_exact_address.strip() if cour_exact_address.strip() else address
                         final_loc = loc_val.strip() if loc_val.strip() else f"🗺️ Ориентир: {district}"
                         
@@ -370,10 +375,10 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                     clean_tel = ''.join(filter(str.isdigit, str(phone)))
                     c1.link_button(locales.get_text("call_client", lang), f"tel:+{clean_tel}", use_container_width=True)
 
-                    # Автоматическое построение маршрута по ранее указанной геолокации
+                    # Автоматическое построение маршрута по ТОЧНОЙ геолокации/адресу курьера
                     r_url, is_exact_gps = get_yandex_route_url_func(district, address, loc_saved)
-                    route_btn_label = "🗺️ Построить маршрут (GPS)" if is_exact_gps else "🗺️ Построить маршрут"
-                    c2.link_button(route_btn_label, r_url, use_container_width=True)
+                    route_btn_label = "🧭 Яндекс.Навигатор (Точный GPS)" if is_exact_gps else "🧭 Яндекс.Навигатор (Точный адрес)"
+                    c2.link_button(route_btn_label, r_url, use_container_width=True, type="primary")
 
                     # Передача другому курьеру
                     with c3:

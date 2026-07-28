@@ -985,18 +985,23 @@ def extract_coords(loc_str, district=None):
 
 
 def get_yandex_route_url(district, address, loc_str):
-    """Строит навигационный маршрут Яндекс.Карт от Цеха до Клиента"""
+    """
+    Строит навигационный маршрут Яндекс.Навигатора / Карт по ТОЧНОЙ локации или адресу курьера
+    """
+    # 1. Приоритет: извлекаем точные GPS координаты, сохраненные курьером при приеме/заборе
     coords_res = extract_coords(loc_str, district)
     if coords_res:
         lat, lng, is_exact = coords_res
         if is_exact:
-            url = f'https://yandex.ru/maps/?rtext={FACTORY_LAT},{FACTORY_LNG}~{lat},{lng}&rtt=auto'
+            # Прямая ссылка для Яндекс.Навигатора / Карт на смартфоне курьера
+            url = f'https://yandex.ru/maps/?rtext=~{lat},{lng}&rtt=auto'
             return url, True
     
-    # Маршрут по текстовому адресу
-    full_address = f'Самарканд, {district}, {address}'.strip(', ')
+    # 2. Если GPS не снят, строим маршрут по точному адресу курьера
+    clean_addr = str(address).strip() if address and str(address).strip() not in ["-", ""] else ""
+    full_address = f'Самарканд, {district}, {clean_addr}'.strip(', ')
     encoded_address = urllib.parse.quote(full_address)
-    url = f'https://yandex.ru/maps/?rtext={FACTORY_LAT},{FACTORY_LNG}~{encoded_address}&rtt=auto'
+    url = f'https://yandex.ru/maps/?rtext=~{encoded_address}&rtt=auto'
     return url, False
 
 
