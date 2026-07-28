@@ -52,7 +52,7 @@ def connect_gsheet():
     # Подключаемся к базе CRM
     db = gc.open("Мойка Ковров CRM")
     sheet1 = db.sheet1
-except Exception as e:
+    except Exception as e:
     st.error(f"Ошибка подключения к Google Sheets: {e}")
     st.stop()
 
