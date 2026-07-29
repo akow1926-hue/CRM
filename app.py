@@ -979,6 +979,33 @@ def update_order_in_sheet(order_id, updates):
         return False
 
 
+def delete_order_in_sheet(order_id):
+    try:
+        target_id = normalize_id_str(order_id)
+        current_df = get_clean_orders()
+        if not current_df.empty and "ID" in current_df.columns:
+            mask = current_df["ID"].apply(normalize_id_str) == target_id
+            if mask.any():
+                updated_df = current_df[~mask].copy()
+                save_local_backup(updated_df)
+
+        if use_gsheet and sheet is not None:
+            try:
+                cell = None
+                try:
+                    cell = sheet.find(str(target_id), in_column=1)
+                except Exception:
+                    cell = sheet.find(str(order_id))
+                if cell is not None:
+                    sheet.delete_rows(cell.row)
+            except Exception:
+                pass
+        return True
+    except Exception as e:
+        st.error(f"Ошибка удаления заказа: {e}")
+        return False
+
+
 def add_order_to_sheet(order_data):
     try:
         current_df = get_clean_orders()
@@ -1296,6 +1323,7 @@ elif role in ["Courier", "Доставщик (Курьер)", "Yuboruvchi (Kurye
     courier_view.render_courier_view(
         df=df, t=t, courier_name=st.session_state.get("username", "Курьер"),
         update_order_func=update_order_in_sheet,
+        delete_order_func=delete_order_in_sheet,
         add_order_func=add_order_to_sheet,
         get_next_order_id_func=get_next_order_id,
         get_yandex_route_url_func=get_yandex_route_url,
