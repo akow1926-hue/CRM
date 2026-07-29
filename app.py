@@ -950,7 +950,8 @@ def update_order_in_sheet(order_id, updates):
                     if isinstance(col_key, str):
                         if col_key not in current_df.columns:
                             current_df[col_key] = ""
-                        current_df.loc[mask, col_key] = val
+                        current_df[col_key] = current_df[col_key].astype(object)
+                        current_df.loc[mask, col_key] = str(val) if val is not None else ""
                 save_local_backup(current_df)
 
         if use_gsheet and sheet is not None:
