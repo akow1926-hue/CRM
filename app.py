@@ -672,14 +672,20 @@ def render_sms_settings_ui(key_prefix="sb"):
     
     st.divider()
     st.markdown("#### 🧪 Тестовая отправка СМС")
+    if provider == "eskiz":
+        st.caption("ℹ️ Для тестирования в Eskiz.uz разрешены тексты: `Это тест от Eskiz`, `Bu Eskiz dan test`, `This is test from Eskiz`")
+        default_test_text = "Это тест от Eskiz"
+    else:
+        default_test_text = "Тест СМС от Cosmo Cleaning Service!"
+
     c_t1, c_t2 = st.columns([1, 2])
     test_phone = c_t1.text_input("Телефон (9 цифр):", placeholder="901234567", key=f"{key_prefix}_test_p")
-    test_msg = c_t2.text_input("Текст сообщения:", value="Тест СМС от Cosmo Cleaning Service!", key=f"{key_prefix}_test_m")
-    if st.button("🚀 Отправить тестовое СМС", key=f"{key_prefix}_test_btn"):
+    test_msg = c_t2.text_input("Текст сообщения:", value=default_test_text, key=f"{key_prefix}_test_m")
+    if st.button("🚀 Отправить тестовое СМС", key=f"{key_prefix}_test_btn", use_container_width=True):
         if not test_phone:
             st.warning("Укажите номер телефона!")
         else:
-            with st.spinner("Отправка СМС..."):
+            with st.spinner("Отправка СМС через " + provider + "..."):
                 ok, info = sms_manager.send_sms_notification(test_phone, test_msg, order_id="TEST", provider_cfg=cfg)
                 if ok:
                     st.success(f"✅ {info}")

@@ -35,17 +35,32 @@ DEFAULT_SMS_CONFIG = {
 
 
 def get_sms_config():
-    """Загружает текущую конфигурацию СМС из sms_config.json"""
+    """Загружает текущую конфигурацию СМС из sms_config.json или streamlit.secrets"""
+    res = DEFAULT_SMS_CONFIG.copy()
     if os.path.exists(SMS_CONFIG_FILE):
         try:
             with open(SMS_CONFIG_FILE, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
-                res = DEFAULT_SMS_CONFIG.copy()
                 res.update(cfg)
-                return res
         except Exception:
             pass
-    return DEFAULT_SMS_CONFIG.copy()
+
+    # Интеграция со Streamlit Secrets для деплоя на Streamlit Cloud
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets"):
+            if "sms" in st.secrets:
+                for k, v in st.secrets["sms"].items():
+                    if v:
+                        res[k] = str(v)
+            elif "ESKIZ_EMAIL" in st.secrets:
+                res["eskiz_email"] = str(st.secrets["ESKIZ_EMAIL"])
+                if "ESKIZ_PASSWORD" in st.secrets:
+                    res["eskiz_password"] = str(st.secrets["ESKIZ_PASSWORD"])
+    except Exception:
+        pass
+
+    return res
 
 
 def save_sms_config(cfg):
@@ -105,8 +120,35 @@ def get_eskiz_token(email, password):
         return ""
     try:
         url = "https://notify.eskiz.uz/api/auth/login"
-        payload = json.dumps({"email": email, "password": password}).encode('utf-8')
-        req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json'}, method='POST')
+        payload = urllib.parse.urlencode({"email": email.strip(), "password": password.strip()}).encode('utf-8')
+        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        req = urllib.request.Request(url, data=payload, headers=headers, method='POST')
+        with urllib.request.urlopen(req, timeout=10) as response:
+            if response.status == 200:
+                res_data = json.loads(response.read().decode('utf-8'))
+                return res_data.get('data', {}).get('token', '')
+    except Exception as e:
+        # Retry with JSON payload if form-urlencoded fails
+        try:
+            payload_json = json.dumps({"email": email.strip(), "password": password.strip()}).encode('utf-8')
+            req_json = urllib.request.Request(url, data=payload_json, headers={'Content-Type': 'application/json'}, method='POST')
+            with urllib.request.urlopen(req_json, timeout=10) as response:
+                if response.status == 200:
+                    res_data = json.loads(response.read().decode('utf-8'))
+                    return res_data.get('data', {}).get('token', '')
+        except Exception:
+            pass
+    return ""
+
+
+def refresh_eskiz_token(token):
+    """Обновляет текущий токен Eskiz.uz через PATCH notify.eskiz.uz/api/auth/refresh"""
+    if not token:
+        return ""
+    try:
+        url = "https://notify.eskiz.uz/api/auth/refresh"
+        headers = {'Authorization': f'Bearer {token}'}
+        req = urllib.request.Request(url, headers=headers, method='PATCH')
         with urllib.request.urlopen(req, timeout=10) as response:
             if response.status == 200:
                 res_data = json.loads(response.read().decode('utf-8'))
@@ -176,14 +218,14 @@ def send_sms_notification(phone, msg, order_id="-", provider_cfg=None):
 
         try:
             url = "https://notify.eskiz.uz/api/message/sms/send"
-            payload = json.dumps({
+            payload = urllib.parse.urlencode({
                 "mobile_phone": clean_phone,
                 "message": msg,
                 "from": sender_name,
                 "callback_url": ""
             }).encode('utf-8')
             headers = {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded',
                 'Authorization': f'Bearer {token}'
             }
             req = urllib.request.Request(url, data=payload, headers=headers, method='POST')
@@ -197,9 +239,11 @@ def send_sms_notification(phone, msg, order_id="-", provider_cfg=None):
                     return False, f"Ошибка Eskiz.uz: {res_body}"
         except urllib.error.HTTPError as e:
             err_text = e.read().decode('utf-8', errors='ignore')
-            if e.code == 401 and email and password:
-                # Токен мог истечь, запрашиваем новый
-                new_token = get_eskiz_token(email, password)
+            if e.code == 401:
+                # Попытка обновить токен через refresh или заново через login
+                new_token = refresh_eskiz_token(token) if token else ""
+                if not new_token and email and password:
+                    new_token = get_eskiz_token(email, password)
                 if new_token:
                     cfg["eskiz_token"] = new_token
                     save_sms_config(cfg)
