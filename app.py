@@ -344,7 +344,7 @@ def safe_get_secret(key_name, default=""):
     try:
         if hasattr(st, "secrets"):
             return st.secrets.get(key_name, default)
-    except Exception:
+    except BaseException:
         pass
     return default
 
@@ -357,7 +357,7 @@ def safe_get_secret_dict(key_name):
                 return json.loads(val)
             elif isinstance(val, dict):
                 return dict(val)
-    except Exception:
+    except BaseException:
         pass
     return None
 

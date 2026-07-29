@@ -300,22 +300,32 @@ def get_dark_theme_css():
         margin: 1.25rem 0 !important;
     }}
 
-    /* Responsive Mobile Media Queries (iPhone / Android) */
+    /* Responsive Mobile Media Queries (iPhone / Android - Optimized for mobile view) */
     @media (max-width: 768px) {{
         .main .block-container {{
             padding-left: 0.5rem !important;
             padding-right: 0.5rem !important;
             padding-top: 0.5rem !important;
-            padding-bottom: 2rem !important;
+            padding-bottom: 3rem !important;
+            max-width: 100% !important;
         }}
         .cosmo-header {{
             flex-direction: column !important;
             align-items: flex-start !important;
-            gap: 10px !important;
-            padding: 14px 16px !important;
+            gap: 8px !important;
+            padding: 10px 14px !important;
+            margin-bottom: 12px !important;
+            border-radius: 10px !important;
+        }}
+        .cosmo-title {{
+            font-size: 17px !important;
         }}
         .user-badge {{
-            align-self: flex-start !important;
+            width: 100% !important;
+            text-align: center !important;
+            box-sizing: border-box !important;
+            padding: 4px 10px !important;
+            font-size: 12px !important;
         }}
         div[data-testid="column"] {{
             width: 100% !important;
@@ -323,10 +333,46 @@ def get_dark_theme_css():
             min-width: 100% !important;
         }}
         div[data-testid="stMetric"] {{
+            padding: 8px 12px !important;
+            border-radius: 8px !important;
             margin-bottom: 8px !important;
         }}
-        .cosmo-title {{
+        div[data-testid="stMetricValue"] {{
             font-size: 18px !important;
+        }}
+        .stTabs [data-baseweb="tab-list"] {{
+            overflow-x: auto !important;
+            display: flex !important;
+            flex-wrap: nowrap !important;
+            gap: 4px !important;
+            padding: 4px !important;
+            -webkit-overflow-scrolling: touch !important;
+        }}
+        .stTabs [data-baseweb="tab"] {{
+            height: 38px !important;
+            font-size: 13px !important;
+            padding: 0 10px !important;
+            flex-shrink: 0 !important;
+            white-space: nowrap !important;
+        }}
+        .stButton > button, .stDownloadButton > button, .stLinkButton > a {{
+            min-height: 44px !important;
+            font-size: 15px !important;
+            border-radius: 8px !important;
+            font-weight: 700 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }}
+        div[data-testid="stExpander"] {{
+            border-radius: 12px !important;
+            margin-bottom: 10px !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+        }}
+        .streamlit-expanderHeader {{
+            padding: 10px 12px !important;
+            font-size: 14px !important;
+            font-weight: 700 !important;
         }}
     }}
     </style>
