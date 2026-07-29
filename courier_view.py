@@ -117,7 +117,7 @@ def generate_receipt_html(row, lang="ru"):
 
 def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route_url_func, send_tg_func, active_couriers=None, add_order_func=None, get_next_order_id_func=None, delete_order_func=None):
     """
-    Панель Курьера: Удобные карточки, сменщик курьера, кнопка Доставлено, редактор адреса/GPS и удаление заказа
+    Панель Курьера: Заказы на забор и доставку, свободный выбор статуса при создании и умный поиск
     """
     ui_theme.inject_theme()
     lang = st.session_state.get("lang", "ru")
@@ -132,9 +132,9 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
         user_role="Courier"
     )
 
-    filter_options = ["📌 Назначенные мне", "🌐 Все заказы"] if lang == "ru" else ["📌 Menga tayinlanganlar", "🌐 Barcha arizalar"]
+    filter_options = ["📌 Назначенные мне & Свободные", "🌐 Все заказы CRM"] if lang == "ru" else ["📌 Menga tayinlanganlar", "🌐 Barcha buyurtmalar"]
     view_mode = st.radio(
-        "Фильтр:" if lang == "ru" else "Filtr:",
+        "Фильтр отображения:" if lang == "ru" else "Filtr:",
         filter_options,
         horizontal=True,
         key=f"cour_mode_{courier_name}"
@@ -143,12 +143,27 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
     if "Все" in view_mode or "Barcha" in view_mode:
         my_orders = df
     else:
-        my_orders = df[df["Курьер"].astype(str).str.contains(courier_name, case=False, na=False)] if not df.empty and "Курьер" in df.columns else df
+        if not df.empty and "Курьер" in df.columns:
+            c_str = df["Курьер"].astype(str).str.lower().str.strip()
+            cn_lower = str(courier_name).lower().strip()
+            mask_assigned = c_str.str.contains(cn_lower, regex=False, na=False)
+            mask_unassigned = c_str.isin(["", "-", "не назначен", "nan", "none"])
+            my_orders = df[mask_assigned | mask_unassigned].copy()
+        else:
+            my_orders = df.copy()
 
-    today_cnt = len(my_orders)
-    done_cnt = len(my_orders[my_orders["Статус"] == "Выполнен"]) if not my_orders.empty and "Статус" in my_orders.columns else 0
-    pickup_cnt = len(my_orders[my_orders["Статус"] == "Ожидает забора"]) if not my_orders.empty and "Статус" in my_orders.columns else 0
-    ready_cnt = len(my_orders[my_orders["Статус"] == "Готов"]) if not my_orders.empty and "Статус" in my_orders.columns else 0
+    # Фильтрация по статусам
+    if not my_orders.empty and "Статус" in my_orders.columns:
+        st_clean = my_orders["Статус"].astype(str).str.strip().str.lower()
+        pickup_df = my_orders[st_clean.str.contains("забор|ожид|новы|yangi", regex=True, na=False)].copy()
+        delivery_df = my_orders[st_clean.str.contains("готов|доставка|tayyor", regex=True, na=False)].copy()
+        done_df = my_orders[st_clean.str.contains("выполн|заверш|bajaril", regex=True, na=False)].copy()
+    else:
+        pickup_df, delivery_df, done_df = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+
+    pickup_cnt = len(pickup_df)
+    ready_cnt = len(delivery_df)
+    done_cnt = len(done_df)
 
     m1, m2, m3 = st.columns(3)
     m1.metric("📥 Забор", pickup_cnt)
@@ -160,14 +175,12 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
     tab_pickup, tab_delivery, tab_add_street, tab_all = st.tabs([
         f"📥 Забор ({pickup_cnt})",
         f"📦 Доставка ({ready_cnt})",
-        "➕ Заказ с улицы",
+        "➕ Принять новый заказ",
         "📋 Все заказы"
     ])
 
     # ==================== ВКЛАДКА 1: ЗАЯВКИ НА ЗАБОР ====================
     with tab_pickup:
-        pickup_df = my_orders[my_orders["Статус"] == "Ожидает забора"] if not my_orders.empty and "Статус" in my_orders.columns else pd.DataFrame()
-
         if not pickup_df.empty:
             for idx, row in pickup_df.iterrows():
                 o_id = row["ID"]
@@ -202,11 +215,10 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                 r_url_pk = res_tuple[0] if isinstance(res_tuple, (tuple, list)) else res_tuple
                 c_nav.link_button("🧭 Навигатор", r_url_pk, use_container_width=True)
 
-                # Управление заказом (Принять, Смена водителя, Изменить адрес/GPS, Удалить)
-                with st.expander(f"⚙️ Управление & Забор №{norm_id}", expanded=False):
+                with st.expander(f"⚙️ Забрать ковры & Управление №{norm_id}", expanded=False):
                     
                     # 1. Принять заказ в цех
-                    st.markdown("##### 🚚 1. Забор и отправка в цех")
+                    st.markdown("##### 🚚 1. Забор вещи и отправка в цех")
                     ci1, ci2, ci3 = st.columns(3)
                     cnt_kovr = ci1.number_input("🧼 Ковры:", min_value=0, value=1, step=1, key=f"k_pk_{norm_id}_{idx}")
                     cnt_kurp = ci2.number_input("🛋️ Курпачи:", min_value=0, value=0, step=1, key=f"kp_pk_{norm_id}_{idx}")
@@ -224,6 +236,7 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
 
                         update_order_func(o_id, {
                             "Статус": "В цеху",
+                            "Курьер": courier_name,
                             "Размеры": items_summary
                         })
 
@@ -241,7 +254,7 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
 
                     st.markdown("---")
                     
-                    # 2. Смена водителя (передать другому курьеру)
+                    # 2. Смена курьера
                     st.markdown("##### ⇄ 2. Смена курьера / передать другому")
                     other_couriers = [c for c in active_couriers if c != curr_courier]
                     if not other_couriers: other_couriers = active_couriers
@@ -257,13 +270,13 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
 
                     st.markdown("---")
 
-                    # 3. Изменение точного адреса, кода заказа и GPS
+                    # 3. Изменение точного адреса, заметки и GPS
                     st.markdown("##### ✏️ 3. Изменить точный адрес & GPS геолокацию")
                     edit_addr_val = st.text_input("Точный адрес:", value=address if address else "", key=f"edit_addr_pk_{norm_id}_{idx}")
                     
                     render_gps_button(f"edit_gps_pk_{norm_id}", lang=lang)
                     edit_loc_val = st.text_input("GPS координаты:", value=existing_loc if existing_loc not in ["-", ""] else "", key=f"edit_loc_pk_{norm_id}_{idx}")
-                    edit_notes_val = st.text_input("Примечание / Детали заказа:", value=details if details else "", key=f"edit_notes_pk_{norm_id}_{idx}")
+                    edit_notes_val = st.text_input("Детали заказа / Заметка:", value=details if details else "", key=f"edit_notes_pk_{norm_id}_{idx}")
 
                     if st.button("💾 Сохранить изменения заказа", key=f"btn_save_edit_pk_{norm_id}_{idx}", use_container_width=True):
                         update_order_func(o_id, {
@@ -292,8 +305,6 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
 
     # ==================== ВКЛАДКА 2: ГОТОВЫЕ ДОСТАВКИ ====================
     with tab_delivery:
-        delivery_df = my_orders[my_orders["Статус"] == "Готов"] if not my_orders.empty and "Статус" in my_orders.columns else pd.DataFrame()
-
         if not delivery_df.empty:
             for idx, row in delivery_df.iterrows():
                 o_id = row["ID"]
@@ -330,7 +341,6 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                 c_call.link_button("📞 Позвонить", f"tel:+{clean_tel}", use_container_width=True)
                 c_nav.link_button("🧭 Навигатор", r_url_deliv, use_container_width=True)
 
-                # Главная кнопка Доставлено
                 with st.expander(f"✅ 1. ДОСТАВЛЕНО (Выдать и оплатить №{norm_id})", expanded=False):
                     p_type = st.radio("Способ оплаты:", ["Наличные", "Карта (Click/Payme)"], horizontal=True, key=f"pt_{norm_id}_{idx}")
                     p_paid = st.number_input("Оплачено (сум):", min_value=0, value=order_sum, step=1000, key=f"pp_{norm_id}_{idx}")
@@ -374,7 +384,6 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                             st.success(f"✅ Заказ №{norm_id} успешно выдан!")
                             st.rerun()
 
-                # Смена водителя, Редактирование & Удаление
                 with st.expander(f"⚙️ Смена курьера / Править адрес / Удалить №{norm_id}", expanded=False):
                     st.markdown("##### ⇄ Смена курьера / передать другому")
                     other_couriers = [c for c in active_couriers if c != curr_courier]
@@ -419,9 +428,18 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
         else:
             st.info("🎉 Нет готовых заказов на доставку.")
 
-    # ==================== ВКЛАДКА 3: ЗАКАЗ С УЛИЦЫ ====================
+    # ==================== ВКЛАДКА 3: ПРИНЯТЬ НОВЫЙ ЗАКАЗ ====================
     with tab_add_street:
-        st.subheader("➕ Оформить заказ с улицы (Реклама / Соседи)")
+        st.subheader("➕ Оформить новый заказ (Реклама / С улицы)")
+        
+        street_status_choice = st.radio(
+            "Статус создаваемого заказа:" if lang == "ru" else "Buyurtma holati:",
+            ["🟡 Ожидает забора (Нужно забрать у клиента)", "🧺 В цеху (Уже привез в цех)"],
+            horizontal=True,
+            key=f"cour_st_choice_{courier_name}"
+        )
+        new_order_status = "Ожидает забора" if "забора" in street_status_choice else "В цеху"
+
         with st.form(key=f"cour_street_form_{courier_name}"):
             c1, c2 = st.columns(2)
             street_client = c1.text_input("Имя клиента *", placeholder="Иван")
@@ -439,9 +457,9 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
             cnt_kp = ci2.number_input("🛋️ Курпачи:", min_value=0, value=0, step=1)
             cnt_z = ci3.number_input("🪟 Занавески:", min_value=0, value=0, step=1)
 
-            street_extra = st.text_input("Примечание:")
+            street_extra = st.text_input("Примечание / Заметка:")
 
-            if st.form_submit_button("🚚 Принять заказ и отправить в цех", type="primary", use_container_width=True):
+            if st.form_submit_button("🚀 Сохранить и создать заказ", type="primary", use_container_width=True):
                 clean_tel = ''.join(filter(str.isdigit, street_tel))
                 if not street_client or not clean_tel or not street_address:
                     st.error("Заполните все обязательные поля!")
@@ -456,7 +474,7 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                     if cnt_kp > 0: items_parts.append(f"Курпача: {cnt_kp} шт")
                     if cnt_z > 0: items_parts.append(f"Занавески: {cnt_z} шт")
                     if street_extra.strip(): items_parts.append(f"Заметка: {street_extra.strip()}")
-                    items_summary = ", ".join(items_parts) if items_parts else "Приняты вещи с улицы"
+                    items_summary = ", ".join(items_parts) if items_parts else "Новый заказ"
 
                     order_payload = {
                         "ID": new_id,
@@ -464,7 +482,7 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                         "Телефон": full_phone,
                         "Адрес": street_address.strip(),
                         "Размеры": items_summary,
-                        "Статус": "В цеху",
+                        "Статус": new_order_status,
                         "Курьер": courier_name,
                         "Диспетчер": f"Курьер {courier_name}",
                         "Район": street_district,
@@ -479,17 +497,17 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                         add_order_func(order_payload)
 
                     try:
-                        send_tg_func(f"🚚 <b>НОВЫЙ ЗАКАЗ С УЛИЦЫ №{new_id}!</b>\nКурьер: {courier_name}\nКлиент: {street_client} ({full_phone})\nАдрес: {street_district}, {street_address}")
+                        send_tg_func(f"🚚 <b>НОВЫЙ ЗАКАЗ №{new_id} ({new_order_status})!</b>\nКурьер: {courier_name}\nКлиент: {street_client} ({full_phone})\nАдрес: {street_district}, {street_address}")
                     except Exception:
                         pass
 
-                    st.success(f"🎉 Заказ №{new_id} принят и отправлен в цех!")
+                    st.success(f"🎉 Заказ №{new_id} сохранен со статусом «{new_order_status}»!")
                     st.rerun()
 
     # ==================== ВКЛАДКА 4: ВСЕ ЗАКАЗЫ ====================
     with tab_all:
         if not my_orders.empty:
-            cols = [c for c in ["ID", "Клиент", "Телефон", "Адрес", "Статус", "Сумма"] if c in my_orders.columns]
+            cols = [c for c in ["ID", "Клиент", "Телефон", "Адрес", "Статус", "Курьер", "Сумма"] if c in my_orders.columns]
             st.dataframe(my_orders[cols], use_container_width=True, hide_index=True)
         else:
             st.info("Нет заказов.")
