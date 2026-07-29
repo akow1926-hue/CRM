@@ -303,8 +303,14 @@ EXPECTED_HEADERS = [
 def get_next_order_id(df):
     try:
         if df is not None and not df.empty and "ID" in df.columns:
-            numeric_ids = pd.to_numeric(df["ID"], errors='coerce').dropna()
-            valid_ids = numeric_ids[numeric_ids < 50000]
+            # Игнорируем архивные импортированные заказы из Telegram при расчете следующего ID
+            if "Диспетчер" in df.columns:
+                manual_df = df[df["Диспетчер"] != "Telegram Импорт"]
+            else:
+                manual_df = df
+            numeric_ids = pd.to_numeric(manual_df["ID"], errors='coerce').dropna()
+            # Ограничиваем рабочий диапазон серии заказов 5200..5999 (архивные ID 10000+ игнорируются)
+            valid_ids = numeric_ids[(numeric_ids >= 5200) & (numeric_ids < 6000)]
             if not valid_ids.empty:
                 next_id = int(valid_ids.max()) + 1
                 return max(5218, next_id)
