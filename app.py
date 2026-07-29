@@ -444,11 +444,19 @@ else:
     st.session_state["gsheet_error"] = _err
 
 qp = st.query_params
-if "logged_in" not in st.session_state:
-    if "user" in qp and "role" in qp:
+if "logged_in" not in st.session_state or not st.session_state.get("logged_in"):
+    user_val = str(qp.get("user", "")).strip()
+    role_val = str(qp.get("role", "")).strip()
+
+    if "role=" in user_val and not role_val:
+        parts = user_val.split("role=")
+        user_val = parts[0].strip("&? ")
+        role_val = parts[1].strip()
+
+    if user_val and role_val:
         st.session_state["logged_in"] = True
-        st.session_state["username"] = qp["user"]
-        st.session_state["role"] = qp["role"]
+        st.session_state["username"] = user_val
+        st.session_state["role"] = role_val
     else:
         st.session_state["logged_in"] = False
         st.session_state["username"] = ""
