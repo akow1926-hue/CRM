@@ -300,32 +300,39 @@ def get_dark_theme_css():
         margin: 1.25rem 0 !important;
     }}
 
-    /* Responsive Mobile Media Queries (iPhone / Android - Optimized for mobile view) */
+    /* Responsive Mobile Media Queries (iPhone / Android - Compact top header) */
     @media (max-width: 768px) {{
         .main .block-container {{
-            padding-left: 0.5rem !important;
-            padding-right: 0.5rem !important;
-            padding-top: 0.5rem !important;
-            padding-bottom: 3rem !important;
+            padding-left: 0.4rem !important;
+            padding-right: 0.4rem !important;
+            padding-top: 0.2rem !important;
+            padding-bottom: 2rem !important;
             max-width: 100% !important;
         }}
         .cosmo-header {{
-            flex-direction: column !important;
-            align-items: flex-start !important;
-            gap: 8px !important;
-            padding: 10px 14px !important;
-            margin-bottom: 12px !important;
-            border-radius: 10px !important;
+            padding: 6px 10px !important;
+            margin-bottom: 8px !important;
+            border-radius: 8px !important;
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+        }}
+        .cosmo-logo-img {{
+            width: 32px !important;
+            height: 32px !important;
         }}
         .cosmo-title {{
-            font-size: 17px !important;
+            font-size: 14px !important;
+            margin: 0 !important;
+        }}
+        .cosmo-sub {{
+            display: none !important;
         }}
         .user-badge {{
-            width: 100% !important;
-            text-align: center !important;
-            box-sizing: border-box !important;
-            padding: 4px 10px !important;
-            font-size: 12px !important;
+            padding: 2px 8px !important;
+            font-size: 11px !important;
+            width: auto !important;
         }}
         div[data-testid="column"] {{
             width: 100% !important;
@@ -333,31 +340,31 @@ def get_dark_theme_css():
             min-width: 100% !important;
         }}
         div[data-testid="stMetric"] {{
-            padding: 8px 12px !important;
+            padding: 6px 10px !important;
             border-radius: 8px !important;
-            margin-bottom: 8px !important;
+            margin-bottom: 6px !important;
         }}
         div[data-testid="stMetricValue"] {{
-            font-size: 18px !important;
+            font-size: 16px !important;
         }}
         .stTabs [data-baseweb="tab-list"] {{
             overflow-x: auto !important;
             display: flex !important;
             flex-wrap: nowrap !important;
             gap: 4px !important;
-            padding: 4px !important;
+            padding: 3px !important;
             -webkit-overflow-scrolling: touch !important;
         }}
         .stTabs [data-baseweb="tab"] {{
-            height: 38px !important;
-            font-size: 13px !important;
-            padding: 0 10px !important;
+            height: 36px !important;
+            font-size: 12px !important;
+            padding: 0 8px !important;
             flex-shrink: 0 !important;
             white-space: nowrap !important;
         }}
         .stButton > button, .stDownloadButton > button, .stLinkButton > a {{
-            min-height: 44px !important;
-            font-size: 15px !important;
+            min-height: 42px !important;
+            font-size: 14px !important;
             border-radius: 8px !important;
             font-weight: 700 !important;
             display: flex !important;
@@ -365,13 +372,12 @@ def get_dark_theme_css():
             justify-content: center !important;
         }}
         div[data-testid="stExpander"] {{
-            border-radius: 12px !important;
-            margin-bottom: 10px !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+            border-radius: 10px !important;
+            margin-bottom: 8px !important;
         }}
         .streamlit-expanderHeader {{
-            padding: 10px 12px !important;
-            font-size: 14px !important;
+            padding: 8px 10px !important;
+            font-size: 13px !important;
             font-weight: 700 !important;
         }}
     }}
