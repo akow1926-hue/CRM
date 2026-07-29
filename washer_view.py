@@ -12,96 +12,141 @@ def safe_numeric_val(val):
     except Exception:
         return 0.0
 
+def normalize_id(val):
+    try:
+        if pd.isna(val) or val is None:
+            return ""
+        s = str(val).strip()
+        if s.endswith(".0"):
+            s = s[:-2]
+        return str(int(float(s)))
+    except Exception:
+        return str(val).strip()
+
 def render_washer_view(df, t, washer_name, update_order_func, send_tg_func):
     """
-    Панель Мойщика (Замер и стирка заказов в цеху -> Кнопка 'ПОМЫТО И ГОТОВО')
+    Минималистичная панель Мойщика (Цех) без лишнего текста и с быстрым обновлением статуса
     """
     ui_theme.inject_theme()
+    lang = st.session_state.get("lang", "ru")
 
     ui_theme.render_top_header(
         title="Панель Цеха Мойки",
-        subtitle=f"Замер и стирка ковров (Сотрудник: {washer_name})",
+        subtitle=f"Мастер цеха: {washer_name}",
         user_name=washer_name,
         user_role="Washer"
     )
 
-    in_shop_cnt = len(df[df["Статус"] == "В цеху"]) if not df.empty and "Статус" in df.columns else 0
-    ready_cnt = len(df[df["Статус"] == "Готов"]) if not df.empty and "Статус" in df.columns else 0
+    if df.empty or "Статус" not in df.columns:
+        st.info("В цеху пока нет заказов.")
+        return
+
+    # Фильтруем заказы со статусом 'В цеху'
+    wash_mask = df["Статус"].astype(str).str.strip().isin(["В цеху", "Мойка", "В цехе"])
+    wash_df = df[wash_mask].copy()
+
+    in_shop_cnt = len(wash_df)
+    ready_cnt = len(df[df["Статус"] == "Готов"]) if "Статус" in df.columns else 0
 
     m1, m2 = st.columns(2)
-    m1.metric("🧺 Заказы в цеху (На замер и стирку)", in_shop_cnt)
-    m2.metric("✅ Готовы к выдаче курьеру", ready_cnt)
+    m1.metric("🧺 Заказы в цеху", in_shop_cnt)
+    m2.metric("✅ Готовы к доставке", ready_cnt)
 
     st.divider()
 
-    wash_df = df[df["Статус"] == "В цеху"] if not df.empty and "Статус" in df.columns else pd.DataFrame()
+    if wash_df.empty:
+        st.success("🎉 В цеху чисто! Нет заказов, ожидающих мойку.")
+        return
 
-    col_proc, col_list = st.columns([7, 5])
+    # Подготавливаем список ID для выпадающего списка
+    wash_df["normalized_id"] = wash_df["ID"].apply(normalize_id)
+    id_options = wash_df["normalized_id"].tolist()
 
-    with col_proc:
-        st.subheader("📏 Замер и стирка заказа")
-        if not wash_df.empty and "ID" in wash_df.columns:
-            sel_id = st.selectbox("Выберите заказ в цеху:", wash_df["ID"].unique().tolist(), key="washer_sel_id")
-            row = wash_df[wash_df["ID"] == sel_id].iloc[0]
+    # Оформление минималистичного интерфейса
+    c_sel, c_info = st.columns([1, 1])
+    
+    with c_sel:
+        selected_id_str = st.selectbox(
+            "Выберите № заказа для мойки:",
+            id_options,
+            format_func=lambda x: f"📦 Заказ №{x}",
+            key="washer_order_select"
+        )
 
-            st.info(f"**Заказ #{sel_id}** | Клиент: {row.get('Клиент', '-')} (`{row.get('Телефон', '-')}`) | Статус: **{row.get('Статус', '-')}**")
+    # Находим строку выбранного заказа по нормализованному ID
+    matching_rows = wash_df[wash_df["normalized_id"] == selected_id_str]
+    if matching_rows.empty:
+        st.warning("Заказ не найден или уже обновлен.")
+        return
 
-            existing_items = str(row.get("Размеры", ""))
-            existing_sum = safe_numeric_val(row.get("Сумма", 0))
+    row = matching_rows.iloc[0]
+    raw_id = row["ID"]
+    client_name = row.get("Клиент", "-")
+    client_phone = row.get("Телефон", "-")
+    district = row.get("Район", "")
+    address = row.get("Адрес", "")
+    existing_items = str(row.get("Размеры", "")).strip()
+    existing_sum = safe_numeric_val(row.get("Сумма", 0))
 
-            if existing_items and existing_items != "-":
-                st.info(f"📋 **Текущие замеры:** {existing_items} | 💰 **Сумма:** {int(existing_sum):,} сум")
-            else:
-                st.warning("⚠️ **Внимание:** Внесите размеры ковров в калькулятор ниже.")
+    with c_info:
+        st.markdown(f"""
+        <div style="background:#111827; border:1px solid #1f2937; padding:12px; border-radius:10px;">
+            <div style="font-size:16px; font-weight:700; color:#3b82f6;">📦 Заказ №{selected_id_str}</div>
+            <div style="font-size:13px; color:#9ca3af; margin-top:4px;">👤 Клиент: <b>{client_name}</b> ({client_phone})</div>
+            <div style="font-size:13px; color:#9ca3af;">🏠 Адрес: <b>{district}, {address}</b></div>
+        </div>
+        """, unsafe_allow_html=True)
 
-            st.markdown("#### 🧮 Проведение замера и расчет стоимости")
-            m_txt, calc_s = pricing_manager.render_interactive_calculator(key_prefix=f"wash_{sel_id}", lang="ru")
+    st.markdown("---")
+    st.markdown("#### 🧮 Размеры и калькулятор")
 
-            st.divider()
-            
-            # ВАЛИДАЦИЯ: Проверяем, внесены ли замер и сумма
-            has_valid_measurement = (calc_s > 0 or existing_sum > 0) and bool(m_txt.strip() or (existing_items and existing_items != "-"))
-            
-            if st.button("🧼 ПОМЫТО И ГОТОВО ✅", type="primary", use_container_width=True, key=f"finish_wash_{sel_id}"):
-                if not has_valid_measurement:
-                    st.error("❌ ОШИБКА: Запрещено подтверждать стирку без замеров и расчета суммы! Сначала внесите позиции в калькулятор выше.")
-                else:
-                    new_s = calc_s if calc_s > 0 else existing_sum
-                    new_m = m_txt if m_txt.strip() else existing_items
+    # Калькулятор расчета стоимости позиций
+    calc_note, calc_sum = pricing_manager.render_interactive_calculator(key_prefix=f"w_calc_{selected_id_str}", lang=lang)
 
-                    update_order_func(sel_id, {"Размеры": new_m, "Сумма": int(new_s), "Статус": "Готов"})
-                    
+    st.markdown("---")
+
+    # Кнопка завершения стирки
+    if st.button("🧼 ПОМЫТО И ГОТОВО ✅", type="primary", use_container_width=True, key=f"btn_done_{selected_id_str}"):
+        final_items = calc_note.strip() if calc_note.strip() else (existing_items if existing_items != "-" else "Постирано")
+        final_sum = int(calc_sum) if calc_sum > 0 else int(existing_sum)
+
+        try:
+            # 1. Обновляем статус заказа на 'Готов'
+            if update_order_func:
+                update_order_func(raw_id, {
+                    "Статус": "Готов",
+                    "Размеры": final_items,
+                    "Сумма": final_sum
+                })
+
+            # 2. Безопасная отправка в Telegram
+            try:
+                if send_tg_func:
                     tg_msg = (
-                        f"📦 <b>ЗАКАЗ №{sel_id} ПОСТИРАН И ГОТОВ К ДОСТАВКЕ!</b>\n"
-                        f"🚗 <b>Курьер:</b> {row.get('Курьер', 'Не назначен')}\n"
-                        f"👤 <b>Клиент:</b> {row.get('Клиент', '')} ({row.get('Телефон', '')})\n"
-                        f"🏠 <b>Адрес:</b> {row.get('Район', '')}, {row.get('Адрес', '')}\n"
-                        f"📐 <b>Размеры и детали:</b> <b>{new_m}</b>\n"
-                        f"💰 <b>Сумма к оплате:</b> <b>{int(new_s):,} сум</b>\n"
-                        f"📍 <b>Локация клиента:</b> {row.get('Локация', 'Не указана')}"
+                        f"📦 <b>ЗАКАЗ №{selected_id_str} ПОСТИРАН И ГОТОВ!</b>\n"
+                        f"👤 <b>Клиент:</b> {client_name} ({client_phone})\n"
+                        f"🧺 <b>Детали:</b> {final_items}\n"
+                        f"💰 <b>Сумма к оплате:</b> {final_sum:,} сум"
                     )
                     send_tg_func(tg_msg)
+            except Exception:
+                pass
 
-                    phone_num = str(row.get("Телефон", ""))
-                    if phone_num:
-                        sms_cfg = sms_manager.get_sms_config()
-                        if sms_cfg.get("enabled", True) and sms_cfg.get("auto_on_ready", True):
-                            sms_body = sms_manager.format_sms_message(sms_cfg.get("template_ready_ru", ""), {"client": row.get("Клиент", ""), "order_id": sel_id, "items": new_m, "sum": f"{int(new_s):,}"})
-                            sms_manager.send_sms_notification(phone_num, sms_body, order_id=sel_id)
+            # 3. Безопасная отправка СМС клиенту
+            try:
+                if client_phone and client_phone != "-":
+                    sms_cfg = sms_manager.get_sms_config()
+                    if sms_cfg.get("enabled", True) and sms_cfg.get("auto_on_ready", True):
+                        sms_body = sms_manager.format_sms_message(
+                            sms_cfg.get("template_ready_ru" if lang == "ru" else "template_ready_uz", ""),
+                            {"client": client_name, "order_id": selected_id_str, "items": final_items, "sum": f"{final_sum:,}"}
+                        )
+                        sms_manager.send_sms_notification(client_phone, sms_body, order_id=selected_id_str)
+            except Exception:
+                pass
 
-                    st.success("🎉 Заказ постиран, упакован и переведен в статус 'Готов'!")
-                    st.rerun()
+            st.success(f"✅ Заказ №{selected_id_str} успешно постиран и переведен в статус 'Готов'!")
+            st.rerun()
 
-        else:
-            st.success("🎉 В цеху нет заказов на замер и стирку!")
-
-    with col_list:
-        st.subheader("📋 Очередь заказов цеха")
-        if not wash_df.empty:
-            cols = [c for c in ["ID", "Клиент", "Размеры", "Сумма", "Статус"] if c in wash_df.columns]
-            st.dataframe(wash_df[cols], use_container_width=True, hide_index=True)
-        else:
-            st.info("Очередь цеха пуста")
-
-
-
+        except Exception as err:
+            st.error(f"Ошибка при обновлении заказа: {err}")

@@ -927,11 +927,24 @@ def delete_user(username):
         return False
 
 
+def normalize_id_str(val):
+    try:
+        if pd.isna(val) or val is None:
+            return ""
+        v_str = str(val).strip()
+        if v_str.endswith(".0"):
+            v_str = v_str[:-2]
+        return str(int(float(v_str)))
+    except Exception:
+        return str(val).strip()
+
+
 def update_order_in_sheet(order_id, updates):
     try:
+        target_id = normalize_id_str(order_id)
         current_df = get_clean_orders()
         if not current_df.empty and "ID" in current_df.columns:
-            mask = current_df["ID"].astype(str) == str(order_id)
+            mask = current_df["ID"].apply(normalize_id_str) == target_id
             if mask.any():
                 for col_key, val in updates.items():
                     if isinstance(col_key, str):
@@ -942,19 +955,21 @@ def update_order_in_sheet(order_id, updates):
 
         if use_gsheet and sheet is not None:
             try:
+                cell = None
                 try:
-                    cell = sheet.find(str(order_id), in_column=1)
+                    cell = sheet.find(str(target_id), in_column=1)
                 except Exception:
                     cell = sheet.find(str(order_id))
-                row = cell.row
-                header_row = [str(h).strip() for h in sheet.row_values(1)]
-                
-                for col_key, value in updates.items():
-                    if isinstance(col_key, str) and col_key in header_row:
-                        col_idx = header_row.index(col_key) + 1
-                        sheet.update_cell(row, col_idx, value)
-                    elif isinstance(col_key, int):
-                        sheet.update_cell(row, col_key, value)
+                if cell is not None:
+                    row = cell.row
+                    header_row = [str(h).strip() for h in sheet.row_values(1)]
+                    
+                    for col_key, value in updates.items():
+                        if isinstance(col_key, str) and col_key in header_row:
+                            col_idx = header_row.index(col_key) + 1
+                            sheet.update_cell(row, col_idx, value)
+                        elif isinstance(col_key, int):
+                            sheet.update_cell(row, col_key, value)
             except Exception:
                 pass
         return True
