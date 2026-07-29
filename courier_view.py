@@ -13,28 +13,41 @@ def safe_numeric_val(val):
     except Exception:
         return 0.0
 
+def normalize_id(val):
+    try:
+        if pd.isna(val) or val is None:
+            return ""
+        s = str(val).strip()
+        if s.endswith(".0"):
+            s = s[:-2]
+        return str(int(float(s)))
+    except Exception:
+        return str(val).strip()
+
 def render_gps_button(order_id, lang="ru"):
     """Отображает HTML5 кнопку для захвата реальных GPS координат браузера курьера"""
     btn_text = "📍 Определить GPS координаты" if lang == "ru" else "📍 GPS koordinatalarni aniqlash"
     gps_html = f"""
-    <div style="margin: 6px 0 12px 0; font-family: sans-serif;">
+    <div style="margin: 4px 0 8px 0; font-family: sans-serif;">
         <button onclick="getLocation_{order_id}()" type="button" style="
             background: #2563eb;
             color: white;
             border: none;
-            padding: 8px 14px;
-            border-radius: 6px;
-            font-weight: 600;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: 700;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 14px;
+            width: 100%;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 3px 6px rgba(37,99,235,0.3);
         ">
             {btn_text}
         </button>
-        <span id="gps_status_{order_id}" style="margin-left: 10px; font-size: 12px; color: #1e293b; font-weight: 600;"></span>
+        <span id="gps_status_{order_id}" style="display:block; margin-top: 6px; font-size: 12px; color: #60a5fa; font-weight: 600; text-align:center;"></span>
     </div>
     <script>
     function getLocation_{order_id}() {{
@@ -58,10 +71,10 @@ def render_gps_button(order_id, lang="ru"):
     }}
     </script>
     """
-    components.html(gps_html, height=52)
+    components.html(gps_html, height=65)
 
 def generate_receipt_html(row, lang="ru"):
-    order_id = row.get('ID', '-')
+    order_id = normalize_id(row.get('ID', '-'))
     client = row.get('Клиент', '-')
     phone = row.get('Телефон', '-')
     address = f"{row.get('Район', '')}, {row.get('Адрес', '')}".strip(', ')
@@ -73,7 +86,6 @@ def generate_receipt_html(row, lang="ru"):
 
     receipt_title = "Чек №" if lang == "ru" else "Kvitansiya №"
     client_lbl = "Клиент" if lang == "ru" else "Mijoz"
-    phone_lbl = "Тел" if lang == "ru" else "Tel"
     addr_lbl = "Адрес" if lang == "ru" else "Manzil"
     item_lbl = "Заказ" if lang == "ru" else "Buyurtma"
     ptype_lbl = "Способ оплаты" if lang == "ru" else "To'lov usuli"
@@ -105,7 +117,7 @@ def generate_receipt_html(row, lang="ru"):
 
 def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route_url_func, send_tg_func, active_couriers=None, add_order_func=None, get_next_order_id_func=None):
     """
-    Панель Курьера с поддержкой принятия заказов с улицы (Реклама / Соседи) и двух языков
+    Интерфейс Курьера в стиле crm.navi.uz — удобные мобильные карточки, быстрый звонок и навигатор
     """
     ui_theme.inject_theme()
     lang = st.session_state.get("lang", "ru")
@@ -114,23 +126,20 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
         active_couriers = ["Алишер Каримов", "Бобур Ибрагимов", "Сардор Турсунов", "Firuz", "Nazarov01"]
 
     ui_theme.render_top_header(
-        title=locales.get_text("courier_panel", lang),
-        subtitle=f"{locales.get_text('Courier', lang)}: {courier_name}",
+        title="Панель Курьера",
+        subtitle=f"Курьер: {courier_name}",
         user_name=courier_name,
         user_role="Courier"
     )
 
-    col_flt1, col_flt2 = st.columns([2, 3])
-    with col_flt1:
-        st.markdown(f"👤 **Курьер:** `{courier_name}`")
-    with col_flt2:
-        filter_options = ["📌 Назначенные мне", "🌐 Все свободные заявки"] if lang == "ru" else ["📌 Menga tayinlanganlar", "🌐 Barcha bo'sh arizalar"]
-        view_mode = st.radio(
-            "Фильтр заказов:" if lang == "ru" else "Buyurtmalar filtri:",
-            filter_options,
-            horizontal=True,
-            key=f"cour_view_mode_{courier_name}"
-        )
+    # Переключатель типа просмотра
+    filter_options = ["📌 Назначенные мне", "🌐 Все заказы"] if lang == "ru" else ["📌 Menga tayinlanganlar", "🌐 Barcha arizalar"]
+    view_mode = st.radio(
+        "Фильтр:" if lang == "ru" else "Filtr:",
+        filter_options,
+        horizontal=True,
+        key=f"cour_mode_{courier_name}"
+    )
 
     if "Все" in view_mode or "Barcha" in view_mode:
         my_orders = df
@@ -139,118 +148,91 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
 
     today_cnt = len(my_orders)
     done_cnt = len(my_orders[my_orders["Статус"] == "Выполнен"]) if not my_orders.empty and "Статус" in my_orders.columns else 0
-    remain_cnt = max(0, today_cnt - done_cnt)
+    pickup_cnt = len(my_orders[my_orders["Статус"] == "Ожидает забора"]) if not my_orders.empty and "Статус" in my_orders.columns else 0
+    ready_cnt = len(my_orders[my_orders["Статус"] == "Готов"]) if not my_orders.empty and "Статус" in my_orders.columns else 0
 
     m1, m2, m3 = st.columns(3)
-    m1.metric("🚚 " + locales.get_text("today_orders", lang), today_cnt)
-    m2.metric("✅ " + locales.get_text("completed", lang), done_cnt)
-    m3.metric("⏳ " + locales.get_text("remaining", lang), remain_cnt)
+    m1.metric("📥 Забор", pickup_cnt)
+    m2.metric("📦 Доставка", ready_cnt)
+    m3.metric("✅ Выполнено", done_cnt)
 
     st.divider()
 
-    # 4 ВКЛАДКИ ДЛЯ КУРЬЕРА
-    tab_pickup, tab_add_street, tab_all, tab_delivery = st.tabs([
-        "📥 " + ("Заявки на забор" if lang == "ru" else "Olib ketish arizalari"),
-        "➕ " + ("Принять заказ с улицы (Реклама)" if lang == "ru" else "Ko'chadan buyurtma qabul qilish"),
-        "📋 " + locales.get_text("all_orders", lang),
-        "📦 " + ("Готовые доставки" if lang == "ru" else "Topshirishga tayyor")
+    # Вкладки курьера
+    tab_pickup, tab_delivery, tab_add_street, tab_all = st.tabs([
+        f"📥 Забор ({pickup_cnt})",
+        f"📦 Доставка ({ready_cnt})",
+        "➕ Заказ с улицы",
+        "📋 Все заказы"
     ])
 
-    # ==================== ВКЛАДКА 1: ЗАЯВКИ (ЗАБОР В ЦЕХ) ====================
+    # ==================== ВКЛАДКА 1: ЗАЯВКИ НА ЗАБОР ====================
     with tab_pickup:
-
-        st.subheader("📥 " + ("Заявки на забор ковров от клиентов" if lang == "ru" else "Mijozlardan gilam olib ketish arizalari"))
         pickup_df = my_orders[my_orders["Статус"] == "Ожидает забора"] if not my_orders.empty and "Статус" in my_orders.columns else pd.DataFrame()
 
         if not pickup_df.empty:
             for idx, row in pickup_df.iterrows():
                 o_id = row["ID"]
-                client = row["Клиент"]
-                phone = row["Телефон"]
-                address = row["Адрес"]
+                norm_id = normalize_id(o_id)
+                client = row.get("Клиент", "-")
+                phone = row.get("Телефон", "-")
+                address = row.get("Адрес", "-")
                 district = row.get("Район", "")
-                details = row.get("Размеры", "")
+                details = str(row.get("Размеры", "")).strip()
                 existing_loc = str(row.get("Локация", ""))
+                clean_tel = ''.join(filter(str.isdigit, str(phone)))
 
-                with st.expander(f"📦 Заборка №{o_id} — {client} ({district})", expanded=True):
-                    st.write(f"👤 **{locales.get_text('client', lang)}:** {client} (`{phone}`)")
-                    st.write(f"🗺️ **Район:** {district}")
-                    if details and details != "-":
-                        st.write(f"📝 **Примечание диспетчера:** {details}")
+                # Мобильная карточка заказа (в стиле navi.uz)
+                st.markdown(f"""
+                <div style="background: #111827; border: 1px solid #1f2937; border-radius: 14px; padding: 14px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px dashed #374151; padding-bottom: 8px; margin-bottom: 10px;">
+                        <span style="font-size:18px; font-weight:800; color:#60a5fa;">📦 Заказ #{norm_id}</span>
+                        <span style="background:rgba(245,158,11,0.2); color:#fbbf24; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:700;">🟡 Ожидает забора</span>
+                    </div>
+                    <div style="font-size:15px; font-weight:700; color:#ffffff; margin-bottom:4px;">👤 {client}</div>
+                    <div style="font-size:14px; color:#9ca3af; margin-bottom:4px;">📞 <a href="tel:+{clean_tel}" style="color:#60a5fa; text-decoration:none; font-weight:700;">{phone}</a></div>
+                    <div style="font-size:14px; color:#e2e8f0; margin-bottom:6px;">🏠 <b>{district}</b>, {address}</div>
+                    {f'<div style="font-size:13px; color:#fbbf24; background:#1e1e38; padding:6px 10px; border-radius:8px; margin-bottom:8px;">📝 {details}</div>' if details and details != '-' else ''}
+                </div>
+                """, unsafe_allow_html=True)
 
-                    st.markdown("---")
-                    st.markdown("##### 🏠 1. Точный адрес дома клиента")
-                    cour_exact_address = st.text_input(
-                        "Укажите или уточните точный адрес клиента (улица, дом, квартира):" if lang == "ru" else "Mijozning aniq manzilini kiriting:",
-                        value=address if address else "",
-                        placeholder="Например: ул. Навои 12, дом 4, кв 8",
-                        key=f"cour_addr_{o_id}_{idx}"
-                    )
-
-                    st.markdown("##### 📍 2. Геолокация дома клиента (GPS)")
-                    render_gps_button(o_id, lang=lang)
-                    loc_val = st.text_input(
-                        "Введите GPS координаты (например 39.6542, 66.9750) или вставьте скопированные:" if lang == "ru" else "GPS koordinatalar kiriting:",
-                        value=existing_loc if existing_loc not in ["-", "", "📍 Геолокация не указана"] else "",
-                        placeholder="39.6542, 66.9750",
-                        key=f"cour_loc_input_{o_id}_{idx}"
-                    )
-
-                    st.markdown("##### 🧺 3. Выберите вещи, принимаемые у клиента")
-                    st.caption("Укажите количество принимаемых предметов:" if lang == "ru" else "Qabul qilinayotgan buyumlar sonini ko'rsating:")
+                with st.expander(f"⚙️ Принять забор №{norm_id} (Замер вещи & GPS)", expanded=False):
+                    cour_exact_address = st.text_input("Точный адрес клиента:", value=address if address else "", key=f"addr_pk_{norm_id}_{idx}")
                     
+                    st.caption("📍 Геолокация дома (GPS):")
+                    render_gps_button(f"pk_{norm_id}", lang=lang)
+                    loc_val = st.text_input("GPS координаты:", value=existing_loc if existing_loc not in ["-", ""] else "", key=f"loc_pk_{norm_id}_{idx}")
+
+                    st.caption("🧺 Выберите принимаемые вещи:")
                     ci1, ci2, ci3 = st.columns(3)
-                    cnt_kovr = ci1.number_input("🧼 Ковры (шт):" if lang == "ru" else "🧼 Gilamlar (dona):", min_value=0, value=1, step=1, key=f"cnt_k_{o_id}_{idx}")
-                    cnt_kurp = ci2.number_input("🛋️ Курпачи (шт):" if lang == "ru" else "🛋️ Ko'rpa (dona):", min_value=0, value=0, step=1, key=f"cnt_kp_{o_id}_{idx}")
-                    cnt_zan = ci3.number_input("🪟 Занавески (шт):" if lang == "ru" else "🪟 Pardalar (dona):", min_value=0, value=0, step=1, key=f"cnt_z_{o_id}_{idx}")
+                    cnt_kovr = ci1.number_input("🧼 Ковры:", min_value=0, value=1, step=1, key=f"k_{norm_id}_{idx}")
+                    cnt_kurp = ci2.number_input("🛋️ Курпачи:", min_value=0, value=0, step=1, key=f"kp_{norm_id}_{idx}")
+                    cnt_zan = ci3.number_input("🪟 Занавески:", min_value=0, value=0, step=1, key=f"z_{norm_id}_{idx}")
 
-                    ci4, ci5, ci6 = st.columns(3)
-                    cnt_od = ci4.number_input("🛏️ Одеяла (шт):" if lang == "ru" else "🛏️ Adyollar (dona):", min_value=0, value=0, step=1, key=f"cnt_o_{o_id}_{idx}")
-                    cnt_pokr = ci5.number_input("🛌 Покрывала (шт):" if lang == "ru" else "🛌 Yopinchiq (dona):", min_value=0, value=0, step=1, key=f"cnt_pk_{o_id}_{idx}")
-                    cnt_pod = ci6.number_input("🛋️ Подушки (шт):" if lang == "ru" else "🛋️ Yostiqlar (dona):", min_value=0, value=0, step=1, key=f"cnt_pd_{o_id}_{idx}")
+                    extra_note = st.text_input("Примечание / редкие изделия:", key=f"ex_{norm_id}_{idx}")
 
-                    extra_items_note = st.text_input(
-                        "Дополнительные заметки к вещам / редкие изделия:" if lang == "ru" else "Qo'shimcha izoh / boshqa buyumlar:",
-                        placeholder="Например: 1 большой плед, пятно на ковре",
-                        key=f"extra_note_{o_id}_{idx}"
-                    )
-
-                    c_nav1, c_nav2 = st.columns(2)
-                    clean_tel = ''.join(filter(str.isdigit, str(phone)))
-                    c_nav1.link_button(locales.get_text("call_client", lang), f"tel:+{clean_tel}", use_container_width=True)
-
-                    res_pk = get_yandex_route_url_func(district, cour_exact_address if cour_exact_address else address, loc_val if loc_val else existing_loc)
-                    if len(res_pk) == 3:
-                        r_url_pk, is_exact_pk, deeplink_pk = res_pk
-                    else:
-                        r_url_pk, is_exact_pk = res_pk[0], res_pk[1]
-                        deeplink_pk = r_url_pk
+                    # Быстрый навигатор в Яндекс
+                    res_tuple = get_yandex_route_url_func(district, cour_exact_address, loc_val if loc_val else existing_loc)
+                    r_url_pk = res_tuple[0] if isinstance(res_tuple, (tuple, list)) else res_tuple
 
                     st.markdown(f"""
-                    <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px; margin: 8px 0; text-align: center;">
-                        <a href="{deeplink_pk}" style="background: #dc2626; color: white; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block; box-shadow: 0 3px 6px rgba(220,38,38,0.25);">
-                            🧭 Яндекс.Навигатор к клиенту (Поехали 🚗)
+                    <div style="margin: 8px 0;">
+                        <a href="{r_url_pk}" target="_blank" style="background:#dc2626; color:white; padding:10px; border-radius:8px; text-decoration:none; font-weight:700; display:block; text-align:center;">
+                            🧭 Яндекс.Навигатор к клиенту 🚗
                         </a>
                     </div>
                     """, unsafe_allow_html=True)
 
-                    st.markdown("---")
-                    btn_pickup_label = "🚚 Принять заказ и отправить в цех" if lang == "ru" else "🚚 Buyurtmani qabul qilib sexga yuborish"
-                    if st.button(btn_pickup_label, type="primary", key=f"cour_pickup_{o_id}_{idx}", use_container_width=True):
-                        final_addr = cour_exact_address.strip() if cour_exact_address.strip() else address
-                        final_loc = loc_val.strip() if loc_val.strip() else f"🗺️ Ориентир: {district}"
-                        
-                        # Формируем читаемый список принятых вещей
+                    if st.button("🚚 ПРИНЯТЬ И ОТПРАВИТЬ В ЦЕХ", type="primary", use_container_width=True, key=f"pickup_btn_{norm_id}_{idx}"):
                         items_parts = []
                         if cnt_kovr > 0: items_parts.append(f"Ковёр: {cnt_kovr} шт")
                         if cnt_kurp > 0: items_parts.append(f"Курпача: {cnt_kurp} шт")
                         if cnt_zan > 0: items_parts.append(f"Занавески: {cnt_zan} шт")
-                        if cnt_od > 0: items_parts.append(f"Одеяло: {cnt_od} шт")
-                        if cnt_pokr > 0: items_parts.append(f"Покрывало: {cnt_pokr} шт")
-                        if cnt_pod > 0: items_parts.append(f"Подушка: {cnt_pod} шт")
-                        if extra_items_note.strip(): items_parts.append(f"Заметка: {extra_items_note.strip()}")
-
+                        if extra_note.strip(): items_parts.append(f"Заметка: {extra_note.strip()}")
                         items_summary = ", ".join(items_parts) if items_parts else "Приняты вещи"
+
+                        final_loc = loc_val.strip() if loc_val.strip() else f"🗺️ Район: {district}"
+                        final_addr = cour_exact_address.strip() if cour_exact_address.strip() else address
 
                         update_order_func(o_id, {
                             "Статус": "В цеху",
@@ -258,63 +240,134 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                             "Локация": final_loc,
                             "Размеры": items_summary
                         })
-                        
-                        send_tg_func(
-                            f"🚚 <b>Заказ №{o_id} принят курьером {courier_name} и доставлен в цех!</b>\n"
-                            f"👤 <b>Клиент:</b> {client} ({phone})\n"
-                            f"🏠 <b>Точный адрес:</b> {district}, {final_addr}\n"
-                            f"📍 <b>GPS Геолокация:</b> {final_loc}\n"
-                            f"🧺 <b>Принятые вещи:</b> {items_summary}"
-                        )
-                        st.success(f"Заказ №{o_id} принят, адрес и геолокация сохранены, статус переведен в 'В цеху'!")
+
+                        try:
+                            send_tg_func(
+                                f"🚚 <b>Заказ №{norm_id} принят курьером {courier_name} и отправлен в цех!</b>\n"
+                                f"👤 <b>Клиент:</b> {client} ({phone})\n"
+                                f"🏠 <b>Адрес:</b> {district}, {final_addr}\n"
+                                f"🧺 <b>Принято:</b> {items_summary}"
+                            )
+                        except Exception:
+                            pass
+
+                        st.success(f"✅ Заказ №{norm_id} принят и отправлен в цех!")
                         st.rerun()
         else:
-            if "Назначенные" in view_mode or "Menga" in view_mode:
-                st.info("ℹ️ " + ("У вас пока нет персонально назначенных заявок. Выберите выше переключатель '🌐 Все свободные заявки', чтобы увидеть все невыполненные заказы!" if lang == "ru" else "Sizga shaxsan tayinlangan arizalar yo'q. Tepadagi '🌐 Barcha bo'sh arizalar' tugmasini bosing!"))
-            else:
-                st.info("🎉 " + ("Все заявки на забор ковров обработаны!" if lang == "ru" else "Barcha olib ketish arizalari bajarildi!"))
+            st.info("🎉 Нет заказов, ожидающих забора.")
 
-    # ==================== ВКЛАДКА: ПРИЕМ ЗАКАЗА С УЛИЦЫ (РЕКЛАМА / СОСЕДИ) ====================
+    # ==================== ВКЛАДКА 2: ГОТОВЫЕ ДОСТАВКИ ====================
+    with tab_delivery:
+        delivery_df = my_orders[my_orders["Статус"] == "Готов"] if not my_orders.empty and "Статус" in my_orders.columns else pd.DataFrame()
+
+        if not delivery_df.empty:
+            for idx, row in delivery_df.iterrows():
+                o_id = row["ID"]
+                norm_id = normalize_id(o_id)
+                client = row.get("Клиент", "-")
+                phone = row.get("Телефон", "-")
+                address = row.get("Адрес", "-")
+                district = row.get("Район", "")
+                items = str(row.get("Размеры", "-"))
+                loc_saved = str(row.get("Локация", ""))
+                order_sum = int(safe_numeric_val(row.get("Сумма", 0)))
+                clean_tel = ''.join(filter(str.isdigit, str(phone)))
+
+                # Мобильная карточка доставки (crm.navi.uz style)
+                st.markdown(f"""
+                <div style="background: #111827; border: 1.5px solid #10b981; border-radius: 14px; padding: 14px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(16,185,129,0.15);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px dashed #374151; padding-bottom: 8px; margin-bottom: 10px;">
+                        <span style="font-size:18px; font-weight:800; color:#34d399;">🚚 Доставка #{norm_id}</span>
+                        <span style="background:rgba(16,185,129,0.2); color:#34d399; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:700;">🟢 Готов к выдаче</span>
+                    </div>
+                    <div style="font-size:15px; font-weight:700; color:#ffffff; margin-bottom:4px;">👤 {client}</div>
+                    <div style="font-size:14px; color:#9ca3af; margin-bottom:4px;">📞 <a href="tel:+{clean_tel}" style="color:#60a5fa; text-decoration:none; font-weight:700;">{phone}</a></div>
+                    <div style="font-size:14px; color:#e2e8f0; margin-bottom:6px;">🏠 <b>{district}</b>, {address}</div>
+                    <div style="font-size:13px; color:#cbd5e1; background:#1e1e38; padding:6px 10px; border-radius:8px; margin-bottom:8px;">🧺 {items}</div>
+                    <div style="font-size:16px; font-weight:800; color:#34d399; text-align:right;">💰 К оплате: {order_sum:,} сум</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                res_tuple = get_yandex_route_url_func(district, address, loc_saved)
+                r_url_deliv = res_tuple[0] if isinstance(res_tuple, (tuple, list)) else res_tuple
+
+                c_call, c_nav = st.columns(2)
+                c_call.link_button("📞 Позвонить", f"tel:+{clean_tel}", use_container_width=True)
+                c_nav.link_button("🧭 Навигатор (GPS)", r_url_deliv, use_container_width=True)
+
+                with st.expander(f"💵 Завершить доставку и принять оплату №{norm_id}", expanded=False):
+                    p_type = st.radio("Способ оплаты:", ["Наличные", "Карта (Click/Payme)"], horizontal=True, key=f"pt_{norm_id}_{idx}")
+                    p_paid = st.number_input("Оплачено (сум):", min_value=0, value=order_sum, step=1000, key=f"pp_{norm_id}_{idx}")
+                    d_reason = ""
+                    if p_paid < order_sum:
+                        d_reason = st.text_input("Причина недоплаты / Скидка:", key=f"dr_{norm_id}_{idx}")
+
+                    if st.button("✅ ВЫДАТЬ И ЗАКРЫТЬ ЗАКАЗ", type="primary", use_container_width=True, key=f"fin_deliv_{norm_id}_{idx}"):
+                        if p_paid < order_sum and not d_reason.strip():
+                            st.error("Укажите причину недоплаты!")
+                        else:
+                            update_order_func(o_id, {
+                                "Статус": "Выполнен",
+                                "Оплачено": int(p_paid),
+                                "Тип оплаты": p_type,
+                                "Причина": d_reason if d_reason.strip() else "Оплачено полностью"
+                            })
+
+                            try:
+                                send_tg_func(f"✅ <b>Заказ №{norm_id} выдан клиенту!</b> Курьер: {courier_name}. Оплачено: {p_paid:,} сум.")
+                            except Exception:
+                                pass
+
+                            try:
+                                sms_cfg = sms_manager.get_sms_config()
+                                if sms_cfg.get("enabled", True) and sms_cfg.get("auto_on_completed", True):
+                                    sms_body = sms_manager.format_sms_message(sms_cfg.get("template_completed_ru", ""), {"client": client, "order_id": norm_id, "sum": f"{p_paid:,}"})
+                                    sms_manager.send_sms_notification(phone, sms_body, order_id=norm_id)
+                            except Exception:
+                                pass
+
+                            r_html = generate_receipt_html(row, lang=lang)
+                            st.download_button(
+                                label=f"🧾 Скачать Чек №{norm_id} (HTML)",
+                                data=r_html,
+                                file_name=f"receipt_{norm_id}.html",
+                                mime="text/html",
+                                key=f"dl_rec_{norm_id}_{idx}",
+                                use_container_width=True
+                            )
+                            st.success(f"✅ Заказ №{norm_id} успешно выдан и закрыт!")
+                            st.rerun()
+        else:
+            st.info("🎉 Нет готовых заказов на доставку.")
+
+    # ==================== ВКЛАДКА 3: ЗАКАЗ С УЛИЦЫ ====================
     with tab_add_street:
-        st.subheader("➕ " + ("Оформить новый заказ с улицы (Реклама / Соседи)" if lang == "ru" else "Ko'chadan yangi buyurtma qabul qilish"))
-        st.info("ℹ️ " + ("Заполните эту форму, если во время выезда к вам обратился новый клиент с улицы (увидел машину/рекламу)." if lang == "ru" else "Mijoz ko'chadan murojaat qilsa ushbu shaklni to'ldiring."))
-        
-        with st.form(key=f"courier_add_street_form_{courier_name}"):
-            st.write(f"🚗 **Принимает курьер:** `{courier_name}`")
-            
-            c_cl1, c_cl2 = st.columns(2)
-            street_client = c_cl1.text_input("Имя клиента *" if lang == "ru" else "Mijoz ismi *", placeholder="Алишер (сосед)", key=f"st_cl_{courier_name}")
-            street_tel = c_cl2.text_input("Телефон (9 цифр) *" if lang == "ru" else "Telefon (9 raqam) *", placeholder="901234567", max_chars=9, key=f"st_phone_{courier_name}")
-            
-            c_adr1, c_adr2 = st.columns(2)
-            street_district = c_adr1.selectbox("Район клиента *" if lang == "ru" else "Tuman *", ["Сиёб (Siyob)", "Багишамальский", "Согдиана", "Микрорайон", "Саттепо", "Железнодорожный", "Самаркандский р-н"], key=f"st_distr_{courier_name}")
-            street_address = c_adr2.text_input("Точный адрес *" if lang == "ru" else "Aniq manzil *", placeholder="ул. Навои 14, дом 2, кв 5", key=f"st_addr_{courier_name}")
-            
-            st.markdown("##### 📍 GPS координаты клиента")
+        st.subheader("➕ Оформить заказ с улицы (Реклама / Соседи)")
+        with st.form(key=f"cour_street_form_{courier_name}"):
+            c1, c2 = st.columns(2)
+            street_client = c1.text_input("Имя клиента *", placeholder="Иван")
+            street_tel = c2.text_input("Телефон (9 цифр) *", placeholder="901234567", max_chars=9)
+
+            c3, c4 = st.columns(2)
+            street_district = c3.selectbox("Район *", ["Сиёб (Siyob)", "Багишамальский", "Согдиана", "Микрорайон", "Саттепо", "Железнодорожный", "Самаркандский р-н"])
+            street_address = c4.text_input("Точный адрес *", placeholder="ул. Навои 14")
+
             render_gps_button(f"street_{courier_name}", lang=lang)
-            street_loc = st.text_input("GPS Координаты (например 39.6542, 66.9750):" if lang == "ru" else "GPS Koordinatalar:", placeholder="39.6542, 66.9750", key=f"cour_street_gps_{courier_name}")
-            
-            st.markdown("##### 🧺 Забираемые вещи")
+            street_loc = st.text_input("GPS Координаты:", placeholder="39.6542, 66.9750")
+
             ci1, ci2, ci3 = st.columns(3)
-            cnt_k = ci1.number_input("🧼 Ковры (шт):" if lang == "ru" else "🧼 Gilamlar (dona):", min_value=0, value=1, step=1, key=f"st_cnt_k_{courier_name}")
-            cnt_kp = ci2.number_input("🛋️ Курпачи (шт):" if lang == "ru" else "🛋️ Ko'rpa (dona):", min_value=0, value=0, step=1, key=f"st_cnt_kp_{courier_name}")
-            cnt_z = ci3.number_input("🪟 Занавески (шт):" if lang == "ru" else "🪟 Pardalar (dona):", min_value=0, value=0, step=1, key=f"st_cnt_z_{courier_name}")
+            cnt_k = ci1.number_input("🧼 Ковры:", min_value=0, value=1, step=1)
+            cnt_kp = ci2.number_input("🛋️ Курпачи:", min_value=0, value=0, step=1)
+            cnt_z = ci3.number_input("🪟 Занавески:", min_value=0, value=0, step=1)
 
-            ci4, ci5, ci6 = st.columns(3)
-            cnt_o = ci4.number_input("🛏️ Одеяла (шт):" if lang == "ru" else "🛏️ Adyollar (dona):", min_value=0, value=0, step=1, key=f"st_cnt_o_{courier_name}")
-            cnt_pk = ci5.number_input("🛌 Покрывала (шт):" if lang == "ru" else "🛌 Yopinchiq (dona):", min_value=0, value=0, step=1, key=f"st_cnt_pk_{courier_name}")
-            cnt_pd = ci6.number_input("🛋️ Подушки (шт):" if lang == "ru" else "🛋️ Yostiqlar (dona):", min_value=0, value=0, step=1, key=f"st_cnt_pd_{courier_name}")
+            street_extra = st.text_input("Примечание:")
 
-            street_extra = st.text_input("Примечание / Доп. изделия:" if lang == "ru" else "Qo'shimcha izoh:", placeholder="Например: Заказ с рекламы на машине", key=f"st_extra_{courier_name}")
-
-            street_submit = st.form_submit_button("🚚 Принять заказ и отправить в цех", type="primary", use_container_width=True)
-
-            if street_submit:
+            if st.form_submit_button("🚚 Принять заказ и отправить в цех", type="primary", use_container_width=True):
                 clean_tel = ''.join(filter(str.isdigit, street_tel))
                 if not street_client or not clean_tel or not street_address:
-                    st.error("Заполните имя клиента, телефон и адрес!" if lang == "ru" else "Mijoz ismi, telefon va manzilni kiriting!")
+                    st.error("Заполните все обязательные поля!")
                 elif len(clean_tel) != 9:
-                    st.error("Номер телефона должен содержать 9 цифр!" if lang == "ru" else "Telefon 9 raqam bo'lishi kerak!")
+                    st.error("Номер телефона должен состоять из 9 цифр!")
                 else:
                     full_phone = f"+998 {clean_tel[:2]} {clean_tel[2:5]} {clean_tel[5:7]} {clean_tel[7:]}"
                     new_id = get_next_order_id_func(df) if get_next_order_id_func else 5218
@@ -323,13 +376,8 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                     if cnt_k > 0: items_parts.append(f"Ковёр: {cnt_k} шт")
                     if cnt_kp > 0: items_parts.append(f"Курпача: {cnt_kp} шт")
                     if cnt_z > 0: items_parts.append(f"Занавески: {cnt_z} шт")
-                    if cnt_o > 0: items_parts.append(f"Одеяло: {cnt_o} шт")
-                    if cnt_pk > 0: items_parts.append(f"Покрывало: {cnt_pk} шт")
-                    if cnt_pd > 0: items_parts.append(f"Подушка: {cnt_pd} шт")
                     if street_extra.strip(): items_parts.append(f"Заметка: {street_extra.strip()}")
-
                     items_summary = ", ".join(items_parts) if items_parts else "Приняты вещи с улицы"
-                    final_loc = street_loc.strip() if street_loc.strip() else f"🗺️ Ориентир: {street_district}"
 
                     order_payload = {
                         "ID": new_id,
@@ -339,10 +387,10 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                         "Размеры": items_summary,
                         "Статус": "В цеху",
                         "Курьер": courier_name,
-                        "Диспетчер": f"Курьер {courier_name} (Реклама)",
+                        "Диспетчер": f"Курьер {courier_name}",
                         "Район": street_district,
-                        "Язык": "Русский язык" if lang == "ru" else "O'zbek tili",
-                        "Локация": final_loc,
+                        "Язык": "Русский язык",
+                        "Локация": street_loc.strip() if street_loc.strip() else f"🗺️ {street_district}",
                         "Оплачено": 0,
                         "Тип оплаты": "-",
                         "Причина": "-"
@@ -351,135 +399,18 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                     if add_order_func:
                         add_order_func(order_payload)
 
-                    tg_msg = (
-                        f"🚚 <b>НОВЫЙ ЗАКАЗ С УЛИЦЫ (РЕКЛАМА) №{new_id}!</b>\n"
-                        f"🚗 <b>Принял курьер:</b> {courier_name}\n"
-                        f"👤 <b>Клиент:</b> {street_client} ({full_phone})\n"
-                        f"🏠 <b>Адрес:</b> {street_district}, {street_address}\n"
-                        f"📍 <b>GPS:</b> {final_loc}\n"
-                        f"🧺 <b>Принятые вещи:</b> {items_summary}"
-                    )
-                    send_tg_func(tg_msg)
+                    try:
+                        send_tg_func(f"🚚 <b>НОВЫЙ ЗАКАЗ С УЛИЦЫ №{new_id}!</b>\nКурьер: {courier_name}\nКлиент: {street_client} ({full_phone})\nАдрес: {street_district}, {street_address}")
+                    except Exception:
+                        pass
 
-                    sms_cfg = sms_manager.get_sms_config()
-                    if sms_cfg.get("enabled", True) and sms_cfg.get("auto_on_create", True):
-                        sms_body = sms_manager.format_sms_message(sms_cfg.get("template_create_ru" if lang == "ru" else "template_create_uz", ""), {"client": street_client, "order_id": new_id, "courier": courier_name, "sum": 0, "items": items_summary})
-                        sms_manager.send_sms_notification(full_phone, sms_body, order_id=new_id)
-
-                    st.success(f"🎉 Заказ №{new_id} от клиента {street_client} принят с улицы и отправлен в цех!")
+                    st.success(f"🎉 Заказ №{new_id} принят и отправлен в цех!")
                     st.rerun()
 
-    # ==================== ВКЛАДКА 2: ВСЕ ЗАКАЗЫ ====================
+    # ==================== ВКЛАДКА 4: ВСЕ ЗАКАЗЫ ====================
     with tab_all:
-        st.subheader("📋 " + locales.get_text("all_orders", lang))
         if not my_orders.empty:
-            cols = [c for c in ["ID", "Клиент", "Телефон", "Адрес", "Статус", "Сумма", "Локация"] if c in my_orders.columns]
+            cols = [c for c in ["ID", "Клиент", "Телефон", "Адрес", "Статус", "Сумма"] if c in my_orders.columns]
             st.dataframe(my_orders[cols], use_container_width=True, hide_index=True)
         else:
-            st.info("У вас нет сохраненных заказов." if lang == "ru" else "Sizda saqlangan buyurtmalar yo'q.")
-
-    # ==================== ВКЛАДКА 3: ГОТОВЫЕ ДОСТАВКИ ====================
-    with tab_delivery:
-        st.subheader("📦 " + ("Готовые ковры к доставке клиенту" if lang == "ru" else "Topshirishga tayyor gilamlar"))
-        delivery_df = my_orders[my_orders["Статус"] == "Готов"] if not my_orders.empty and "Статус" in my_orders.columns else pd.DataFrame()
-
-        if not delivery_df.empty:
-            for idx, row in delivery_df.iterrows():
-                o_id = row["ID"]
-                client = row["Клиент"]
-                phone = row["Телефон"]
-                address = row["Адрес"]
-                district = row.get("Район", "")
-                items = row.get("Размеры", "-")
-                loc_saved = str(row.get("Локация", ""))
-                order_sum = safe_numeric_val(row.get("Сумма", 0))
-
-                with st.expander(f"🚚 Доставка №{o_id} — {client} | {int(order_sum):,} сум", expanded=True):
-                    st.write(f"👤 **{locales.get_text('client', lang)}:** {client} (`{phone}`)")
-                    st.write(f"🏠 **{locales.get_text('address', lang)}:** {district}, {address}")
-                    st.write(f"📍 **Сохраненная локация клиента:** `{loc_saved}`")
-                    st.write(f"🧺 **Замеренные ковры:** {items}")
-                    st.write(f"💰 **Итоговая сумма к оплате:** **{int(order_sum):,} сум**")
-
-                    c1, c2, c3 = st.columns(3)
-                    clean_tel = ''.join(filter(str.isdigit, str(phone)))
-                    c1.link_button(locales.get_text("call_client", lang), f"tel:+{clean_tel}", use_container_width=True)
-
-                    # Автоматическое построение маршрута по ТОЧНОЙ геолокации/адресу курьера
-                    res_tuple = get_yandex_route_url_func(district, address, loc_saved)
-                    if len(res_tuple) == 3:
-                        r_url, is_exact_gps, navi_deeplink = res_tuple
-                    else:
-                        r_url, is_exact_gps = res_tuple[0], res_tuple[1]
-                        navi_deeplink = r_url
-
-                    st.markdown(f"""
-                    <div style="background: {'#f0fdf4' if is_exact_gps else '#fffbeb'}; border: 2px solid {'#22c55e' if is_exact_gps else '#f59e0b'}; border-radius: 12px; padding: 12px 16px; margin: 12px 0; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-                        <div style="font-size: 14px; font-weight: 700; color: {'#15803d' if is_exact_gps else '#b45309'}; margin-bottom: 8px;">
-                            {'🟢 ТОЧНАЯ ГЕОЛОКАЦИЯ КЛИЕНТА (Снята при заборе)' if is_exact_gps else '📍 Навигация по адресу клиента'}
-                        </div>
-                        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                            <a href="{navi_deeplink}" style="background: #dc2626; color: white; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; display: inline-block; box-shadow: 0 4px 8px rgba(220, 38, 38, 0.3);">
-                                🧭 Открыть в Яндекс.Навигаторе (Поехали 🚗)
-                            </a>
-                            <a href="{r_url}" target="_blank" style="background: #0284c7; color: white; padding: 12px 18px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">
-                                🗺️ Яндекс.Карты (Веб)
-                            </a>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    # Передача другому курьеру
-                    with c3:
-                        popover_label = "⇄ Передать курьеру" if lang == "ru" else "⇄ Kuryerga topshirish"
-                        with st.popover(popover_label):
-                            other_couriers = [c for c in active_couriers if c != courier_name]
-                            if not other_couriers:
-                                other_couriers = [c for c in active_couriers]
-                            target_courier = st.selectbox("Выберите курьера:" if lang == "ru" else "Kuryerni tanlang:", other_couriers, key=f"tr_cour_{o_id}_{idx}")
-                            if st.button("Подтвердить передачу ⇄" if lang == "ru" else "Topshirishni tasdiqlash ⇄", key=f"tr_btn_{o_id}_{idx}"):
-                                update_order_func(o_id, {"Курьер": target_courier})
-                                send_tg_func(f"⇄ <b>Заказ №{o_id} передан!</b> Курьер {courier_name} передал заказ курьеру {target_courier}.")
-                                st.success(f"Заказ передан курьеру {target_courier}!")
-                                st.rerun()
-
-                    st.divider()
-                    st.markdown("##### 💵 " + ("Завершение доставки и расчет:" if lang == "ru" else "Yetkazishni yakunlash va hisob-kitob:"))
-                    p_type = st.radio("Способ оплаты:" if lang == "ru" else "To'lov usuli:", ["Наличные", "Карта (Click/Payme)"] if lang == "ru" else ["Naqd", "Karta"], horizontal=True, key=f"ptype_{o_id}_{idx}")
-                    p_paid = st.number_input("Фактически получено (сум):" if lang == "ru" else "Haqiqatda olindi (so'm):", min_value=0, value=int(order_sum), step=1000, key=f"ppaid_{o_id}_{idx}")
-                    d_reason = ""
-                    if p_paid < order_sum:
-                        d_reason = st.text_input("Причина недоплаты / Скидка:" if lang == "ru" else "Kam to'lov sababi / Chegirma:", key=f"dreason_{o_id}_{idx}")
-
-                    # При завершении доставки выдаче клиенту статус автоматически становится 'Выполнен'
-                    if st.button("✅ " + ("Завершить доставку (Авто-статус -> Выполнен)" if lang == "ru" else "Tugatish (Bajarildi)"), type="primary", key=f"finish_deliv_{o_id}_{idx}", use_container_width=True):
-                        if p_paid < order_sum and not d_reason.strip():
-                            st.error("Укажите причину недоплаты!" if lang == "ru" else "Kam to'lov sababini ko'rsating!")
-                        else:
-                            update_order_func(o_id, {
-                                "Статус": "Выполнен",
-                                "Оплачено": int(p_paid),
-                                "Тип оплаты": p_type,
-                                "Причина": d_reason if d_reason.strip() else "Оплачено полностью"
-                            })
-                            send_tg_func(f"✅ <b>Заказ №{o_id} доставлен клиенту!</b> Курьер: {courier_name}. Оплачено: {p_paid:,} сум. Статус изменился на: Выполнен.")
-
-                            sms_cfg = sms_manager.get_sms_config()
-                            if sms_cfg.get("enabled", True) and sms_cfg.get("auto_on_completed", True):
-                                sms_body = sms_manager.format_sms_message(sms_cfg.get("template_completed_ru" if lang == "ru" else "template_completed_uz", ""), {"client": client, "order_id": o_id, "sum": f"{p_paid:,}"})
-                                sms_manager.send_sms_notification(phone, sms_body, order_id=o_id)
-
-                            r_html = generate_receipt_html(row, lang=lang)
-                            st.download_button(
-                                label=f"🧾 Скачать Чек №{o_id} (HTML)" if lang == "ru" else f"🧾 Kvitansiyani yuklab olish №{o_id} (HTML)",
-                                data=r_html,
-                                file_name=f"receipt_{o_id}.html",
-                                mime="text/html",
-                                key=f"receipt_dl_{o_id}_{idx}",
-                                use_container_width=True
-                            )
-                            st.success("Заказ успешно выдан клиенту! Программа автоматически изменила статус на 'Выполнен'." if lang == "ru" else "Buyurtma yopildi (Bajarildi)!")
-                            st.rerun()
-        else:
-            st.info("🎉 " + ("Нет готовых ковров на доставку." if lang == "ru" else "Topshirishga tayyor gilamlar yo'q."))
-
+            st.info("Нет заказов.")
