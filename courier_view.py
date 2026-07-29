@@ -317,7 +317,7 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                     st.error("Номер телефона должен содержать 9 цифр!" if lang == "ru" else "Telefon 9 raqam bo'lishi kerak!")
                 else:
                     full_phone = f"+998 {clean_tel[:2]} {clean_tel[2:5]} {clean_tel[5:7]} {clean_tel[7:]}"
-                    new_id = get_next_order_id_func(df) if get_next_order_id_func else 5200
+                    new_id = get_next_order_id_func(df) if get_next_order_id_func else 5218
                     
                     items_parts = []
                     if cnt_k > 0: items_parts.append(f"Ковёр: {cnt_k} шт")

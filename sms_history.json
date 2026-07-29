@@ -1,0 +1,50 @@
+[
+  {
+    "timestamp": "29.07.2026 09:39:08",
+    "order_id": "5218",
+    "phone": "998121212121",
+    "message": "Уважаемый(ая) ывывыв, ваш заказ №5218 принят. Курьер: akobir. Cosmo Cleaning Service.",
+    "provider": "Simulation Mode",
+    "status": "Успешно (Тест)"
+  },
+  {
+    "timestamp": "29.07.2026 09:26:07",
+    "order_id": "5217",
+    "phone": "998333333333",
+    "message": "Уважаемый(ая) GEDFGDF, ваш заказ №5217 принят. Курьер: akobir. Cosmo Cleaning Service.",
+    "provider": "Simulation Mode",
+    "status": "Успешно (Тест)"
+  },
+  {
+    "timestamp": "29.07.2026 09:14:46",
+    "order_id": "5216",
+    "phone": "998121212155",
+    "message": "Уважаемый(ая) aaaaaa, ваш заказ №5216 принят. Курьер: akobir. Cosmo Cleaning Service.",
+    "provider": "Simulation Mode",
+    "status": "Успешно (Тест)"
+  },
+  {
+    "timestamp": "28.07.2026 23:21:46",
+    "order_id": "5208",
+    "phone": "998132132132",
+    "message": "Уважаемый(ая) фывфыв, ваш заказ №5208 принят. Курьер: Алишер Каримов. Cosmo Cleaning Service.",
+    "provider": "Simulation Mode",
+    "status": "Успешно (Тест)"
+  },
+  {
+    "timestamp": "28.07.2026 23:13:30",
+    "order_id": "5207",
+    "phone": "998111111111",
+    "message": "Уважаемый(ая) dsfsdf, ваш заказ №5207 принят. Курьер: Алишер Каримов. Cosmo Cleaning Service.",
+    "provider": "Simulation Mode",
+    "status": "Успешно (Тест)"
+  },
+  {
+    "timestamp": "28.07.2026 23:13:27",
+    "order_id": "5206",
+    "phone": "998111111111",
+    "message": "Уважаемый(ая) dsfsdf, ваш заказ №5206 принят. Курьер: Алишер Каримов. Cosmo Cleaning Service.",
+    "provider": "Simulation Mode",
+    "status": "Успешно (Тест)"
+  }
+]

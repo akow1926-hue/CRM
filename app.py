@@ -302,16 +302,19 @@ EXPECTED_HEADERS = [
 
 def get_next_order_id(df):
     try:
-        numeric_ids = pd.to_numeric(df["ID"], errors='coerce').dropna()
-        if not numeric_ids.empty:
-            return int(numeric_ids.max()) + 1
-        return 5200
-    except:
-        return 5200
+        if df is not None and not df.empty and "ID" in df.columns:
+            numeric_ids = pd.to_numeric(df["ID"], errors='coerce').dropna()
+            valid_ids = numeric_ids[numeric_ids < 50000]
+            if not valid_ids.empty:
+                next_id = int(valid_ids.max()) + 1
+                return max(5218, next_id)
+        return 5218
+    except Exception:
+        return 5218
 
 
+# Добавьте эту строку, если её нет:
 GSHEET_CONFIG_FILE = "gsheet_config.json"
-
 
 def get_gsheet_config():
     if os.path.exists(GSHEET_CONFIG_FILE):
@@ -321,7 +324,6 @@ def get_gsheet_config():
         except Exception:
             pass
     return {"gsheet_url": ""}
-
 
 def save_gsheet_config(url):
     try:
