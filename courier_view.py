@@ -1,6 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
+import textwrap
 import ui_theme
 import locales
 import sms_manager
@@ -27,50 +28,33 @@ def normalize_id(val):
 def render_gps_button(order_id, lang="ru"):
     """Отображает HTML5 кнопку для захвата реальных GPS координат браузера курьера"""
     btn_text = "📍 Определить GPS" if lang == "ru" else "📍 GPS аniqlash"
-    gps_html = f"""
-    <div style="margin: 4px 0 8px 0; font-family: sans-serif;">
-        <button onclick="getLocation_{order_id}()" type="button" style="
-            background: #2563eb;
-            color: white;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 8px;
-            font-weight: 700;
-            cursor: pointer;
-            font-size: 13px;
-            width: 100%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            box-shadow: 0 3px 6px rgba(37,99,235,0.3);
-        ">
-            {btn_text}
-        </button>
-        <span id="gps_status_{order_id}" style="display:block; margin-top: 4px; font-size: 11px; color: #60a5fa; font-weight: 600; text-align:center;"></span>
-    </div>
-    <script>
-    function getLocation_{order_id}() {{
-        var status = document.getElementById('gps_status_{order_id}');
-        if (navigator.geolocation) {{
-            status.innerText = "⏳ Определение координат...";
-            navigator.geolocation.getCurrentPosition(function(position) {{
-                var lat = position.coords.latitude.toFixed(6);
-                var lng = position.coords.longitude.toFixed(6);
-                var coordsStr = lat + ", " + lng;
-                status.innerText = "✅ GPS: " + coordsStr + " (скопировано!)";
-                if (navigator.clipboard) {{
-                    navigator.clipboard.writeText(coordsStr);
-                }}
-            }}, function(error) {{
-                status.innerText = "❌ Ошибка GPS: " + error.message;
-            }}, {{ enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }});
-        }} else {{
-            status.innerText = "❌ Геолокация не поддерживается браузером.";
-        }}
+    gps_html = f"""<div style="margin: 4px 0 8px 0; font-family: sans-serif;">
+<button onclick="getLocation_{order_id}()" type="button" style="background: #2563eb; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 3px 6px rgba(37,99,235,0.3);">
+{btn_text}
+</button>
+<span id="gps_status_{order_id}" style="display:block; margin-top: 4px; font-size: 11px; color: #60a5fa; font-weight: 600; text-align:center;"></span>
+</div>
+<script>
+function getLocation_{order_id}() {{
+    var status = document.getElementById('gps_status_{order_id}');
+    if (navigator.geolocation) {{
+        status.innerText = "⏳ Определение координат...";
+        navigator.geolocation.getCurrentPosition(function(position) {{
+            var lat = position.coords.latitude.toFixed(6);
+            var lng = position.coords.longitude.toFixed(6);
+            var coordsStr = lat + ", " + lng;
+            status.innerText = "✅ GPS: " + coordsStr + " (скопировано!)";
+            if (navigator.clipboard) {{
+                navigator.clipboard.writeText(coordsStr);
+            }}
+        }}, function(error) {{
+            status.innerText = "❌ Ошибка GPS: " + error.message;
+        }}, {{ enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }});
+    }} else {{
+        status.innerText = "❌ Геолокация не поддерживается браузером.";
     }}
-    </script>
-    """
+}}
+</script>"""
     components.html(gps_html, height=58)
 
 def generate_receipt_html(row, lang="ru"):
@@ -91,33 +75,31 @@ def generate_receipt_html(row, lang="ru"):
     ptype_lbl = "Способ оплаты" if lang == "ru" else "To'lov usuli"
     paid_lbl = "Оплачено" if lang == "ru" else "To'landi"
 
-    return f"""
-    <!DOCTYPE html>
-    <html>
-    <head><meta charset="utf-8">
-        <style>
-            body {{ font-family: sans-serif; padding: 20px; background: #ffffff; color: #0f172a; }}
-            .box {{ max-width: 400px; margin: auto; border: 2px solid #2563eb; border-radius: 8px; padding: 16px; }}
-            .hdr {{ text-align: center; border-bottom: 1px dashed #ccc; padding-bottom: 10px; margin-bottom: 10px; }}
-            .total {{ font-weight: bold; font-size: 16px; border-top: 2px solid #2563eb; padding-top: 8px; margin-top: 10px; text-align: right; }}
-        </style>
-    </head>
-    <body>
-        <div class="box">
-            <div class="hdr"><h2>✨ Cosmo Cleaning ✨</h2><div>{receipt_title} {order_id} | {date_val}</div></div>
-            <div><b>{client_lbl}:</b> {client} ({phone})</div>
-            <div><b>{addr_lbl}:</b> {address}</div>
-            <div style="background:#f1f5f9; color:#0f172a; padding:8px; margin:8px 0;"><b>{item_lbl}:</b> {items}</div>
-            <div><b>{ptype_lbl}:</b> {ptype}</div>
-            <div class="total">{paid_lbl}: {paid_val:,} сум</div>
-        </div>
-    </body>
-    </html>
-    """
+    return f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8">
+<style>
+body {{ font-family: sans-serif; padding: 20px; background: #ffffff; color: #0f172a; }}
+.box {{ max-width: 400px; margin: auto; border: 2px solid #2563eb; border-radius: 8px; padding: 16px; }}
+.hdr {{ text-align: center; border-bottom: 1px dashed #ccc; padding-bottom: 10px; margin-bottom: 10px; }}
+.total {{ font-weight: bold; font-size: 16px; border-top: 2px solid #2563eb; padding-top: 8px; margin-top: 10px; text-align: right; }}
+</style>
+</head>
+<body>
+<div class="box">
+<div class="hdr"><h2>✨ Cosmo Cleaning ✨</h2><div>{receipt_title} {order_id} | {date_val}</div></div>
+<div><b>{client_lbl}:</b> {client} ({phone})</div>
+<div><b>{addr_lbl}:</b> {address}</div>
+<div style="background:#f1f5f9; color:#0f172a; padding:8px; margin:8px 0;"><b>{item_lbl}:</b> {items}</div>
+<div><b>{ptype_lbl}:</b> {ptype}</div>
+<div class="total">{paid_lbl}: {paid_val:,} сум</div>
+</div>
+</body>
+</html>"""
 
 def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route_url_func, send_tg_func, active_couriers=None, add_order_func=None, get_next_order_id_func=None, delete_order_func=None):
     """
-    Панель Курьера: Структура карточки по образцу 12.png (KV badge, № ID, 4 нижние цветные кнопки ⇄, ✓, ✏️, ❌)
+    Панель Курьера: Точный визуальный вид карточки из 12.png БЕЗ кодовых блоков
     """
     ui_theme.inject_theme()
     lang = st.session_state.get("lang", "ru")
@@ -188,7 +170,6 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
         order_sum = int(safe_numeric_val(row.get("Сумма", 0)))
         clean_tel = ''.join(filter(str.isdigit, phone))
 
-        # Извлечение числа ковров (KV)
         kv_count = "5"
         if "Ковёр:" in details or "Ковер:" in details:
             try:
@@ -199,34 +180,23 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
         res_tuple = get_yandex_route_url_func(district, address, existing_loc)
         r_url = res_tuple[0] if isinstance(res_tuple, (tuple, list)) else res_tuple
 
-        # Карточка точь-в-точь по макету 12.png
-        st.markdown(f"""
+        # Используем textwrap.dedent чтобы предотвратить появление блоков кода с 4 пробелами!
+        card_html = textwrap.dedent(f"""
         <div style="background: #182030; border: 1px solid #2a3447; border-radius: 12px; padding: 12px; margin-bottom: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); font-family: sans-serif;">
-            <!-- ВЕРХНЯЯ СТРОКА: KV Badge & № ID -->
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
                 <span style="background: #059669; color: #ffffff; padding: 3px 8px; border-radius: 6px; font-weight: 800; font-size: 13px;">KV: {kv_count}</span>
                 <span style="color: #9ca3af; font-size: 14px; font-weight: 700;">№ {norm_id}</span>
             </div>
-            
-            <!-- СТРОКА КУРЬЕРА И ДАТЫ -->
             <div style="display:flex; justify-content:space-between; align-items:center; font-size: 12px; color: #9ca3af; margin-bottom: 6px;">
                 <span>🚚 {curr_courier}</span>
                 <span>{date_str}</span>
             </div>
-            
-            <!-- ИМЯ КЛИЕНТА -->
             <div style="font-size: 15px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">👤 {client}</div>
-            
-            <!-- ТЕЛЕФОН И ЗНАЧОК КРАСНОЙ ЛОКАЦИИ 📍 -->
             <div style="display:flex; justify-content:space-between; align-items:center; font-size: 14px; margin-bottom: 4px;">
                 <span>📞 <a href="tel:+{clean_tel}" style="color: #3b82f6; text-decoration: none; font-weight: 700;">+{clean_tel}</a></span>
                 <a href="{r_url}" target="_blank" title="Яндекс Навигатор" style="color: #ef4444; font-size: 18px; text-decoration: none; font-weight: bold;">📍</a>
             </div>
-            
-            <!-- РАЙОН И АДРЕС -->
             <div style="font-size: 13px; color: #e2e8f0; margin-bottom: 4px;">🏠 <b>{district}</b> {address}</div>
-            
-            <!-- ИНФО ЗНАЧКИ: ЯЗЫК, ДИСПЕТЧЕР, СКИДКА -->
             <div style="display:flex; gap: 8px; align-items:center; font-size: 12px; color: #9ca3af; margin-bottom: 4px;">
                 <span style="background: #374151; color: #d1d5db; padding: 2px 6px; border-radius: 4px;">🗣️ {lang_str}</span>
                 <span>👤 {dispatcher_name}</span>
@@ -234,14 +204,10 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
             </div>
             {f'<div style="font-size:13px; color:#34d399; font-weight:800; text-align:right; margin-top:4px;">💰 К оплате: {order_sum:,} сум</div>' if is_delivery else ''}
         </div>
-        """, unsafe_allow_html=True)
+        """).strip()
 
-        # 4 ЦВЕТНЫЕ КНОПКИ ДЕЙСТВИЯ В ОДИН РЯД (12.png)
-        # 1: ⇄ (Темно-синяя - Смена курьера)
-        # 2: ✓ (Зеленая - Одобрить / Принять в цех / Доставлено)
-        # 3: ✏️ (Желтая - Редактировать №, Адрес, GPS)
-        # 4: ❌ (Красная - Отмена / Удаление заказа)
-        
+        st.markdown(card_html, unsafe_allow_html=True)
+
         c_tr, c_ok, c_ed, c_del = st.columns(4)
 
         b_tr = c_tr.button("⇄", key=f"btn_tr_act_{norm_id}_{idx}", use_container_width=True, help="Смена курьера")
