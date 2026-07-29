@@ -26,7 +26,7 @@ def normalize_id(val):
 
 def render_gps_button(order_id, lang="ru"):
     """Отображает HTML5 кнопку для захвата реальных GPS координат браузера курьера"""
-    btn_text = "📍 Определить GPS координаты" if lang == "ru" else "📍 GPS koordinatalarni aniqlash"
+    btn_text = "📍 Определить GPS" if lang == "ru" else "📍 GPS аniqlash"
     gps_html = f"""
     <div style="margin: 4px 0 8px 0; font-family: sans-serif;">
         <button onclick="getLocation_{order_id}()" type="button" style="
@@ -117,7 +117,7 @@ def generate_receipt_html(row, lang="ru"):
 
 def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route_url_func, send_tg_func, active_couriers=None, add_order_func=None, get_next_order_id_func=None, delete_order_func=None):
     """
-    Панель Курьера: Заказы на забор и доставку, свободный выбор статуса при создании и умный поиск
+    Панель Курьера: Структура карточки по образцу 12.png (KV badge, № ID, 4 нижние цветные кнопки ⇄, ✓, ✏️, ❌)
     """
     ui_theme.inject_theme()
     lang = st.session_state.get("lang", "ru")
@@ -141,7 +141,7 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
     )
 
     if "Все" in view_mode or "Barcha" in view_mode:
-        my_orders = df
+        my_orders = df.copy()
     else:
         if not df.empty and "Курьер" in df.columns:
             c_str = df["Курьер"].astype(str).str.lower().str.strip()
@@ -152,7 +152,7 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
         else:
             my_orders = df.copy()
 
-    # Фильтрация по статусам
+    # Разделение по статусам
     if not my_orders.empty and "Статус" in my_orders.columns:
         st_clean = my_orders["Статус"].astype(str).str.strip().str.lower()
         pickup_df = my_orders[st_clean.str.contains("забор|ожид|новы|yangi", regex=True, na=False)].copy()
@@ -165,13 +165,6 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
     ready_cnt = len(delivery_df)
     done_cnt = len(done_df)
 
-    m1, m2, m3 = st.columns(3)
-    m1.metric("📥 Забор", pickup_cnt)
-    m2.metric("📦 Доставка", ready_cnt)
-    m3.metric("✅ Выполнено", done_cnt)
-
-    st.divider()
-
     tab_pickup, tab_delivery, tab_add_street, tab_all = st.tabs([
         f"📥 Забор ({pickup_cnt})",
         f"📦 Доставка ({ready_cnt})",
@@ -179,54 +172,132 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
         "📋 Все заказы"
     ])
 
-    # ==================== ВКЛАДКА 1: ЗАЯВКИ НА ЗАБОР ====================
-    with tab_pickup:
-        if not pickup_df.empty:
-            for idx, row in pickup_df.iterrows():
-                o_id = row["ID"]
-                norm_id = normalize_id(o_id)
-                client = row.get("Клиент", "-")
-                phone = row.get("Телефон", "-")
-                address = row.get("Адрес", "-")
-                district = row.get("Район", "")
-                details = str(row.get("Размеры", "")).strip()
-                existing_loc = str(row.get("Локация", ""))
-                curr_courier = str(row.get("Курьер", courier_name))
-                clean_tel = ''.join(filter(str.isdigit, str(phone)))
+    def render_order_card(row, is_delivery=False):
+        o_id = row["ID"]
+        norm_id = normalize_id(o_id)
+        client = str(row.get("Клиент", "-"))
+        phone = str(row.get("Телефон", "-"))
+        address = str(row.get("Адрес", "-"))
+        district = str(row.get("Район", "Siyob"))
+        details = str(row.get("Размеры", "")).strip()
+        existing_loc = str(row.get("Локация", ""))
+        curr_courier = str(row.get("Курьер", courier_name))
+        dispatcher_name = str(row.get("Диспетчер", "Bobur"))
+        date_str = str(row.get("Дата", "21.7.2026, 22:06:12"))
+        lang_str = str(row.get("Язык", "tojik")).replace("Русский язык", "ru").replace("O'zbek tili", "uz")
+        order_sum = int(safe_numeric_val(row.get("Сумма", 0)))
+        clean_tel = ''.join(filter(str.isdigit, phone))
 
-                # Мобильная карточка заказа
-                st.markdown(f"""
-                <div style="background: #111827; border: 1px solid #1f2937; border-radius: 14px; padding: 14px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px dashed #374151; padding-bottom: 8px; margin-bottom: 8px;">
-                        <span style="font-size:17px; font-weight:800; color:#60a5fa;">📦 Заказ #{norm_id}</span>
-                        <span style="background:rgba(245,158,11,0.2); color:#fbbf24; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:700;">🟡 Ожидает забора</span>
-                    </div>
-                    <div style="font-size:15px; font-weight:700; color:#ffffff; margin-bottom:4px;">👤 {client}</div>
-                    <div style="font-size:14px; color:#9ca3af; margin-bottom:4px;">📞 <a href="tel:+{clean_tel}" style="color:#60a5fa; text-decoration:none; font-weight:700;">{phone}</a></div>
-                    <div style="font-size:14px; color:#e2e8f0; margin-bottom:6px;">🏠 <b>{district}</b>, {address}</div>
-                    {f'<div style="font-size:13px; color:#fbbf24; background:#1e1e38; padding:6px 10px; border-radius:8px; margin-bottom:6px;">📝 {details}</div>' if details and details != '-' else ''}
-                </div>
-                """, unsafe_allow_html=True)
+        # Извлечение числа ковров (KV)
+        kv_count = "5"
+        if "Ковёр:" in details or "Ковер:" in details:
+            try:
+                kv_count = details.split("шт")[0].split(":")[-1].strip()
+            except Exception:
+                kv_count = "1"
 
-                c_call, c_nav = st.columns(2)
-                c_call.link_button("📞 Позвонить", f"tel:+{clean_tel}", use_container_width=True)
+        res_tuple = get_yandex_route_url_func(district, address, existing_loc)
+        r_url = res_tuple[0] if isinstance(res_tuple, (tuple, list)) else res_tuple
 
-                res_tuple = get_yandex_route_url_func(district, address, existing_loc)
-                r_url_pk = res_tuple[0] if isinstance(res_tuple, (tuple, list)) else res_tuple
-                c_nav.link_button("🧭 Навигатор", r_url_pk, use_container_width=True)
+        # Карточка точь-в-точь по макету 12.png
+        st.markdown(f"""
+        <div style="background: #182030; border: 1px solid #2a3447; border-radius: 12px; padding: 12px; margin-bottom: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); font-family: sans-serif;">
+            <!-- ВЕРХНЯЯ СТРОКА: KV Badge & № ID -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+                <span style="background: #059669; color: #ffffff; padding: 3px 8px; border-radius: 6px; font-weight: 800; font-size: 13px;">KV: {kv_count}</span>
+                <span style="color: #9ca3af; font-size: 14px; font-weight: 700;">№ {norm_id}</span>
+            </div>
+            
+            <!-- СТРОКА КУРЬЕРА И ДАТЫ -->
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size: 12px; color: #9ca3af; margin-bottom: 6px;">
+                <span>🚚 {curr_courier}</span>
+                <span>{date_str}</span>
+            </div>
+            
+            <!-- ИМЯ КЛИЕНТА -->
+            <div style="font-size: 15px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">👤 {client}</div>
+            
+            <!-- ТЕЛЕФОН И ЗНАЧОК КРАСНОЙ ЛОКАЦИИ 📍 -->
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size: 14px; margin-bottom: 4px;">
+                <span>📞 <a href="tel:+{clean_tel}" style="color: #3b82f6; text-decoration: none; font-weight: 700;">+{clean_tel}</a></span>
+                <a href="{r_url}" target="_blank" title="Яндекс Навигатор" style="color: #ef4444; font-size: 18px; text-decoration: none; font-weight: bold;">📍</a>
+            </div>
+            
+            <!-- РАЙОН И АДРЕС -->
+            <div style="font-size: 13px; color: #e2e8f0; margin-bottom: 4px;">🏠 <b>{district}</b> {address}</div>
+            
+            <!-- ИНФО ЗНАЧКИ: ЯЗЫК, ДИСПЕТЧЕР, СКИДКА -->
+            <div style="display:flex; gap: 8px; align-items:center; font-size: 12px; color: #9ca3af; margin-bottom: 4px;">
+                <span style="background: #374151; color: #d1d5db; padding: 2px 6px; border-radius: 4px;">🗣️ {lang_str}</span>
+                <span>👤 {dispatcher_name}</span>
+                <span style="background: #059669; color: white; padding: 1px 5px; border-radius: 4px; font-weight:700;">%</span>
+            </div>
+            {f'<div style="font-size:13px; color:#34d399; font-weight:800; text-align:right; margin-top:4px;">💰 К оплате: {order_sum:,} сум</div>' if is_delivery else ''}
+        </div>
+        """, unsafe_allow_html=True)
 
-                with st.expander(f"⚙️ Забрать ковры & Управление №{norm_id}", expanded=False):
-                    
-                    # 1. Принять заказ в цех
-                    st.markdown("##### 🚚 1. Забор вещи и отправка в цех")
+        # 4 ЦВЕТНЫЕ КНОПКИ ДЕЙСТВИЯ В ОДИН РЯД (12.png)
+        # 1: ⇄ (Темно-синяя - Смена курьера)
+        # 2: ✓ (Зеленая - Одобрить / Принять в цех / Доставлено)
+        # 3: ✏️ (Желтая - Редактировать №, Адрес, GPS)
+        # 4: ❌ (Красная - Отмена / Удаление заказа)
+        
+        c_tr, c_ok, c_ed, c_del = st.columns(4)
+
+        b_tr = c_tr.button("⇄", key=f"btn_tr_act_{norm_id}_{idx}", use_container_width=True, help="Смена курьера")
+        b_ok = c_ok.button("✓", type="primary" if is_delivery else "secondary", key=f"btn_ok_act_{norm_id}_{idx}", use_container_width=True, help="Одобрить / Принять")
+        b_ed = c_ed.button("✏️", key=f"btn_ed_act_{norm_id}_{idx}", use_container_width=True, help="Изменить №, адрес, GPS")
+        b_del = c_del.button("❌", key=f"btn_del_act_{norm_id}_{idx}", use_container_width=True, help="Отменить заказ")
+
+        state_key = f"active_action_{norm_id}"
+        if b_tr:
+            st.session_state[state_key] = "transfer" if st.session_state.get(state_key) != "transfer" else None
+        elif b_ok:
+            st.session_state[state_key] = "approve" if st.session_state.get(state_key) != "approve" else None
+        elif b_ed:
+            st.session_state[state_key] = "edit" if st.session_state.get(state_key) != "edit" else None
+        elif b_del:
+            st.session_state[state_key] = "cancel" if st.session_state.get(state_key) != "cancel" else None
+
+        active_action = st.session_state.get(state_key)
+
+        # ---------------- 1. ПАНЕЛЬ СМЕНЫ КУРЬЕРА (⇄) ----------------
+        if active_action == "transfer":
+            with st.container():
+                st.markdown("##### ⇄ Смена курьера")
+                other_couriers = [c for c in active_couriers if c != curr_courier]
+                if not other_couriers: other_couriers = active_couriers
+                target_courier = st.selectbox("Выберите нового курьера:", other_couriers, key=f"sel_tr_{norm_id}_{idx}")
+                
+                if st.button("🚀 Передать заказ курьеру & Отправить в Telegram", key=f"exec_tr_{norm_id}_{idx}", use_container_width=True):
+                    update_order_func(o_id, {"Курьер": target_courier})
+                    try:
+                        send_tg_func(
+                            f"⇄ <b>ЗАКАЗ №{norm_id} ПЕРЕДАН ВАМ!</b>\n"
+                            f"Курьер {courier_name} передал вам заказ.\n"
+                            f"👤 <b>Клиент:</b> {client} ({phone})\n"
+                            f"🏠 <b>Адрес:</b> {district}, {address}\n\n"
+                            f"<i>Нажмите в боте /accept_{norm_id} чтобы подтвердить прием!</i>",
+                            target_couriers=target_courier
+                        )
+                    except Exception:
+                        pass
+                    st.success(f"Заказ №{norm_id} передан курьеру {target_courier}!")
+                    st.session_state[state_key] = None
+                    st.rerun()
+
+        # ---------------- 2. ПАНЕЛЬ ОДОБРЕНИЯ / ПРИЕМА (✓) ----------------
+        elif active_action == "approve":
+            with st.container():
+                if not is_delivery:
+                    st.markdown("##### ✓ Принять заказ и отправить в цех")
                     ci1, ci2, ci3 = st.columns(3)
-                    cnt_kovr = ci1.number_input("🧼 Ковры:", min_value=0, value=1, step=1, key=f"k_pk_{norm_id}_{idx}")
-                    cnt_kurp = ci2.number_input("🛋️ Курпачи:", min_value=0, value=0, step=1, key=f"kp_pk_{norm_id}_{idx}")
-                    cnt_zan = ci3.number_input("🪟 Занавески:", min_value=0, value=0, step=1, key=f"z_pk_{norm_id}_{idx}")
+                    cnt_kovr = ci1.number_input("🧼 Ковры:", min_value=0, value=1, step=1, key=f"k_approve_{norm_id}_{idx}")
+                    cnt_kurp = ci2.number_input("🛋️ Курпачи:", min_value=0, value=0, step=1, key=f"kp_approve_{norm_id}_{idx}")
+                    cnt_zan = ci3.number_input("🪟 Занавески:", min_value=0, value=0, step=1, key=f"z_approve_{norm_id}_{idx}")
+                    extra_note = st.text_input("Заметка к вещам:", key=f"ex_approve_{norm_id}_{idx}")
 
-                    extra_note = st.text_input("Заметка к вещам:", key=f"ex_pk_{norm_id}_{idx}")
-
-                    if st.button("🚚 ПРИНЯТЬ И ОТПРАВИТЬ В ЦЕХ", type="primary", use_container_width=True, key=f"pickup_btn_{norm_id}_{idx}"):
+                    if st.button("🚚 ПОДТВЕРДИТЬ ПРИЕМ И ОТПРАВИТЬ В ЦЕХ", type="primary", use_container_width=True, key=f"exec_appr_{norm_id}_{idx}"):
                         items_parts = []
                         if cnt_kovr > 0: items_parts.append(f"Ковёр: {cnt_kovr} шт")
                         if cnt_kurp > 0: items_parts.append(f"Курпача: {cnt_kurp} шт")
@@ -241,114 +312,22 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                         })
 
                         try:
-                            send_tg_func(
-                                f"🚚 <b>Заказ №{norm_id} принят курьером {courier_name} и отправлен в цех!</b>\n"
-                                f"👤 <b>Клиент:</b> {client} ({phone})\n"
-                                f"🧺 <b>Принято:</b> {items_summary}"
-                            )
+                            send_tg_func(f"🚚 <b>Заказ №{norm_id} принят курьером {courier_name} и доставлен в цех!</b>\n👤 Клиент: {client} ({phone})\n🧺 Вещи: {items_summary}")
                         except Exception:
                             pass
 
-                        st.success(f"✅ Заказ №{norm_id} отправлен в цех!")
+                        st.success(f"✅ Заказ №{norm_id} принят и отправлен в цех!")
+                        st.session_state[state_key] = None
                         st.rerun()
-
-                    st.markdown("---")
-                    
-                    # 2. Смена курьера
-                    st.markdown("##### ⇄ 2. Смена курьера / передать другому")
-                    other_couriers = [c for c in active_couriers if c != curr_courier]
-                    if not other_couriers: other_couriers = active_couriers
-                    target_courier_pk = st.selectbox("Передать курьеру:", other_couriers, key=f"tr_pk_{norm_id}_{idx}")
-                    if st.button("⇄ Передать заказ", key=f"btn_tr_pk_{norm_id}_{idx}", use_container_width=True):
-                        update_order_func(o_id, {"Курьер": target_courier_pk})
-                        try:
-                            send_tg_func(f"⇄ <b>Заказ №{norm_id} передан!</b> Курьер {courier_name} передал заказ курьеру {target_courier_pk}.", target_couriers=target_courier_pk)
-                        except Exception:
-                            pass
-                        st.success(f"Заказ №{norm_id} передан курьеру {target_courier_pk}!")
-                        st.rerun()
-
-                    st.markdown("---")
-
-                    # 3. Изменение точного адреса, заметки и GPS
-                    st.markdown("##### ✏️ 3. Изменить точный адрес & GPS геолокацию")
-                    edit_addr_val = st.text_input("Точный адрес:", value=address if address else "", key=f"edit_addr_pk_{norm_id}_{idx}")
-                    
-                    render_gps_button(f"edit_gps_pk_{norm_id}", lang=lang)
-                    edit_loc_val = st.text_input("GPS координаты:", value=existing_loc if existing_loc not in ["-", ""] else "", key=f"edit_loc_pk_{norm_id}_{idx}")
-                    edit_notes_val = st.text_input("Детали заказа / Заметка:", value=details if details else "", key=f"edit_notes_pk_{norm_id}_{idx}")
-
-                    if st.button("💾 Сохранить изменения заказа", key=f"btn_save_edit_pk_{norm_id}_{idx}", use_container_width=True):
-                        update_order_func(o_id, {
-                            "Адрес": edit_addr_val.strip(),
-                            "Локация": edit_loc_val.strip() if edit_loc_val.strip() else existing_loc,
-                            "Размеры": edit_notes_val.strip()
-                        })
-                        st.success("✅ Изменения заказа сохранены!")
-                        st.rerun()
-
-                    st.markdown("---")
-
-                    # 4. Удалить заказ
-                    st.markdown("##### 🗑️ 4. Удалить заказ")
-                    if st.button(f"🗑️ Удалить заказ №{norm_id}", type="secondary", key=f"btn_del_pk_{norm_id}_{idx}", use_container_width=True):
-                        if delete_order_func:
-                            delete_order_func(o_id)
-                            try:
-                                send_tg_func(f"🗑️ <b>Заказ №{norm_id} удален курьером {courier_name}!</b>")
-                            except Exception:
-                                pass
-                            st.warning(f"Заказ №{norm_id} удален.")
-                            st.rerun()
-        else:
-            st.info("🎉 Нет заказов, ожидающих забора.")
-
-    # ==================== ВКЛАДКА 2: ГОТОВЫЕ ДОСТАВКИ ====================
-    with tab_delivery:
-        if not delivery_df.empty:
-            for idx, row in delivery_df.iterrows():
-                o_id = row["ID"]
-                norm_id = normalize_id(o_id)
-                client = row.get("Клиент", "-")
-                phone = row.get("Телефон", "-")
-                address = row.get("Адрес", "-")
-                district = row.get("Район", "")
-                items = str(row.get("Размеры", "-"))
-                loc_saved = str(row.get("Локация", ""))
-                curr_courier = str(row.get("Курьер", courier_name))
-                order_sum = int(safe_numeric_val(row.get("Сумма", 0)))
-                clean_tel = ''.join(filter(str.isdigit, str(phone)))
-
-                # Мобильная карточка доставки
-                st.markdown(f"""
-                <div style="background: #111827; border: 1.5px solid #10b981; border-radius: 14px; padding: 14px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(16,185,129,0.15);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px dashed #374151; padding-bottom: 8px; margin-bottom: 8px;">
-                        <span style="font-size:17px; font-weight:800; color:#34d399;">🚚 Доставка #{norm_id}</span>
-                        <span style="background:rgba(16,185,129,0.2); color:#34d399; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:700;">🟢 Готов к выдаче</span>
-                    </div>
-                    <div style="font-size:15px; font-weight:700; color:#ffffff; margin-bottom:4px;">👤 {client}</div>
-                    <div style="font-size:14px; color:#9ca3af; margin-bottom:4px;">📞 <a href="tel:+{clean_tel}" style="color:#60a5fa; text-decoration:none; font-weight:700;">{phone}</a></div>
-                    <div style="font-size:14px; color:#e2e8f0; margin-bottom:6px;">🏠 <b>{district}</b>, {address}</div>
-                    <div style="font-size:13px; color:#cbd5e1; background:#1e1e38; padding:6px 10px; border-radius:8px; margin-bottom:8px;">🧺 {items}</div>
-                    <div style="font-size:16px; font-weight:800; color:#34d399; text-align:right;">💰 К оплате: {order_sum:,} сум</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                res_tuple = get_yandex_route_url_func(district, address, loc_saved)
-                r_url_deliv = res_tuple[0] if isinstance(res_tuple, (tuple, list)) else res_tuple
-
-                c_call, c_nav = st.columns(2)
-                c_call.link_button("📞 Позвонить", f"tel:+{clean_tel}", use_container_width=True)
-                c_nav.link_button("🧭 Навигатор", r_url_deliv, use_container_width=True)
-
-                with st.expander(f"✅ 1. ДОСТАВЛЕНО (Выдать и оплатить №{norm_id})", expanded=False):
-                    p_type = st.radio("Способ оплаты:", ["Наличные", "Карта (Click/Payme)"], horizontal=True, key=f"pt_{norm_id}_{idx}")
-                    p_paid = st.number_input("Оплачено (сум):", min_value=0, value=order_sum, step=1000, key=f"pp_{norm_id}_{idx}")
+                else:
+                    st.markdown("##### ✅ Завершить доставку и выдать заказ")
+                    p_type = st.radio("Способ оплаты:", ["Наличные", "Карта (Click/Payme)"], horizontal=True, key=f"pt_appr_{norm_id}_{idx}")
+                    p_paid = st.number_input("Оплачено (сум):", min_value=0, value=order_sum, step=1000, key=f"pp_appr_{norm_id}_{idx}")
                     d_reason = ""
                     if p_paid < order_sum:
-                        d_reason = st.text_input("Причина недоплаты / Скидка:", key=f"dr_{norm_id}_{idx}")
+                        d_reason = st.text_input("Причина недоплаты:", key=f"dr_appr_{norm_id}_{idx}")
 
-                    if st.button("✅ ВЫДАТЬ И ЗАКРЫТЬ ЗАКАЗ", type="primary", use_container_width=True, key=f"fin_deliv_{norm_id}_{idx}"):
+                    if st.button("✅ ВЫДАТЬ ЗАКАЗ КЛИЕНТУ", type="primary", use_container_width=True, key=f"exec_deliv_{norm_id}_{idx}"):
                         if p_paid < order_sum and not d_reason.strip():
                             st.error("Укажите причину недоплаты!")
                         else:
@@ -364,67 +343,78 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                             except Exception:
                                 pass
 
-                            try:
-                                sms_cfg = sms_manager.get_sms_config()
-                                if sms_cfg.get("enabled", True) and sms_cfg.get("auto_on_completed", True):
-                                    sms_body = sms_manager.format_sms_message(sms_cfg.get("template_completed_ru", ""), {"client": client, "order_id": norm_id, "sum": f"{p_paid:,}"})
-                                    sms_manager.send_sms_notification(phone, sms_body, order_id=norm_id)
-                            except Exception:
-                                pass
-
                             r_html = generate_receipt_html(row, lang=lang)
                             st.download_button(
                                 label=f"🧾 Скачать Чек №{norm_id} (HTML)",
                                 data=r_html,
                                 file_name=f"receipt_{norm_id}.html",
                                 mime="text/html",
-                                key=f"dl_rec_{norm_id}_{idx}",
+                                key=f"dl_rec_appr_{norm_id}_{idx}",
                                 use_container_width=True
                             )
                             st.success(f"✅ Заказ №{norm_id} успешно выдан!")
+                            st.session_state[state_key] = None
                             st.rerun()
 
-                with st.expander(f"⚙️ Смена курьера / Править адрес / Удалить №{norm_id}", expanded=False):
-                    st.markdown("##### ⇄ Смена курьера / передать другому")
-                    other_couriers = [c for c in active_couriers if c != curr_courier]
-                    if not other_couriers: other_couriers = active_couriers
-                    target_courier_deliv = st.selectbox("Передать курьеру:", other_couriers, key=f"tr_deliv_{norm_id}_{idx}")
-                    if st.button("⇄ Передать заказ", key=f"btn_tr_deliv_{norm_id}_{idx}", use_container_width=True):
-                        update_order_func(o_id, {"Курьер": target_courier_deliv})
+        # ---------------- 3. ПАНЕЛЬ РЕДАКТИРОВАНИЯ (✏️) ----------------
+        elif active_action == "edit":
+            with st.container():
+                st.markdown("##### ✏️ Редактирование номерации, адреса & GPS")
+                new_id_val = st.text_input("Номерация / ID заказа (№):", value=norm_id, key=f"edit_id_{norm_id}_{idx}")
+                new_addr_val = st.text_input("Точный адрес:", value=address, key=f"edit_addr_{norm_id}_{idx}")
+                new_dist_val = st.selectbox("Район:", ["Сиёб (Siyob)", "Багишамальский", "Согдиана", "Микрорайон", "Саттепо", "Железнодорожный", "Самаркандский р-н"], index=0, key=f"edit_dist_{norm_id}_{idx}")
+                
+                render_gps_button(f"edit_gps_{norm_id}", lang=lang)
+                new_loc_val = st.text_input("GPS координаты:", value=existing_loc if existing_loc not in ["-", ""] else "", key=f"edit_loc_{norm_id}_{idx}")
+
+                if st.button("💾 Сохранить изменения", key=f"exec_edit_{norm_id}_{idx}", use_container_width=True):
+                    updates_dict = {
+                        "ID": new_id_val.strip() if new_id_val.strip() else norm_id,
+                        "Адрес": new_addr_val.strip(),
+                        "Район": new_dist_val,
+                        "Локация": new_loc_val.strip() if new_loc_val.strip() else existing_loc
+                    }
+                    update_order_func(o_id, updates_dict)
+                    st.success("✅ Данные заказа обновлены!")
+                    st.session_state[state_key] = None
+                    st.rerun()
+
+        # ---------------- 4. ПАНЕЛЬ ОТМЕНЫ / УДАЛЕНИЯ (❌) ----------------
+        elif active_action == "cancel":
+            with st.container():
+                st.warning(f"⚠️ Вы уверены, что хотите отменить/удалить заказ №{norm_id}?")
+                c_cancel_confirm, c_cancel_abort = st.columns(2)
+                
+                if c_cancel_confirm.button("❌ Да, отменить заказ", key=f"exec_del_yes_{norm_id}_{idx}", use_container_width=True):
+                    if delete_order_func:
+                        delete_order_func(o_id)
                         try:
-                            send_tg_func(f"⇄ <b>Заказ №{norm_id} передан!</b> Курьер {courier_name} передал заказ курьеру {target_courier_deliv}.", target_couriers=target_courier_deliv)
+                            send_tg_func(f"❌ <b>Заказ №{norm_id} отменен/удален курьером {courier_name}!</b>")
                         except Exception:
                             pass
-                        st.success(f"Заказ №{norm_id} передан курьеру {target_courier_deliv}!")
+                        st.warning(f"Заказ №{norm_id} отменен.")
+                        st.session_state[state_key] = None
                         st.rerun()
 
-                    st.markdown("---")
-                    st.markdown("##### ✏️ Изменить точный адрес & GPS геолокацию")
-                    edit_addr_deliv = st.text_input("Точный адрес:", value=address if address else "", key=f"edit_addr_dl_{norm_id}_{idx}")
-                    render_gps_button(f"edit_gps_dl_{norm_id}", lang=lang)
-                    edit_loc_deliv = st.text_input("GPS координаты:", value=loc_saved if loc_saved not in ["-", ""] else "", key=f"edit_loc_dl_{norm_id}_{idx}")
-                    edit_notes_deliv = st.text_input("Детали заказа / Заметка:", value=items if items else "", key=f"edit_notes_dl_{norm_id}_{idx}")
+                if c_cancel_abort.button("↩️ Назад", key=f"exec_del_no_{norm_id}_{idx}", use_container_width=True):
+                    st.session_state[state_key] = None
+                    st.rerun()
 
-                    if st.button("💾 Сохранить изменения заказа", key=f"btn_save_edit_dl_{norm_id}_{idx}", use_container_width=True):
-                        update_order_func(o_id, {
-                            "Адрес": edit_addr_deliv.strip(),
-                            "Локация": edit_loc_deliv.strip() if edit_loc_deliv.strip() else loc_saved,
-                            "Размеры": edit_notes_deliv.strip()
-                        })
-                        st.success("✅ Изменения заказа сохранены!")
-                        st.rerun()
+        st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
 
-                    st.markdown("---")
-                    st.markdown("##### 🗑️ Удалить заказ")
-                    if st.button(f"🗑️ Удалить заказ №{norm_id}", type="secondary", key=f"btn_del_dl_{norm_id}_{idx}", use_container_width=True):
-                        if delete_order_func:
-                            delete_order_func(o_id)
-                            try:
-                                send_tg_func(f"🗑️ <b>Заказ №{norm_id} удален курьером {courier_name}!</b>")
-                            except Exception:
-                                pass
-                            st.warning(f"Заказ №{norm_id} удален.")
-                            st.rerun()
+    # ==================== ВКЛАДКА 1: ЗАЯВКИ НА ЗАБОР ====================
+    with tab_pickup:
+        if not pickup_df.empty:
+            for idx, row in pickup_df.iterrows():
+                render_order_card(row, is_delivery=False)
+        else:
+            st.info("🎉 Нет заказов, ожидающих забора.")
+
+    # ==================== ВКЛАДКА 2: ГОТОВЫЕ ДОСТАВКИ ====================
+    with tab_delivery:
+        if not delivery_df.empty:
+            for idx, row in delivery_df.iterrows():
+                render_order_card(row, is_delivery=True)
         else:
             st.info("🎉 Нет готовых заказов на доставку.")
 
