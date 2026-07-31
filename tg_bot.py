@@ -679,6 +679,11 @@ def process_telegram_update(token, update):
         send_message(token, chat_id, msg)
         return
 
+    if text in ["✏️ Изменение заказов", "✏️ Buyurtmani tahrirlash"]:
+        msg = "✏️ Напишите № заказа, который вы хотите изменить (например: <code>5202</code>):" if lang == "ru" else "✏️ Tahrirlamoqchi bo'lgan buyurtma ID-sini kiriting (masalan: <code>5202</code>):"
+        send_message(token, chat_id, msg, get_keyboard_by_role(user_role, lang))
+        return
+
     # ===== ПРОСМОТР И ПОИСК ЗАКАЗОВ =====
     if text in ["📋 История заказов", "📋 Buyurtmalar tarixi", "📋 Все заказы"]:
         orders = load_json_file(BACKUP_FILE, [])
