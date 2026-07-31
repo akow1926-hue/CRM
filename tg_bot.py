@@ -83,10 +83,25 @@ def get_remove_keyboard():
     return {"remove_keyboard": True}
 
 
+def is_courier_role(role):
+    r = str(role).lower()
+    return "courier" in r or "курьер" in r or "доставщик" in r or "yuboruvchi" in r or "kuryer" in r
+
+
+def is_washer_role(role):
+    r = str(role).lower()
+    return "washer" in r or "cleaner" in r or "мойщик" in r or "чистильщик" in r or "yuvuvchi" in r or "tozalovchi" in r or "sex" in r
+
+
+def is_admin_role(role):
+    r = str(role).lower()
+    return "admin" in r or "админ" in r or "administrator" in r
+
+
 def get_keyboard_by_role(role, lang="ru"):
     """Клавиатура для ролей: Диспетчер, Курьер, Мойщик (Админ исключен)"""
     if lang == "uz":
-        if "Courier" in role or "Курьер" in role:
+        if is_courier_role(role):
             return {
                 "keyboard": [
                     [{"text": "📦 Olib ketish kutilmoqda"}, {"text": "🚚 Tayyor buyurtmalar"}],
@@ -95,7 +110,7 @@ def get_keyboard_by_role(role, lang="ru"):
                 ],
                 "resize_keyboard": True
             }
-        elif "Washer" in role or "Cleaner" in role or "Мойщик" in role or "Чистильщик" in role:
+        elif is_washer_role(role):
             return {
                 "keyboard": [
                     [{"text": "📏 Gilamlarni o'lchash"}, {"text": "🧼 Yuvilgan / Yuvilmagan"}],
@@ -114,7 +129,7 @@ def get_keyboard_by_role(role, lang="ru"):
                 "resize_keyboard": True
             }
     else: # Russian
-        if "Courier" in role or "Курьер" in role:
+        if is_courier_role(role):
             return {
                 "keyboard": [
                     [{"text": "📦 Ожидают забора"}, {"text": "🚚 Готовые заказы (На доставку)"}],
@@ -123,7 +138,7 @@ def get_keyboard_by_role(role, lang="ru"):
                 ],
                 "resize_keyboard": True
             }
-        elif "Washer" in role or "Cleaner" in role or "Мойщик" in role or "Чистильщик" in role:
+        elif is_washer_role(role):
             return {
                 "keyboard": [
                     [{"text": "📏 Измерка ковров (Калькулятор)"}, {"text": "🧼 Мыто / Не мыто (Статусы)"}],
@@ -229,9 +244,14 @@ def process_telegram_update(token, update):
 
     # ---------------- ОБРАБОТКА CALLBACK КНОПОК ----------------
     if callback_query:
+        cb_id = callback_query.get("id")
         chat_id = str(callback_query["message"]["chat"]["id"])
         cb_data = callback_query.get("data", "")
         sess = sessions.get(chat_id)
+
+        # Подтверждение клика чтобы кнопка не крутилась бесконечно
+        if cb_id:
+            send_tg_request(token, "answerCallbackQuery", {"callback_query_id": cb_id, "text": "✅ Обновлено!"})
 
         if not sess or sess.get("step") != "authenticated":
             send_message(token, chat_id, "⚠️ Вы не авторизованы. Отправьте /start!", get_remove_keyboard())
@@ -272,6 +292,7 @@ def process_telegram_update(token, update):
     chat_id = str(message["chat"]["id"])
     text = message.get("text", "").strip()
     sess = sessions.get(chat_id, {})
+    curr_step = sess.get("step")
 
     # ---------------- 1. СТАРТ И ВЫХОД (ИНИЦИАЛИЗАЦИЯ) ----------------
     if text in ["/logout", "🚪 Выйти из бота (/logout)", "🚪 Chiqish (/logout)"]:
@@ -281,7 +302,7 @@ def process_telegram_update(token, update):
         send_message(token, chat_id, "🔒 <b>Вы вышли из системы / Tizimdan chiqdingiz.</b>\n\nОтправьте /start для нового входа!", get_remove_keyboard())
         return
 
-    if text == "/start":
+    if text == "/start" or not curr_step:
         sessions[chat_id] = {"step": "lang"}
         save_json_file(SESSIONS_FILE, sessions)
         
@@ -295,8 +316,6 @@ def process_telegram_update(token, update):
         return
 
     # ---------------- 2. ШАГ 1: ВЫБОР ЯЗЫКА ----------------
-    curr_step = sess.get("step")
-    
     if curr_step == "lang" or text in ["🇷🇺 Русский язык", "🇺🇿 O'zbek tili"]:
         lang = "uz" if "O'zbek" in text else "ru"
         sessions[chat_id] = {
@@ -325,7 +344,7 @@ def process_telegram_update(token, update):
         return
 
     # ---------------- 3. ШАГ 2: АВТОРИЗАЦИЯ (ВВОД ЛОГИНА И ПАРОЛЯ) ----------------
-    if curr_step == "login" or sess.get("step") != "authenticated":
+    if curr_step == "login" or curr_step != "authenticated":
         parts = text.split()
         lang = sess.get("lang", "ru")
 
@@ -337,7 +356,7 @@ def process_telegram_update(token, update):
                 user_role = user_auth["role"]
 
                 # Проверка: Админам доступ к боту запрещен!
-                if user_role in ["Administrator", "Admin", "Администратор"]:
+                if is_admin_role(user_role):
                     if lang == "uz":
                         err_admin = "⚠️ <b>Kirish cheklangan:</b> Administratorlar CRM-ni veb-sayt orqali boshqaradi. Botga kirish faqat xodimlar (Dispetcher, Kuryer, Yuvuvchi) uchun mo'ljallangan."
                     else:
@@ -356,7 +375,7 @@ def process_telegram_update(token, update):
                 save_json_file(SESSIONS_FILE, sessions)
 
                 # Привязка Chat ID курьера
-                if "Courier" in user_role or "Курьер" in user_role:
+                if is_courier_role(user_role):
                     cfg = load_json_file(CONFIG_FILE, {})
                     c_chats = cfg.get("courier_chats", {})
                     c_chats[user_auth["username"]] = chat_id
@@ -401,7 +420,7 @@ def process_telegram_update(token, update):
     lang = sess.get("lang", "ru")
 
     # ----- ДИСПЕТЧЕР (DISPATCHER) -----
-    if "Dispatcher" in user_role or "Диспетчер" in user_role:
+    if not is_courier_role(user_role) and not is_washer_role(user_role):
         if text in ["➕ Новый заказ", "➕ Yangi buyurtma"]:
             msg = "➕ <b>Введите данные клиента:</b>\n<code>Заказ: Иван, 901234567, Сиёб, ул. Навои 14, 2 ковра</code>"
             send_message(token, chat_id, msg, get_keyboard_by_role(user_role, lang))
@@ -416,7 +435,7 @@ def process_telegram_update(token, update):
             return
 
     # ----- КУРЬЕР (COURIER) -----
-    elif "Courier" in user_role or "Курьер" in user_role:
+    if is_courier_role(user_role):
         if text in ["📦 Ожидают забора", "📦 Olib ketish kutilmoqda"]:
             orders = load_json_file(BACKUP_FILE, [])
             pickup_orders = [o for o in orders if str(o.get("Курьер","")).lower() == user_name.lower() and "забор" in str(o.get("Статус","")).lower()]
@@ -442,7 +461,7 @@ def process_telegram_update(token, update):
             return
 
     # ----- МОЙЩИК / ЧИСТИЛЬЩИК (WASHER / CLEANER) -----
-    elif "Washer" in user_role or "Cleaner" in user_role or "Мойщик" in user_role or "Чистильщик" in user_role:
+    if is_washer_role(user_role):
         if text in ["📏 Измерка ковров (Калькулятор)", "📏 Gilamlarni o'lchash"]:
             msg = (
                 "📏 <b>Калькулятор измерения ковра:</b>\n\n"
@@ -499,7 +518,8 @@ def process_telegram_update(token, update):
             return
 
     # Парсер создания заказа по тексту
-    if "заказ" in text.lower() or "клиент" in text.lower():
+    has_phone = bool(re.search(r'(\+?998)?[\s\-]?\(?\d{2}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}', text))
+    if "заказ" in text.lower() or "клиент" in text.lower() or has_phone:
         parsed = parse_order_from_text(text)
         new_id = get_next_id_from_backup()
 
@@ -513,7 +533,7 @@ def process_telegram_update(token, update):
             "Площадь": "0",
             "Сумма": 0,
             "Статус": "Ожидает забора",
-            "Курьер": user_name if "Courier" in user_role or "Курьер" in user_role else "Не назначен",
+            "Курьер": user_name if is_courier_role(user_role) else "Не назначен",
             "Диспетчер": f"Telegram ({user_name})",
             "Район": parsed["district"],
             "Язык": "Русский язык",
