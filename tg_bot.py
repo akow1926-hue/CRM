@@ -67,33 +67,75 @@ def send_message(token, chat_id, text, reply_markup=None):
     return send_tg_request(token, "sendMessage", payload)
 
 
-def get_keyboard_by_role(role):
-    """Клавиатура в зависимости от роли авторизованного пользователя"""
-    if role in ["Courier", "Доставщик (Курьер)", "Yuboruvchi (Kuryer)", "Курьер"]:
-        return {
-            "keyboard": [
-                [{"text": "📋 Мои заказы"}, {"text": "➕ Новый забор"}],
-                [{"text": "🔍 Поиск заказа"}, {"text": "🚪 Выйти из бота (/logout)"}]
-            ],
-            "resize_keyboard": True
-        }
-    elif role in ["Washer", "Cleaner", "Мойщик", "Чистильщик"]:
-        return {
-            "keyboard": [
-                [{"text": "🧺 Заказы в цеху"}, {"text": "🔍 Поиск заказа"}],
-                [{"text": "🚪 Выйти из бота (/logout)"}]
-            ],
-            "resize_keyboard": True
-        }
-    else: # Admin & Dispatcher
-        return {
-            "keyboard": [
-                [{"text": "📋 Все заказы"}, {"text": "📊 Статистика CRM"}],
-                [{"text": "➕ Новый заказ"}, {"text": "🔍 Поиск заказа"}],
-                [{"text": "🚪 Выйти из бота (/logout)"}]
-            ],
-            "resize_keyboard": True
-        }
+def get_lang_keyboard():
+    """Клавиатура выбора языка при старте бота"""
+    return {
+        "keyboard": [
+            [{"text": "🇷🇺 Русский язык"}, {"text": "🇺🇿 O'zbek tili"}]
+        ],
+        "resize_keyboard": True,
+        "one_time_keyboard": True
+    }
+
+
+def get_keyboard_by_role(role, lang="ru"):
+    """Клавиатура для ролей: Диспетчер, Курьер, Мойщик (Админ исключен)"""
+    if lang == "uz":
+        if "Courier" in role or "Курьер" in role:
+            return {
+                "keyboard": [
+                    [{"text": "📦 Olib ketish kutilmoqda"}, {"text": "🚚 Tayyor buyurtmalar"}],
+                    [{"text": "➕ Yangi buyurtma (Olib ketish)"}, {"text": "🔍 Buyurtma va holat"}],
+                    [{"text": "🚪 Chiqish (/logout)"}]
+                ],
+                "resize_keyboard": True
+            }
+        elif "Washer" in role or "Cleaner" in role or "Мойщик" in role or "Чистильщик" in role:
+            return {
+                "keyboard": [
+                    [{"text": "📏 Gilamlarni o'lchash"}, {"text": "🧼 Yuvilgan / Yuvilmagan"}],
+                    [{"text": "🧺 Sexdagi buyurtmalar"}, {"text": "🔍 Buyurtmani qidirish"}],
+                    [{"text": "🚪 Chiqish (/logout)"}]
+                ],
+                "resize_keyboard": True
+            }
+        else: # Dispatcher (Диспетчер)
+            return {
+                "keyboard": [
+                    [{"text": "➕ Yangi buyurtma"}, {"text": "📋 Buyurtmalar tarixi"}],
+                    [{"text": "🔍 Buyurtmalarni qidirish"}, {"text": "✏️ Buyurtmani tahrirlash"}],
+                    [{"text": "🚪 Chiqish (/logout)"}]
+                ],
+                "resize_keyboard": True
+            }
+    else: # Russian
+        if "Courier" in role or "Курьер" in role:
+            return {
+                "keyboard": [
+                    [{"text": "📦 Ожидают забора"}, {"text": "🚚 Готовые заказы (На доставку)"}],
+                    [{"text": "➕ Новый заказ (Забор)"}, {"text": "🔍 Поиск и статус заказа"}],
+                    [{"text": "🚪 Выйти из бота (/logout)"}]
+                ],
+                "resize_keyboard": True
+            }
+        elif "Washer" in role or "Cleaner" in role or "Мойщик" in role or "Чистильщик" in role:
+            return {
+                "keyboard": [
+                    [{"text": "📏 Измерка ковров (Калькулятор)"}, {"text": "🧼 Мыто / Не мыто (Статусы)"}],
+                    [{"text": "🧺 Заказы в цеху"}, {"text": "🔍 Поиск заказа"}],
+                    [{"text": "🚪 Выйти из бота (/logout)"}]
+                ],
+                "resize_keyboard": True
+            }
+        else: # Dispatcher (Диспетчер)
+            return {
+                "keyboard": [
+                    [{"text": "➕ Новый заказ"}, {"text": "📋 История заказов"}],
+                    [{"text": "🔍 Поиск заказов"}, {"text": "✏️ Изменение заказов"}],
+                    [{"text": "🚪 Выйти из бота (/logout)"}]
+                ],
+                "resize_keyboard": True
+            }
 
 
 def authenticate_user(login, password):
@@ -170,13 +212,14 @@ def process_telegram_update(token, update):
 
     sessions = load_json_file(SESSIONS_FILE, {})
 
+    # ---------------- ОБРАБОТКА CALLBACK КНОПОК ----------------
     if callback_query:
         chat_id = str(callback_query["message"]["chat"]["id"])
         cb_data = callback_query.get("data", "")
         sess = sessions.get(chat_id)
 
-        if not sess:
-            send_message(token, chat_id, "⚠️ Вы не авторизованы. Напишите логин и пароль!")
+        if not sess or sess.get("step") != "authenticated":
+            send_message(token, chat_id, "⚠️ Вы не авторизованы. Отправьте /start!")
             return
 
         if cb_data.startswith("st_"):
@@ -203,7 +246,7 @@ def process_telegram_update(token, update):
 
                 if found:
                     save_json_file(BACKUP_FILE, orders)
-                    send_message(token, chat_id, f"✅ <b>Заказ №{order_id} переведен в статус:</b> «{new_st}»!", get_keyboard_by_role(sess.get("role")))
+                    send_message(token, chat_id, f"✅ <b>Заказ №{order_id} переведен в статус:</b> «{new_st}»!", get_keyboard_by_role(sess.get("role"), sess.get("lang", "ru")))
                 else:
                     send_message(token, chat_id, f"⚠️ Заказ №{order_id} не найден.")
         return
@@ -213,187 +256,235 @@ def process_telegram_update(token, update):
 
     chat_id = str(message["chat"]["id"])
     text = message.get("text", "").strip()
-    sess = sessions.get(chat_id)
+    sess = sessions.get(chat_id, {})
 
-    # ---------------- 1. ОБРАБОТКА ВЫХОДА ИЗ СИСТЕМЫ ----------------
-    if text in ["/logout", "🚪 Выйти из бота (/logout)"]:
+    # ---------------- 1. СТАРТ И ВЫХОД (ИНИЦИАЛИЗАЦИЯ) ----------------
+    if text in ["/logout", "🚪 Выйти из бота (/logout)", "🚪 Chiqish (/logout)"]:
         if chat_id in sessions:
             del sessions[chat_id]
             save_json_file(SESSIONS_FILE, sessions)
-        send_message(token, chat_id, "🔒 <b>Вы успешно вышли из системы Cosmo CRM.</b>\nДля входа отправьте логин и пароль!")
+        send_message(token, chat_id, "🔒 <b>Вы вышли из системы / Tizimdan chiqdingiz.</b>\n\nОтправьте /start для нового входа!")
         return
 
-    # ---------------- 2. ПРОВЕРКА АВТОРИЗАЦИИ ПОЛЬЗОВАТЕЛЯ ----------------
-    if not sess:
-        # Проверяем, если сообщение содержит логин и пароль через пробел
+    if text == "/start":
+        sessions[chat_id] = {"step": "lang"}
+        save_json_file(SESSIONS_FILE, sessions)
+        
+        start_msg = (
+            "👋 <b>Добро пожаловать в Cosmo Cleaning CRM Bot!</b>\n"
+            "Пожалуйста, выберите язык общения:\n\n"
+            "👋 <b>Cosmo Cleaning CRM Bot-ga xush kelibsiz!</b>\n"
+            "Iltimos, muloqot tilini tanlang:"
+        )
+        send_message(token, chat_id, start_msg, get_lang_keyboard())
+        return
+
+    # ---------------- 2. ШАГ 1: ВЫБОР ЯЗЫКА ----------------
+    curr_step = sess.get("step")
+    
+    if curr_step == "lang" or text in ["🇷🇺 Русский язык", "🇺🇿 O'zbek tili"]:
+        lang = "uz" if "O'zbek" in text else "ru"
+        sessions[chat_id] = {
+            "step": "login",
+            "lang": lang
+        }
+        save_json_file(SESSIONS_FILE, sessions)
+
+        if lang == "uz":
+            prompt = (
+                "🌐 <b>O'zbek tili tanlandi.</b>\n\n"
+                "🔒 <b>CRM-ga kirish:</b>\n"
+                "Iltimos, login va parolingizni joy tashlab kiriting:\n"
+                "<code>login parol</code>\n\n"
+                "<i>Misol: akobir akobir</i>"
+            )
+        else:
+            prompt = (
+                "🌐 <b>Выбран русский язык.</b>\n\n"
+                "🔒 <b>Авторизация в CRM:</b>\n"
+                "Пожалуйста, введите ваш логин и пароль через пробел:\n"
+                "<code>логин пароль</code>\n\n"
+                "<i>Пример: akobir akobir</i>"
+            )
+        send_message(token, chat_id, prompt)
+        return
+
+    # ---------------- 3. ШАГ 2: АВТОРИЗАЦИЯ (ВВОД ЛОГИНА И ПАРОЛЯ) ----------------
+    if curr_step == "login" or sess.get("step") != "authenticated":
         parts = text.split()
+        lang = sess.get("lang", "ru")
+
         if len(parts) == 2:
             login_attempt, pass_attempt = parts[0].strip(), parts[1].strip()
             user_auth = authenticate_user(login_attempt, pass_attempt)
-            
+
             if user_auth:
+                user_role = user_auth["role"]
+
+                # Проверка: Админам доступ к боту запрещен!
+                if user_role in ["Administrator", "Admin", "Администратор"]:
+                    if lang == "uz":
+                        err_admin = "⚠️ <b>Kirish cheklangan:</b> Administratorlar CRM-ni veb-sayt orqali boshqaradi. Botga kirish faqat xodimlar (Dispetcher, Kuryer, Yuvuvchi) uchun mo'ljallangan."
+                    else:
+                        err_admin = "⚠️ <b>Доступ ограничен:</b> Администраторы управляют CRM через веб-сайт. Вход в бот предназначен только для линейного персонала (Диспетчеры, Курьеры, Мойщики)."
+                    send_message(token, chat_id, err_admin)
+                    return
+
+                # Успешный вход для Диспетчера, Курьера, Мойщика
                 sessions[chat_id] = {
+                    "step": "authenticated",
                     "username": user_auth["username"],
-                    "role": user_auth["role"],
+                    "role": user_role,
+                    "lang": lang,
                     "auth_date": datetime.now().strftime("%d.%m.%Y, %H:%M:%S")
                 }
                 save_json_file(SESSIONS_FILE, sessions)
-                
-                # Авто-сохранение Chat ID курьера в telegram_config.json
-                if "Courier" in user_auth["role"] or "Курьер" in user_auth["role"]:
+
+                # Привязка Chat ID курьера
+                if "Courier" in user_role or "Курьер" in user_role:
                     cfg = load_json_file(CONFIG_FILE, {})
                     c_chats = cfg.get("courier_chats", {})
                     c_chats[user_auth["username"]] = chat_id
                     cfg["courier_chats"] = c_chats
                     save_json_file(CONFIG_FILE, cfg)
 
-                welcome_msg = (
-                    f"🎉 <b>АВТОРИЗАЦИЯ УСПЕШНА!</b>\n\n"
-                    f"👤 <b>Пользователь:</b> {user_auth['username']}\n"
-                    f"💼 <b>Роль:</b> {user_auth['role']}\n\n"
-                    f"<i>Вам доступны функции CRM согласно вашей роли.</i>"
-                )
-                send_message(token, chat_id, welcome_msg, get_keyboard_by_role(user_auth["role"]))
+                if lang == "uz":
+                    welcome_msg = (
+                        f"🎉 <b>MUVAFFAQIYATLI KIRISH!</b>\n\n"
+                        f"👤 <b>Foydalanuvchi:</b> {user_auth['username']}\n"
+                        f"💼 <b>Lavozim:</b> {user_role}\n\n"
+                        f"<i>Lavozimingizga mos tugmalar quyida paydo bo'ldi.</i>"
+                    )
+                else:
+                    welcome_msg = (
+                        f"🎉 <b>УСПЕШНАЯ АВТОРИЗАЦИЯ!</b>\n\n"
+                        f"👤 <b>Пользователь:</b> {user_auth['username']}\n"
+                        f"💼 <b>Роль:</b> {user_role}\n\n"
+                        f"<i>Вам доступны функции CRM согласно вашей роли.</i>"
+                    )
+
+                send_message(token, chat_id, welcome_msg, get_keyboard_by_role(user_role, lang))
                 return
             else:
-                send_message(token, chat_id, "❌ <b>Ошибка авторизации!</b>\nНеверный логин или пароль. Попробуйте еще раз в формате:\n<code>логин пароль</code>")
+                if lang == "uz":
+                    err_msg = "❌ <b>Kirishda xatolik!</b> Noto'g'ri login yoki parol. Qaytadan kiriting:\n<code>login parol</code>"
+                else:
+                    err_msg = "❌ <b>Ошибка входа!</b> Неверный логин или пароль. Попробуйте еще раз в формате:\n<code>логин пароль</code>"
+                send_message(token, chat_id, err_msg)
                 return
         else:
-            auth_prompt = (
-                "🔒 <b>Вход в Cosmo CRM Bot:</b>\n\n"
-                "Для доступа к управлению заказами введите ваш <b>логин и пароль</b> через пробел:\n"
-                "<code>логин пароль</code>\n\n"
-                "<i>Пример: akobir 123456</i>"
-            )
-            send_message(token, chat_id, auth_prompt)
+            if lang == "uz":
+                auth_req = "🔒 <b>Iltimos, login va parolingizni joy tashlab kiriting:</b>\n<code>login parol</code>"
+            else:
+                auth_req = "🔒 <b>Пожалуйста, введите ваш логин и пароль через пробел:</b>\n<code>логин пароль</code>"
+            send_message(token, chat_id, auth_req)
             return
 
-    # ---------------- 3. АВТОРИЗОВАННЫЕ КОМАНДЫ ----------------
+    # ---------------- 4. ШАГ 3: АВТОРИЗОВАННЫЕ КОМАНДЫ (ПО РОЛЯМ) ----------------
     user_name = sess.get("username", "Пользователь")
     user_role = sess.get("role", "Courier")
+    lang = sess.get("lang", "ru")
 
-    if text in ["/start", "Привет", "помощь", "❓ Помощь"]:
-        welcome_text = (
-            f"👋 <b>Привет, {user_name}!</b>\n"
-            f"💼 <b>Ваша роль:</b> {user_role}\n\n"
-            "🧼 Я <b>Cosmo CRM AI Бот</b> — ваш помощник по управлению заказами.\n\n"
-            "<b>Доступные функции:</b>\n"
-            "• 📋 <b>Просмотр заказов</b> и изменение статусов\n"
-            "• ➕ <b>Создание новых заказов</b> текстом или голосом\n"
-            "• 📊 <b>Статистика CRM</b>\n"
-            "• 🚪 <b>Выход из аккаунта:</b> /logout\n\n"
-            "<i>Выберите команду ниже на клавиатуре!</i>"
-        )
-        send_message(token, chat_id, welcome_text, get_keyboard_by_role(user_role))
-        return
-
-    if text in ["📋 Мои заказы", "📋 Все заказы", "🧺 Заказы в цеху"]:
-        orders = load_json_file(BACKUP_FILE, [])
-        if not orders:
-            send_message(token, chat_id, "ℹ️ Список заказов пуст.", get_keyboard_by_role(user_role))
+    # ----- ДИСПЕТЧЕР (DISPATCHER) -----
+    if "Dispatcher" in user_role or "Диспетчер" in user_role:
+        if text in ["➕ Новый заказ", "➕ Yangi buyurtma"]:
+            msg = "➕ <b>Введите данные клиента:</b>\n<code>Клиент: Иван, 901234567, Сиёб, ул. Навои 14, 2 ковра</code>"
+            send_message(token, chat_id, msg, get_keyboard_by_role(user_role, lang))
             return
 
-        # Курьеры видят свои заказы, Админ/Диспетчер видят все
-        if "Courier" in user_role or "Курьер" in user_role:
-            user_orders = [o for o in orders if str(o.get("Курьер", "")).lower() == user_name.lower() and str(o.get("Статус")) != "Выполнен"]
-        else:
-            user_orders = [o for o in orders if str(o.get("Статус")) != "Выполнен"][:10]
-
-        if not user_orders:
-            send_message(token, chat_id, f"🎉 Нет активных заказов для {user_name}!", get_keyboard_by_role(user_role))
-            return
-
-        resp_msg = f"📋 <b>Активные заказы ({len(user_orders)}):</b>\n\n"
-        for o in user_orders:
-            o_id = o.get("ID")
-            client = o.get("Клиент", "-")
-            phone = o.get("Телефон", "-")
-            address = f"{o.get('Район','')}, {o.get('Адрес','')}".strip(', ')
-            st_val = o.get("Статус", "Новый")
-            sum_val = o.get("Сумма", 0)
-
-            resp_msg += (
-                f"📦 <b>Заказ №{o_id}</b> ({st_val})\n"
-                f"👤 {client} ({phone})\n"
-                f"🏠 {address}\n"
-                f"💰 {sum_val} сум\n\n"
-            )
-
-        send_message(token, chat_id, resp_msg, get_keyboard_by_role(user_role))
-        return
-
-    if text == "📊 Статистика CRM":
-        orders = load_json_file(BACKUP_FILE, [])
-        total = len(orders)
-        new_cnt = sum(1 for o in orders if o.get("Статус") == "Ожидает забора")
-        shop_cnt = sum(1 for o in orders if o.get("Статус") == "В цеху")
-        ready_cnt = sum(1 for o in orders if o.get("Статус") == "Готов")
-        done_cnt = sum(1 for o in orders if o.get("Статус") == "Выполнен")
-
-        revenue = 0
-        for o in orders:
-            try:
-                revenue += float(str(o.get("Сумма", 0)).replace(" ", "").replace(",", "."))
-            except Exception:
-                pass
-
-        stats_msg = (
-            "📊 <b>Сводка Cosmo Cleaning CRM:</b>\n\n"
-            f"📦 <b>Всего заказов:</b> {total}\n"
-            f"📄 <b>Ожидают забора:</b> {new_cnt}\n"
-            f"🧺 <b>В цеху / Стирка:</b> {shop_cnt}\n"
-            f"🚚 <b>Готовы к доставке:</b> {ready_cnt}\n"
-            f"✅ <b>Выполнено:</b> {done_cnt}\n\n"
-            f"💰 <b>Общая сумма:</b> {revenue:,.0f} сум"
-        )
-        send_message(token, chat_id, stats_msg, get_keyboard_by_role(user_role))
-        return
-
-    if text in ["➕ Новый заказ", "➕ Новый забор"]:
-        guide_msg = (
-            "➕ <b>Как быстро создать заказ:</b>\n\n"
-            "Напишите мне информацию о клиенте в одном сообщении, например:\n"
-            "<code>Заказ: Алишер Назаров, 901234567, Сиёб, ул. Навои 14, кв 2, 2 ковра</code>\n\n"
-            "ИИ автоматически распознает имя, телефон и адрес и создаст новый номер заказа!"
-        )
-        send_message(token, chat_id, guide_msg, get_keyboard_by_role(user_role))
-        return
-
-    if text.startswith("🔍 Поиск") or text.startswith("/search"):
-        send_message(token, chat_id, "🔍 Напишите № заказа или имя клиента для поиска (например: <code>5200</code> или <code>Иван</code>):", get_keyboard_by_role(user_role))
-        return
-
-    # ---------------- 4. ИИ ЕСТЕСТВЕННО-ЯЗЫКОВОЙ ОБРАБОТЧИК ----------------
-    if "заказ" in text.lower() or "клиент" in text.lower() or any(char.isdigit() for char in text):
-        digit_match = re.findall(r'\b\d{4}\b', text)
-        if digit_match and len(text) < 15:
-            target_id = digit_match[0]
+        if text in ["📋 История заказов", "📋 Buyurtmalar tarixi"]:
             orders = load_json_file(BACKUP_FILE, [])
-            matched = [o for o in orders if str(o.get("ID")) == str(target_id)]
-            if matched:
-                o = matched[0]
-                inline_buttons = {
-                    "inline_keyboard": [
-                        [
-                            {"text": "🧺 В цех", "callback_data": f"st_shop_{target_id}"},
-                            {"text": "🚚 Готов", "callback_data": f"st_ready_{target_id}"},
-                            {"text": "✅ Выполнен", "callback_data": f"st_done_{target_id}"}
-                        ]
-                    ]
-                }
-                info_text = (
-                    f"🔎 <b>Найден заказ №{target_id}:</b>\n\n"
-                    f"👤 <b>Клиент:</b> {o.get('Клиент')}\n"
-                    f"📞 <b>Телефон:</b> {o.get('Телефон')}\n"
-                    f"🏠 <b>Адрес:</b> {o.get('Район')}, {o.get('Адрес')}\n"
-                    f"🧺 <b>Вещи:</b> {o.get('Размеры')}\n"
-                    f"📊 <b>Статус:</b> {o.get('Статус')}\n"
-                    f"💰 <b>Сумма:</b> {o.get('Сумма')} сум\n"
-                    f"🚗 <b>Курьер:</b> {o.get('Курьер')}"
-                )
-                send_message(token, chat_id, info_text, inline_buttons)
-                return
+            resp = f"📋 <b>Последние заказы ({len(orders)}):</b>\n\n"
+            for o in orders[-8:][::-1]:
+                resp += f"📦 <b>№{o.get('ID')}</b> | 👤 {o.get('Клиент')} | 📊 {o.get('Статус')}\n"
+            send_message(token, chat_id, resp, get_keyboard_by_role(user_role, lang))
+            return
 
+    # ----- КУРЬЕР (COURIER) -----
+    elif "Courier" in user_role or "Курьер" in user_role:
+        if text in ["📦 Ожидают забора", "📦 Olib ketish kutilmoqda"]:
+            orders = load_json_file(BACKUP_FILE, [])
+            pickup_orders = [o for o in orders if str(o.get("Курьер","")).lower() == user_name.lower() and "забор" in str(o.get("Статус","")).lower()]
+            if not pickup_orders:
+                send_message(token, chat_id, "ℹ️ Нет заказов на забор.", get_keyboard_by_role(user_role, lang))
+                return
+            resp = f"📦 <b>Заказы на забор ({len(pickup_orders)}):</b>\n\n"
+            for o in pickup_orders:
+                resp += f"📦 <b>№{o.get('ID')}</b> | 👤 {o.get('Клиент')} ({o.get('Телефон')})\n🏠 {o.get('Адрес')}\n\n"
+            send_message(token, chat_id, resp, get_keyboard_by_role(user_role, lang))
+            return
+
+        if text in ["🚚 Готовые заказы (На доставку)", "🚚 Tayyor buyurtmalar"]:
+            orders = load_json_file(BACKUP_FILE, [])
+            ready_orders = [o for o in orders if "Готов" in str(o.get("Статус",""))]
+            if not ready_orders:
+                send_message(token, chat_id, "ℹ️ Нет готовых заказов на доставку.", get_keyboard_by_role(user_role, lang))
+                return
+            resp = f"🚚 <b>Готовые заказы на доставку ({len(ready_orders)}):</b>\n\n"
+            for o in ready_orders:
+                resp += f"📦 <b>№{o.get('ID')}</b> | 👤 {o.get('Клиент')}\n💰 К оплате: {o.get('Сумма')} сум\n\n"
+            send_message(token, chat_id, resp, get_keyboard_by_role(user_role, lang))
+            return
+
+    # ----- МОЙЩИК / ЧИСТИЛЬЩИК (WASHER / CLEANER) -----
+    elif "Washer" in user_role or "Cleaner" in user_role or "Мойщик" in role or "Чистильщик" in role:
+        if text in ["📏 Измерка ковров (Калькулятор)", "📏 Gilamlarni o'lchash"]:
+            msg = (
+                "📏 <b>Калькулятор измерения ковра:</b>\n\n"
+                "Формула: <code>Ширина x Длина x Цена_за_кв.м</code>\n"
+                "Пример: 3м x 4м = 12 кв.м x 15,000 сум = <b>180,000 сум</b>"
+            )
+            send_message(token, chat_id, msg, get_keyboard_by_role(user_role, lang))
+            return
+
+        if text in ["🧼 Мыто / Не мыто (Статусы)", "🧼 Yuvilgan / Yuvilmagan", "🧺 Заказы в цеху", "🧺 Sexdagi buyurtmalar"]:
+            orders = load_json_file(BACKUP_FILE, [])
+            shop_orders = [o for o in orders if "цех" in str(o.get("Статус","")).lower()]
+            if not shop_orders:
+                send_message(token, chat_id, "🎉 В цеху чисто! Все ковры помыты.", get_keyboard_by_role(user_role, lang))
+                return
+            resp = f"🧺 <b>Заказы в цеху на стирку ({len(shop_orders)}):</b>\n\n"
+            for o in shop_orders:
+                resp += f"📦 <b>№{o.get('ID')}</b> | 🧺 {o.get('Размеры')} | 📊 {o.get('Статус')}\n"
+            send_message(token, chat_id, resp, get_keyboard_by_role(user_role, lang))
+            return
+
+    # ----- ПОИСК И ЕСТЕСТВЕННЫЙ ЯЗЫК ДЛЯ ВСЕХ ПОЛЬЗОВАТЕЛЕЙ -----
+    if text.startswith("🔍") or text.startswith("/search"):
+        send_message(token, chat_id, "🔍 Напишите № заказа или телефон (например: <code>5200</code>):", get_keyboard_by_role(user_role, lang))
+        return
+
+    # Авто-поиск по номеру заказа (4 цифры)
+    digit_match = re.findall(r'\b\d{4}\b', text)
+    if digit_match and len(text) < 15:
+        target_id = digit_match[0]
+        orders = load_json_file(BACKUP_FILE, [])
+        matched = [o for o in orders if str(o.get("ID")) == str(target_id)]
+        if matched:
+            o = matched[0]
+            inline_buttons = {
+                "inline_keyboard": [
+                    [
+                        {"text": "🧺 В цех", "callback_data": f"st_shop_{target_id}"},
+                        {"text": "🚚 Готов", "callback_data": f"st_ready_{target_id}"},
+                        {"text": "✅ Выполнен", "callback_data": f"st_done_{target_id}"}
+                    ]
+                ]
+            }
+            info_text = (
+                f"🔎 <b>Заказ №{target_id}:</b>\n\n"
+                f"👤 <b>Клиент:</b> {o.get('Клиент')}\n"
+                f"📞 <b>Телефон:</b> {o.get('Телефон')}\n"
+                f"🏠 <b>Адрес:</b> {o.get('Район')}, {o.get('Адрес')}\n"
+                f"🧺 <b>Вещи:</b> {o.get('Размеры')}\n"
+                f"📊 <b>Статус:</b> {o.get('Статус')}\n"
+                f"💰 <b>Сумма:</b> {o.get('Сумма')} сум"
+            )
+            send_message(token, chat_id, info_text, inline_buttons)
+            return
+
+    # Парсер создания заказа по тексту
+    if "заказ" in text.lower() or "клиент" in text.lower():
         parsed = parse_order_from_text(text)
         new_id = get_next_id_from_backup()
 
@@ -422,23 +513,17 @@ def process_telegram_update(token, update):
         save_json_file(BACKUP_FILE, orders)
 
         confirm_text = (
-            f"🎉 <b>НОВЫЙ ЗАКАЗ №{new_id} УСПЕШНО СОЗДАН!</b>\n\n"
+            f"🎉 <b>НОВЫЙ ЗАКАЗ №{new_id} СОЗДАН!</b>\n\n"
             f"👤 <b>Клиент:</b> {parsed['client']}\n"
             f"📞 <b>Телефон:</b> {parsed['phone']}\n"
-            f"🏠 <b>Адрес/Инфо:</b> {parsed['address']}\n"
-            f"📍 <b>Район:</b> {parsed['district']}\n"
-            f"🟡 <b>Статус:</b> Ожидает забора\n\n"
-            f"<i>Заказ автоматически добавлен в CRM!</i>"
+            f"🏠 <b>Адрес:</b> {parsed['address']}\n"
+            f"🟡 <b>Статус:</b> Ожидает забора"
         )
-        send_message(token, chat_id, confirm_text, get_keyboard_by_role(user_role))
+        send_message(token, chat_id, confirm_text, get_keyboard_by_role(user_role, lang))
         return
 
-    ai_reply = (
-        f"🤖 <b>Cosmo AI:</b> Получено сообщение «<i>{text}</i>».\n\n"
-        "Вы можете проверить статус заказов, оформить новый заказ или запросить статистику. "
-        "Нажмите на кнопки меню ниже!"
-    )
-    send_message(token, chat_id, ai_reply, get_keyboard_by_role(user_role))
+    reply_msg = "ℹ️ Выберите нужную команду на клавиатуре ниже или напишите № заказа для поиска."
+    send_message(token, chat_id, reply_msg, get_keyboard_by_role(user_role, lang))
 
 
 def run_telegram_bot():
