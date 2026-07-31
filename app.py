@@ -1284,73 +1284,77 @@ if "settings_subtab" not in st.session_state:
 
 st.sidebar.markdown("---")
 
-# 1. Кнопка-панель "📌 Разделы CRM" (кнопки внутри)
-with st.sidebar.expander("📌 Разделы CRM", expanded=True):
-    nav_items = [
-        ("📊 Главный дашборд", "sb_btn_dash"),
-        ("📋 Все заказы", "sb_btn_orders"),
-        ("💰 Долги клиентов", "sb_btn_debts"),
-        ("💵 Зарплаты и Комиссии", "sb_btn_salary"),
-        ("👥 Управление сотрудниками", "sb_btn_users"),
-        ("🗺️ Карта заказов", "sb_btn_map")
-    ]
-    for label, btn_key in nav_items:
-        is_active = (st.session_state.get("admin_nav_choice") == label)
-        if st.button(
-            label,
-            key=btn_key,
-            use_container_width=True,
-            type="primary" if is_active else "secondary"
-        ):
-            st.session_state["admin_nav_choice"] = label
-            st.rerun()
+user_role = st.session_state.get("role", "Administrator")
 
-# 2. Кнопка-панель "⚙️ Настройки CRM" (кнопки внутри)
-with st.sidebar.expander("⚙️ Настройки CRM", expanded=(st.session_state.get("admin_nav_choice") == "⚙️ Настройки")):
-    settings_sub_items = [
-        ("🤖 Telegram Бот и Курьеры", "sub_btn_tg"),
-        ("🌐 Google Таблица", "sub_btn_gs"),
-        ("📱 Настройки SMS", "sub_btn_sms_cfg"),
-        ("📜 История SMS", "sub_btn_sms_hist"),
-        ("🏷️ Прейскурант цен", "sub_btn_pricing"),
-        ("💾 Бекап и Резерв", "sub_btn_backup")
-    ]
-    for sub_label, sub_key in settings_sub_items:
-        is_sub_active = (st.session_state.get("admin_nav_choice") == "⚙️ Настройки" and st.session_state.get("settings_subtab") == sub_label)
-        if st.button(
-            sub_label,
-            key=sub_key,
-            use_container_width=True,
-            type="primary" if is_sub_active else "secondary"
-        ):
-            st.session_state["admin_nav_choice"] = "⚙️ Настройки"
-            st.session_state["settings_subtab"] = sub_label
-            st.rerun()
+# Показываем боковые панели администратора только для Администратора
+if user_role in ["Administrator", "Admin", "Администратор"]:
+    # 1. Кнопка-панель "📌 Разделы CRM" (кнопки внутри)
+    with st.sidebar.expander("📌 Разделы CRM", expanded=True):
+        nav_items = [
+            ("📊 Главный дашборд", "sb_btn_dash"),
+            ("📋 Все заказы", "sb_btn_orders"),
+            ("💰 Долги клиентов", "sb_btn_debts"),
+            ("💵 Зарплаты и Комиссии", "sb_btn_salary"),
+            ("👥 Управление сотрудниками", "sb_btn_users"),
+            ("🗺️ Карта заказов", "sb_btn_map")
+        ]
+        for label, btn_key in nav_items:
+            is_active = (st.session_state.get("admin_nav_choice") == label)
+            if st.button(
+                label,
+                key=btn_key,
+                use_container_width=True,
+                type="primary" if is_active else "secondary"
+            ):
+                st.session_state["admin_nav_choice"] = label
+                st.rerun()
+
+    # 2. Кнопка-панель "⚙️ Настройки CRM" (кнопки внутри)
+    with st.sidebar.expander("⚙️ Настройки CRM", expanded=(st.session_state.get("admin_nav_choice") == "⚙️ Настройки")):
+        settings_sub_items = [
+            ("🤖 Telegram Бот и Курьеры", "sub_btn_tg"),
+            ("🌐 Google Таблица", "sub_btn_gs"),
+            ("📱 Настройки SMS", "sub_btn_sms_cfg"),
+            ("📜 История SMS", "sub_btn_sms_hist"),
+            ("🏷️ Прейскурант цен", "sub_btn_pricing"),
+            ("💾 Бекап и Резерв", "sub_btn_backup")
+        ]
+        for sub_label, sub_key in settings_sub_items:
+            is_sub_active = (st.session_state.get("admin_nav_choice") == "⚙️ Настройки" and st.session_state.get("settings_subtab") == sub_label)
+            if st.button(
+                sub_label,
+                key=sub_key,
+                use_container_width=True,
+                type="primary" if is_sub_active else "secondary"
+            ):
+                st.session_state["admin_nav_choice"] = "⚙️ Настройки"
+                st.session_state["settings_subtab"] = sub_label
+                st.rerun()
+
+    with st.sidebar.expander("📲 Telegram Уведомления", expanded=False):
+        cfg = get_tg_config()
+        default_token = st.session_state.get("tg_bot_token") or cfg.get("bot_token", "")
+        default_chat = st.session_state.get("tg_chat_id") or cfg.get("chat_id", "")
+        
+        tg_token = st.text_input("Bot Token:", value=default_token, type="password", key="tg_token_input")
+        tg_chat = st.text_input("Chat ID:", value=default_chat, key="tg_chat_input")
+        
+        if tg_token or tg_chat:
+            st.session_state["tg_bot_token"] = tg_token
+            st.session_state["tg_chat_id"] = tg_chat
+            save_tg_config(tg_token, tg_chat)
+            
+        if tg_token and tg_chat:
+            st.success("✅ Бот подключен")
+            if st.button("🧪 Отправить тест в Telegram", key="test_tg_btn"):
+                res = send_telegram_notification("🧪 <b>Тестовое сообщение от Cosmo CRM!</b>\nБот успешно настроен и работает!")
+                if res:
+                    st.success("🎉 Тестовое сообщение доставлено!")
+
+    with st.sidebar.expander("📱 SMS Уведомления", expanded=False):
+        render_sms_settings_ui(key_prefix="sb_sms")
 
 admin_nav_choice = st.session_state.get("admin_nav_choice", "📊 Главный дашборд")
-
-with st.sidebar.expander("📲 Telegram Уведомления", expanded=False):
-    cfg = get_tg_config()
-    default_token = st.session_state.get("tg_bot_token") or cfg.get("bot_token", "")
-    default_chat = st.session_state.get("tg_chat_id") or cfg.get("chat_id", "")
-    
-    tg_token = st.text_input("Bot Token:", value=default_token, type="password", key="tg_token_input")
-    tg_chat = st.text_input("Chat ID:", value=default_chat, key="tg_chat_input")
-    
-    if tg_token or tg_chat:
-        st.session_state["tg_bot_token"] = tg_token
-        st.session_state["tg_chat_id"] = tg_chat
-        save_tg_config(tg_token, tg_chat)
-        
-    if tg_token and tg_chat:
-        st.success("✅ Бот подключен")
-        if st.button("🧪 Отправить тест в Telegram", key="test_tg_btn"):
-            res = send_telegram_notification("🧪 <b>Тестовое сообщение от Cosmo CRM!</b>\nБот успешно настроен и работает!")
-            if res:
-                st.success("🎉 Тестовое сообщение доставлено!")
-
-with st.sidebar.expander("📱 SMS Уведомления", expanded=False):
-    render_sms_settings_ui(key_prefix="sb_sms")
 
 if st.sidebar.button(f"{t['logout']} 🔓"):
     st.session_state["logged_in"] = False
