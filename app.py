@@ -1280,51 +1280,50 @@ if "settings_subtab" not in st.session_state:
     st.session_state["settings_subtab"] = "🤖 Telegram Бот и Курьеры"
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 📌 Разделы CRM")
 
-nav_items = [
-    ("📊 Главный дашборд", "sb_btn_dash"),
-    ("📋 Все заказы", "sb_btn_orders"),
-    ("💰 Долги клиентов", "sb_btn_debts"),
-    ("👥 Управление сотрудниками", "sb_btn_users"),
-    ("🗺️ Карта заказов", "sb_btn_map"),
-    ("⚙️ Настройки", "sb_btn_settings")
-]
+# 1. Кнопка-панель "📌 Разделы CRM" (кнопки внутри)
+with st.sidebar.expander("📌 Разделы CRM", expanded=True):
+    nav_items = [
+        ("📊 Главный дашборд", "sb_btn_dash"),
+        ("📋 Все заказы", "sb_btn_orders"),
+        ("💰 Долги клиентов", "sb_btn_debts"),
+        ("👥 Управление сотрудниками", "sb_btn_users"),
+        ("🗺️ Карта заказов", "sb_btn_map")
+    ]
+    for label, btn_key in nav_items:
+        is_active = (st.session_state.get("admin_nav_choice") == label)
+        if st.button(
+            label,
+            key=btn_key,
+            use_container_width=True,
+            type="primary" if is_active else "secondary"
+        ):
+            st.session_state["admin_nav_choice"] = label
+            st.rerun()
 
-for label, btn_key in nav_items:
-    is_active = (st.session_state.get("admin_nav_choice") == label)
-    if st.sidebar.button(
-        label,
-        key=btn_key,
-        use_container_width=True,
-        type="primary" if is_active else "secondary"
-    ):
-        st.session_state["admin_nav_choice"] = label
-        st.rerun()
-
-    # Вывод под-панелей прямо под кнопкой Настройки в боковой панели
-    if label == "⚙️ Настройки" and is_active:
-        settings_sub_items = [
-            ("🤖 Telegram Бот и Курьеры", "sub_btn_tg"),
-            ("🌐 Google Таблица", "sub_btn_gs"),
-            ("📱 Настройки SMS", "sub_btn_sms_cfg"),
-            ("📜 История SMS", "sub_btn_sms_hist"),
-            ("🏷️ Прейскурант цен", "sub_btn_pricing"),
-            ("💾 Бекап и Резерв", "sub_btn_backup")
-        ]
-        for sub_label, sub_key in settings_sub_items:
-            is_sub_active = (st.session_state.get("settings_subtab") == sub_label)
-            if st.sidebar.button(
-                f"   └ {sub_label}",
-                key=sub_key,
-                use_container_width=True,
-                type="primary" if is_sub_active else "secondary"
-            ):
-                st.session_state["settings_subtab"] = sub_label
-                st.rerun()
+# 2. Кнопка-панель "⚙️ Настройки CRM" (кнопки внутри)
+with st.sidebar.expander("⚙️ Настройки CRM", expanded=(st.session_state.get("admin_nav_choice") == "⚙️ Настройки")):
+    settings_sub_items = [
+        ("🤖 Telegram Бот и Курьеры", "sub_btn_tg"),
+        ("🌐 Google Таблица", "sub_btn_gs"),
+        ("📱 Настройки SMS", "sub_btn_sms_cfg"),
+        ("📜 История SMS", "sub_btn_sms_hist"),
+        ("🏷️ Прейскурант цен", "sub_btn_pricing"),
+        ("💾 Бекап и Резерв", "sub_btn_backup")
+    ]
+    for sub_label, sub_key in settings_sub_items:
+        is_sub_active = (st.session_state.get("admin_nav_choice") == "⚙️ Настройки" and st.session_state.get("settings_subtab") == sub_label)
+        if st.button(
+            sub_label,
+            key=sub_key,
+            use_container_width=True,
+            type="primary" if is_sub_active else "secondary"
+        ):
+            st.session_state["admin_nav_choice"] = "⚙️ Настройки"
+            st.session_state["settings_subtab"] = sub_label
+            st.rerun()
 
 admin_nav_choice = st.session_state.get("admin_nav_choice", "📊 Главный дашборд")
-st.sidebar.markdown("---")
 
 with st.sidebar.expander("📲 Telegram Уведомления", expanded=False):
     cfg = get_tg_config()
