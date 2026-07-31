@@ -48,37 +48,17 @@ def render_dashboard_view(df):
     st.divider()
 
     # 2. Графики (Динамика + Статусы)
-    col_g1, col_g2 = st.columns([7, 5])
+    col_g1, col_g2 = st.columns([6, 6])
 
     with col_g1:
-        st.subheader("📈 Заказы по дням")
-        if not df.empty and "Дата" in df.columns:
-            df_copy = df.copy()
-            df_copy["ShortDate"] = df_copy["Дата"].astype(str).apply(lambda x: x.split(",")[0].strip() if "," in x else x[:10])
-            daily_df = df_copy.groupby("ShortDate").size().reset_index(name="Количество")
-            fig_line = px.bar(daily_df, x="ShortDate", y="Количество", text_auto=True, color_discrete_sequence=["#facc15"])
-            fig_line.update_layout(
-                height=320, 
-                margin=dict(l=10, r=10, t=20, b=10),
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="#cbd5e1", family="Plus Jakarta Sans"),
-                xaxis=dict(gridcolor="#1d3566"),
-                yaxis=dict(gridcolor="#1d3566")
-            )
-            st.plotly_chart(fig_line, use_container_width=True)
-        else:
-            st.info("Нет данных для графика")
-
-    with col_g2:
         st.subheader("📊 Разделение по статусам")
         if not df.empty and "Статус" in df.columns:
             st_counts = df["Статус"].value_counts().reset_index()
             st_counts.columns = ["Статус", "Количество"]
-            fig_pie = px.pie(st_counts, names="Статус", values="Количество", hole=0.4, color_discrete_sequence=["#facc15", "#2563eb", "#60a5fa", "#eab308", "#3b82f6"])
+            fig_pie = px.pie(st_counts, names="Статус", values="Количество", hole=0.4, color_discrete_sequence=["#f59e0b", "#3b82f6", "#60a5fa", "#d97706", "#2563eb"])
             fig_pie.update_layout(
-                height=320, 
-                margin=dict(l=10, r=10, t=20, b=10),
+                height=260, 
+                margin=dict(l=10, r=10, t=10, b=10),
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
                 font=dict(color="#cbd5e1", family="Plus Jakarta Sans")
@@ -86,6 +66,27 @@ def render_dashboard_view(df):
             st.plotly_chart(fig_pie, use_container_width=True)
         else:
             st.info("Нет данных")
+
+    with col_g2:
+        st.subheader("📈 Динамика заказов")
+        with st.expander("🔍 Показать график «Заказы по дням»", expanded=False):
+            if not df.empty and "Дата" in df.columns:
+                df_copy = df.copy()
+                df_copy["ShortDate"] = df_copy["Дата"].astype(str).apply(lambda x: x.split(",")[0].strip() if "," in x else x[:10])
+                daily_df = df_copy.groupby("ShortDate").size().reset_index(name="Количество")
+                fig_line = px.bar(daily_df, x="ShortDate", y="Количество", text_auto=True, color_discrete_sequence=["#f59e0b"])
+                fig_line.update_layout(
+                    height=240, 
+                    margin=dict(l=10, r=10, t=10, b=10),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#cbd5e1", family="Plus Jakarta Sans"),
+                    xaxis=dict(gridcolor="#1e2c46"),
+                    yaxis=dict(gridcolor="#1e2c46")
+                )
+                st.plotly_chart(fig_line, use_container_width=True)
+            else:
+                st.info("Нет данных для графика")
 
     st.divider()
 
