@@ -78,6 +78,11 @@ def get_lang_keyboard():
     }
 
 
+def get_remove_keyboard():
+    """Скрытие старой клавиатуры для неавторизованных пользователей"""
+    return {"remove_keyboard": True}
+
+
 def get_keyboard_by_role(role, lang="ru"):
     """Клавиатура для ролей: Диспетчер, Курьер, Мойщик (Админ исключен)"""
     if lang == "uz":
@@ -229,7 +234,7 @@ def process_telegram_update(token, update):
         sess = sessions.get(chat_id)
 
         if not sess or sess.get("step") != "authenticated":
-            send_message(token, chat_id, "⚠️ Вы не авторизованы. Отправьте /start!")
+            send_message(token, chat_id, "⚠️ Вы не авторизованы. Отправьте /start!", get_remove_keyboard())
             return
 
         if cb_data.startswith("st_"):
@@ -273,7 +278,7 @@ def process_telegram_update(token, update):
         if chat_id in sessions:
             del sessions[chat_id]
             save_json_file(SESSIONS_FILE, sessions)
-        send_message(token, chat_id, "🔒 <b>Вы вышли из системы / Tizimdan chiqdingiz.</b>\n\nОтправьте /start для нового входа!")
+        send_message(token, chat_id, "🔒 <b>Вы вышли из системы / Tizimdan chiqdingiz.</b>\n\nОтправьте /start для нового входа!", get_remove_keyboard())
         return
 
     if text == "/start":
@@ -316,7 +321,7 @@ def process_telegram_update(token, update):
                 "<code>логин пароль</code>\n\n"
                 "<i>Пример: akobir akobir</i>"
             )
-        send_message(token, chat_id, prompt)
+        send_message(token, chat_id, prompt, get_remove_keyboard())
         return
 
     # ---------------- 3. ШАГ 2: АВТОРИЗАЦИЯ (ВВОД ЛОГИНА И ПАРОЛЯ) ----------------
@@ -337,7 +342,7 @@ def process_telegram_update(token, update):
                         err_admin = "⚠️ <b>Kirish cheklangan:</b> Administratorlar CRM-ni veb-sayt orqali boshqaradi. Botga kirish faqat xodimlar (Dispetcher, Kuryer, Yuvuvchi) uchun mo'ljallangan."
                     else:
                         err_admin = "⚠️ <b>Доступ ограничен:</b> Администраторы управляют CRM через веб-сайт. Вход в бот предназначен только для линейного персонала (Диспетчеры, Курьеры, Мойщики)."
-                    send_message(token, chat_id, err_admin)
+                    send_message(token, chat_id, err_admin, get_remove_keyboard())
                     return
 
                 # Успешный вход для Диспетчера, Курьера, Мойщика
@@ -380,14 +385,14 @@ def process_telegram_update(token, update):
                     err_msg = "❌ <b>Kirishda xatolik!</b> Noto'g'ri login yoki parol. Qaytadan kiriting:\n<code>login parol</code>"
                 else:
                     err_msg = "❌ <b>Ошибка входа!</b> Неверный логин или пароль. Попробуйте еще раз в формате:\n<code>логин пароль</code>"
-                send_message(token, chat_id, err_msg)
+                send_message(token, chat_id, err_msg, get_remove_keyboard())
                 return
         else:
             if lang == "uz":
                 auth_req = "🔒 <b>Iltimos, login va parolingizni joy tashlab kiriting:</b>\n<code>login parol</code>"
             else:
                 auth_req = "🔒 <b>Пожалуйста, введите ваш логин и пароль через пробел:</b>\n<code>логин пароль</code>"
-            send_message(token, chat_id, auth_req)
+            send_message(token, chat_id, auth_req, get_remove_keyboard())
             return
 
     # ---------------- 4. ШАГ 3: АВТОРИЗОВАННЫЕ КОМАНДЫ (ПО РОЛЯМ) ----------------
@@ -398,7 +403,7 @@ def process_telegram_update(token, update):
     # ----- ДИСПЕТЧЕР (DISPATCHER) -----
     if "Dispatcher" in user_role or "Диспетчер" in user_role:
         if text in ["➕ Новый заказ", "➕ Yangi buyurtma"]:
-            msg = "➕ <b>Введите данные клиента:</b>\n<code>Клиент: Иван, 901234567, Сиёб, ул. Навои 14, 2 ковра</code>"
+            msg = "➕ <b>Введите данные клиента:</b>\n<code>Заказ: Иван, 901234567, Сиёб, ул. Навои 14, 2 ковра</code>"
             send_message(token, chat_id, msg, get_keyboard_by_role(user_role, lang))
             return
 
