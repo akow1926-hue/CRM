@@ -3,33 +3,32 @@ import base64
 import streamlit as st
 
 def get_dark_theme_css():
-    # Blue & Yellow Palette Tokens
-    bg_color = "#070d1e"          # Deep Midnight Blue
-    sidebar_bg = "#050914"        # Ultra Dark Navy Sidebar
-    card_bg = "#0f1a34"           # Deep Royal Blue-Navy Surface
-    card_border = "#1d3566"       # Royal Blue Border
-    card_glow_yellow = "rgba(250, 204, 21, 0.25)" # Radiant Yellow Glow
-    card_glow_blue = "rgba(37, 99, 235, 0.25)"   # Radiant Blue Glow
+    # Premium Indigo-Slate & Warm Amber Gold Palette Tokens
+    bg_color = "#0b1120"          # Soft Deep Slate Navy (Pleasant on eyes)
+    sidebar_bg = "#080e1b"        # Deep Midnight Slate Sidebar
+    card_bg = "#121b2d"           # Elegant Slate Surface
+    card_border = "#1e2c46"       # Subtle Slate Border
+    card_glow_gold = "rgba(245, 158, 11, 0.22)"  # Soft Amber Gold Glow
+    card_glow_blue = "rgba(59, 130, 246, 0.2)"   # Soft Indigo Glow
 
-    text_color = "#f8fafc"        # Crisp White Text
-    subtext_color = "#94a3b8"     # Light Slate Subtext
+    text_color = "#f8fafc"        # Crisp Readable White Text
+    subtext_color = "#94a3b8"     # Soft Slate Subtext
 
-    input_bg = "#152347"          # Dark Blue Input Background
-    input_border = "#2563eb"      # Electric Blue Border
+    input_bg = "#172339"          # Dark Slate Input Fill
+    input_border = "#2b3d5e"      # Soft Slate Blue Border
 
-    yellow_primary = "#facc15"    # Bright Radiant Yellow/Gold
-    yellow_hover = "#fde047"      # Electric Yellow Hover
-    yellow_dark = "#eab308"       # Deep Amber Gold
+    amber_gold = "#f59e0b"        # Warm Amber Gold
+    amber_light = "#fbbf24"       # Light Champagne Gold Accent
+    amber_dark = "#d97706"        # Rich Amber Gold
 
-    blue_primary = "#2563eb"      # Vibrant Royal Blue
-    blue_light = "#60a5fa"        # Light Sky Blue Accent
-    blue_hover = "#3b82f6"        # Hover Blue
+    blue_primary = "#3b82f6"      # Soft Royal Blue Accent
+    blue_light = "#60a5fa"        # Sky Blue Accent
 
     return f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
 
-    /* Global Root Styling - Modern Mobile First */
+    /* Global Root Styling - Ultra Modern Dark Glassmorphism */
     html, body, [class*="css"], .stApp, 
     [data-testid="stAppViewContainer"], 
     [data-testid="stHeader"], 
@@ -44,7 +43,7 @@ def get_dark_theme_css():
 
     /* Top Navigation Header Bar */
     [data-testid="stHeader"] {{
-        background: rgba(7, 13, 30, 0.95) !important;
+        background: rgba(11, 17, 32, 0.92) !important;
         backdrop-filter: blur(16px) !important;
         -webkit-backdrop-filter: blur(16px) !important;
         border-bottom: 1.5px solid {card_border} !important;
@@ -61,7 +60,7 @@ def get_dark_theme_css():
     /* Sidebar Styling */
     section[data-testid="stSidebar"] {{
         background-color: {sidebar_bg} !important;
-        border-right: 2px solid {card_border} !important;
+        border-right: 1.5px solid {card_border} !important;
     }}
     
     section[data-testid="stSidebar"] .stMarkdown, 
@@ -74,18 +73,18 @@ def get_dark_theme_css():
         color: #e2e8f0 !important;
     }}
 
-    /* Custom Header Banner - Vibrant Blue & Yellow Header */
+    /* Custom Header Banner */
     .cosmo-header {{
-        background: linear-gradient(135deg, #101f42 0%, #0a1128 100%);
-        border: 2px solid {blue_primary};
-        border-bottom: 4px solid {yellow_primary};
+        background: linear-gradient(135deg, #152238 0%, #0d1526 100%);
+        border: 1.5px solid {card_border};
+        border-bottom: 3.5px solid {amber_gold};
         border-radius: 18px;
         padding: 16px 22px;
         margin-bottom: 20px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px {card_glow_yellow};
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 16px {card_glow_gold};
     }}
 
     .cosmo-header-left {{
@@ -95,25 +94,25 @@ def get_dark_theme_css():
     }}
 
     .cosmo-logo-img {{
-        width: 50px;
-        height: 50px;
+        width: 48px;
+        height: 48px;
         border-radius: 14px;
         object-fit: cover;
-        border: 2.5px solid {yellow_primary};
-        box-shadow: 0 0 16px {card_glow_yellow};
+        border: 2px solid {amber_gold};
+        box-shadow: 0 0 14px {card_glow_gold};
     }}
 
     .cosmo-title {{
         font-size: 22px;
-        font-weight: 900;
+        font-weight: 800;
         color: #ffffff !important;
         margin: 0;
         letter-spacing: -0.3px;
     }}
     
     .cosmo-title-highlight {{
-        color: {yellow_primary} !important;
-        text-shadow: 0 0 12px rgba(250, 204, 21, 0.5);
+        color: {amber_light} !important;
+        text-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
     }}
 
     .cosmo-sub {{
@@ -124,14 +123,14 @@ def get_dark_theme_css():
     }}
 
     .user-badge {{
-        background: rgba(250, 204, 21, 0.12);
-        border: 1.5px solid {yellow_primary};
-        color: {yellow_primary} !important;
+        background: rgba(245, 158, 11, 0.12);
+        border: 1.5px solid {amber_gold};
+        color: {amber_light} !important;
         padding: 8px 16px;
         border-radius: 30px;
         font-size: 13px;
-        font-weight: 800;
-        box-shadow: 0 4px 14px rgba(250, 204, 21, 0.25);
+        font-weight: 700;
+        box-shadow: 0 4px 14px rgba(245, 158, 11, 0.2);
         white-space: nowrap;
     }}
 
@@ -141,7 +140,7 @@ def get_dark_theme_css():
         border: 1.5px solid {card_border} !important;
         border-radius: 16px !important;
         padding: 20px !important;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5) !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.35) !important;
     }}
 
     /* Inputs & Form Controls */
@@ -158,7 +157,7 @@ def get_dark_theme_css():
         color: {text_color} !important;
         border-radius: 14px !important;
         border: 1.5px solid {input_border} !important;
-        min-height: 50px !important;
+        min-height: 48px !important;
         font-size: 15px !important;
         font-weight: 600 !important;
     }}
@@ -167,8 +166,8 @@ def get_dark_theme_css():
     .stNumberInput input:focus,
     .stTextArea textarea:focus,
     div[data-baseweb="select"] > div:focus-within {{
-        border-color: {yellow_primary} !important;
-        box-shadow: 0 0 14px {card_glow_yellow} !important;
+        border-color: {amber_gold} !important;
+        box-shadow: 0 0 12px {card_glow_gold} !important;
     }}
     
     /* Popover & Select Dropdown Menus */
@@ -177,16 +176,16 @@ def get_dark_theme_css():
     div[data-baseweb="tooltip"],
     ul[role="listbox"] {{
         background-color: {card_bg} !important;
-        border: 2px solid {yellow_primary} !important;
+        border: 1.5px solid {amber_gold} !important;
         color: {text_color} !important;
         border-radius: 16px !important;
-        box-shadow: 0 12px 36px rgba(0,0,0,0.8) !important;
+        box-shadow: 0 12px 36px rgba(0,0,0,0.6) !important;
     }}
     
     li[role="option"] {{
         color: {text_color} !important;
         background-color: {card_bg} !important;
-        min-height: 48px !important;
+        min-height: 46px !important;
         display: flex !important;
         align-items: center !important;
         padding-left: 14px !important;
@@ -194,24 +193,24 @@ def get_dark_theme_css():
     }}
     
     li[role="option"]:hover, li[aria-selected="true"] {{
-        background-color: {yellow_primary} !important;
-        color: #050914 !important;
+        background-color: {amber_gold} !important;
+        color: #080e1b !important;
         font-weight: 800 !important;
     }}
 
-    /* Buttons Styling - Touch Friendly Yellow Primary Buttons */
+    /* Primary Action Buttons (Warm Amber Gold) */
     .stButton > button,
     .stDownloadButton > button,
     .stLinkButton > a {{
         border-radius: 14px !important;
         font-weight: 800 !important;
-        min-height: 52px !important;
+        min-height: 48px !important;
         font-size: 15px !important;
-        border: 1.5px solid {yellow_hover} !important;
-        background: linear-gradient(135deg, #facc15 0%, #eab308 100%) !important;
-        color: #070d1e !important;
-        box-shadow: 0 6px 20px {card_glow_yellow} !important;
-        transition: all 0.2s ease-in-out !important;
+        border: 1.5px solid #fde047 !important;
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+        color: #080e1b !important;
+        box-shadow: 0 4px 16px {card_glow_gold} !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
@@ -223,11 +222,11 @@ def get_dark_theme_css():
     .stButton > button:hover,
     .stDownloadButton > button:hover,
     .stLinkButton > a:hover {{
-        background: linear-gradient(135deg, #fde047 0%, #facc15 100%) !important;
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%) !important;
         border-color: #ffffff !important;
         color: #000000 !important;
         transform: translateY(-2px) !important;
-        box-shadow: 0 8px 25px rgba(250, 204, 21, 0.5) !important;
+        box-shadow: 0 6px 20px rgba(245, 158, 11, 0.45) !important;
     }}
 
     .stButton > button:active,
@@ -235,32 +234,33 @@ def get_dark_theme_css():
         transform: scale(0.98) !important;
     }}
 
-    /* Secondary Action Button Styling */
+    /* Secondary Action Buttons (Deep Slate Indigo) */
     button[kind="secondary"] {{
-        background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%) !important;
-        color: #ffffff !important;
-        border: 1.5px solid {yellow_primary} !important;
-        box-shadow: 0 4px 16px {card_glow_blue} !important;
+        background: linear-gradient(135deg, #1b263b 0%, #0f172a 100%) !important;
+        color: #e2e8f0 !important;
+        border: 1.5px solid {input_border} !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
     }}
 
     button[kind="secondary"]:hover {{
-        background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%) !important;
-        color: {yellow_primary} !important;
+        background: linear-gradient(135deg, #25334d 0%, #172339 100%) !important;
+        color: {amber_light} !important;
+        border-color: {amber_gold} !important;
     }}
 
     /* Horizontal Mobile Navigation Tabs */
     .stTabs [data-baseweb="tab-list"] {{
         gap: 8px;
-        background-color: #0c1630 !important;
+        background-color: #0d1526 !important;
         padding: 6px !important;
         border-radius: 16px !important;
-        border: 1.5px solid {blue_primary} !important;
+        border: 1.5px solid {card_border} !important;
         overflow-x: auto !important;
         scroll-behavior: smooth !important;
         -webkit-overflow-scrolling: touch !important;
         flex-wrap: nowrap !important;
         scrollbar-width: none !important;
-        box-shadow: 0 6px 18px rgba(0,0,0,0.4) !important;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.3) !important;
     }}
 
     .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar {{
@@ -268,7 +268,7 @@ def get_dark_theme_css():
     }}
 
     .stTabs [data-baseweb="tab"] {{
-        height: 46px !important;
+        height: 44px !important;
         white-space: nowrap !important;
         border-radius: 12px !important;
         color: #cbd5e1 !important;
@@ -282,21 +282,21 @@ def get_dark_theme_css():
     }}
 
     .stTabs [aria-selected="true"] {{
-        background: linear-gradient(135deg, #facc15 0%, #eab308 100%) !important;
-        color: #070d1e !important;
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+        color: #080e1b !important;
         border: 1.5px solid #fde047 !important;
-        box-shadow: 0 4px 14px rgba(250, 204, 21, 0.4) !important;
-        font-weight: 900 !important;
+        box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35) !important;
+        font-weight: 800 !important;
     }}
 
-    /* Metrics Cards - Navy Blue with Glowing Yellow Numbers */
+    /* Metrics Cards */
     div[data-testid="stMetric"] {{
-        background: linear-gradient(135deg, #0f1a34 0%, #0a1128 100%) !important;
+        background: linear-gradient(135deg, #121b2d 0%, #0b1120 100%) !important;
         border: 1.5px solid {card_border} !important;
-        border-top: 3.5px solid {yellow_primary} !important;
+        border-top: 3.5px solid {amber_gold} !important;
         padding: 16px 18px !important;
         border-radius: 16px !important;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 12px {card_glow_yellow} !important;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35), 0 0 10px {card_glow_gold} !important;
     }}
     div[data-testid="stMetricLabel"] {{
         color: #cbd5e1 !important;
@@ -306,48 +306,48 @@ def get_dark_theme_css():
         letter-spacing: 0.5px !important;
     }}
     div[data-testid="stMetricValue"] {{
-        color: {yellow_primary} !important;
+        color: {amber_light} !important;
         font-weight: 900 !important;
         font-size: 24px !important;
-        text-shadow: 0 0 10px rgba(250, 204, 21, 0.4) !important;
+        text-shadow: 0 0 8px rgba(251, 191, 36, 0.3) !important;
     }}
 
     /* Radio Buttons & Checkboxes */
     div[role="radiogroup"] label, div[data-testid="stCheckbox"] label {{
         color: {text_color} !important;
-        font-weight: 700 !important;
+        font-weight: 600 !important;
         padding: 6px 10px !important;
     }}
 
     /* Dividers */
     hr {{
         border-color: {card_border} !important;
-        border-top-width: 2px !important;
+        border-top-width: 1.5px !important;
         margin: 1.2rem 0 !important;
     }}
 
     /* Badges */
     .badge-yellow {{
-        background: rgba(250, 204, 21, 0.18);
-        border: 1.5px solid #facc15;
-        color: #facc15 !important;
+        background: rgba(245, 158, 11, 0.16);
+        border: 1.5px solid #f59e0b;
+        color: #fbbf24 !important;
         padding: 4px 10px;
         border-radius: 20px;
-        font-weight: 800;
+        font-weight: 700;
         font-size: 12px;
     }}
 
     .badge-blue {{
-        background: rgba(37, 99, 235, 0.25);
+        background: rgba(59, 130, 246, 0.2);
         border: 1.5px solid #3b82f6;
         color: #60a5fa !important;
         padding: 4px 10px;
         border-radius: 20px;
-        font-weight: 800;
+        font-weight: 700;
         font-size: 12px;
     }}
 
-    /* ==================== RESPONSIVE MOBILE MEDIA QUERIES ==================== */
+    /* Responsive Mobile Queries */
     @media (max-width: 768px) {{
         .main .block-container {{
             padding-left: 0.5rem !important;
@@ -386,7 +386,6 @@ def get_dark_theme_css():
             border-radius: 20px !important;
         }}
 
-        /* Force columns to stack vertically on mobile screens */
         div[data-testid="column"] {{
             width: 100% !important;
             flex: 1 1 100% !important;
@@ -437,7 +436,6 @@ def get_dark_theme_css():
     </style>
     """
 
-
 def inject_theme():
     st.session_state["dark_mode"] = True
     st.markdown(get_dark_theme_css(), unsafe_allow_html=True)
@@ -446,11 +444,10 @@ def inject_theme():
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-        <meta name="theme-color" content="#070d1e">
+        <meta name="theme-color" content="#0b1120">
         <link rel="manifest" href="/manifest.json">
         <link rel="apple-touch-icon" href="/cosmo_logo.jpg">
     """, unsafe_allow_html=True)
-
 
 def get_logo_base64():
     if os.path.exists("cosmo_logo.jpg"):
@@ -460,7 +457,6 @@ def get_logo_base64():
         except Exception:
             pass
     return ""
-
 
 def render_top_header(title="Cosmo CRM", subtitle="", user_name="", user_role="", user_email=""):
     b64_logo = get_logo_base64()
