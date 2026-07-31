@@ -27,12 +27,12 @@ def normalize_id(val):
 
 def render_gps_button(order_id, lang="ru"):
     """Отображает HTML5 кнопку для захвата реальных GPS координат браузера курьера"""
-    btn_text = "📍 Определить GPS" if lang == "ru" else "📍 GPS аniqlash"
+    btn_text = "📍 Определить GPS" if lang == "ru" else "📍 GPS aniqlash"
     gps_html = f"""<div style="margin: 4px 0 8px 0; font-family: sans-serif;">
-<button onclick="getLocation_{order_id}()" type="button" style="background: #2563eb; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 3px 6px rgba(37,99,235,0.3);">
+<button onclick="getLocation_{order_id}()" type="button" style="background: linear-gradient(135deg, #facc15 0%, #eab308 100%); color: #070d1e; border: 1.5px solid #fde047; padding: 12px 14px; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 15px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 16px rgba(250,204,21,0.35);">
 {btn_text}
 </button>
-<span id="gps_status_{order_id}" style="display:block; margin-top: 4px; font-size: 11px; color: #60a5fa; font-weight: 600; text-align:center;"></span>
+<span id="gps_status_{order_id}" style="display:block; margin-top: 6px; font-size: 13px; color: #facc15; font-weight: 700; text-align:center;"></span>
 </div>
 <script>
 function getLocation_{order_id}() {{
@@ -55,7 +55,7 @@ function getLocation_{order_id}() {{
     }}
 }}
 </script>"""
-    components.html(gps_html, height=58)
+    components.html(gps_html, height=75)
 
 def generate_receipt_html(row, lang="ru"):
     order_id = normalize_id(row.get('ID', '-'))
@@ -80,17 +80,17 @@ def generate_receipt_html(row, lang="ru"):
 <head><meta charset="utf-8">
 <style>
 body {{ font-family: sans-serif; padding: 20px; background: #ffffff; color: #0f172a; }}
-.box {{ max-width: 400px; margin: auto; border: 2px solid #2563eb; border-radius: 8px; padding: 16px; }}
-.hdr {{ text-align: center; border-bottom: 1px dashed #ccc; padding-bottom: 10px; margin-bottom: 10px; }}
-.total {{ font-weight: bold; font-size: 16px; border-top: 2px solid #2563eb; padding-top: 8px; margin-top: 10px; text-align: right; }}
+.box {{ max-width: 400px; margin: auto; border: 2px solid #2563eb; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }}
+.hdr {{ text-align: center; border-bottom: 2px dashed #facc15; padding-bottom: 12px; margin-bottom: 12px; }}
+.total {{ font-weight: bold; font-size: 18px; border-top: 2px solid #2563eb; padding-top: 10px; margin-top: 12px; text-align: right; color: #1e3a8a; }}
 </style>
 </head>
 <body>
 <div class="box">
 <div class="hdr"><h2>✨ Cosmo Cleaning ✨</h2><div>{receipt_title} {order_id} | {date_val}</div></div>
-<div><b>{client_lbl}:</b> {client} ({phone})</div>
-<div><b>{addr_lbl}:</b> {address}</div>
-<div style="background:#f1f5f9; color:#0f172a; padding:8px; margin:8px 0;"><b>{item_lbl}:</b> {items}</div>
+<div style="margin-bottom:6px;"><b>{client_lbl}:</b> {client} ({phone})</div>
+<div style="margin-bottom:6px;"><b>{addr_lbl}:</b> {address}</div>
+<div style="background:#f1f5f9; color:#0f172a; padding:10px; border-radius:8px; margin:10px 0;"><b>{item_lbl}:</b> {items}</div>
 <div><b>{ptype_lbl}:</b> {ptype}</div>
 <div class="total">{paid_lbl}: {paid_val:,} сум</div>
 </div>
@@ -99,7 +99,7 @@ body {{ font-family: sans-serif; padding: 20px; background: #ffffff; color: #0f1
 
 def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route_url_func, send_tg_func, active_couriers=None, add_order_func=None, get_next_order_id_func=None, delete_order_func=None):
     """
-    Панель Курьера: Точный визуальный вид карточки из 12.png БЕЗ кодовых блоков
+    Панель Курьера: Оптимизированная под мобильные устройства в стилистике Blue & Yellow
     """
     ui_theme.inject_theme()
     lang = st.session_state.get("lang", "ru")
@@ -150,11 +150,11 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
     tab_pickup, tab_delivery, tab_add_street, tab_all = st.tabs([
         f"📥 Забор ({pickup_cnt})",
         f"📦 Доставка ({ready_cnt})",
-        "➕ Принять новый заказ",
+        "➕ Новый заказ",
         "📋 Все заказы"
     ])
 
-    def render_order_card(row, is_delivery=False):
+    def render_order_card(row, is_delivery=False, idx=0):
         o_id = row["ID"]
         norm_id = normalize_id(o_id)
         client = str(row.get("Клиент", "-"))
@@ -165,12 +165,12 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
         existing_loc = str(row.get("Локация", ""))
         curr_courier = str(row.get("Курьер", courier_name))
         dispatcher_name = str(row.get("Диспетчер", "Bobur"))
-        date_str = str(row.get("Дата", "21.7.2026, 22:06:12"))
+        date_str = str(row.get("Дата", ""))
         lang_str = str(row.get("Язык", "tojik")).replace("Русский язык", "ru").replace("O'zbek tili", "uz")
         order_sum = int(safe_numeric_val(row.get("Сумма", 0)))
         clean_tel = ''.join(filter(str.isdigit, phone))
 
-        kv_count = "5"
+        kv_count = "1"
         if "Ковёр:" in details or "Ковер:" in details:
             try:
                 kv_count = details.split("шт")[0].split(":")[-1].strip()
@@ -180,29 +180,27 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
         res_tuple = get_yandex_route_url_func(district, address, existing_loc)
         r_url = res_tuple[0] if isinstance(res_tuple, (tuple, list)) else res_tuple
 
-        # Используем textwrap.dedent чтобы предотвратить появление блоков кода с 4 пробелами!
         card_html = textwrap.dedent(f"""
-        <div style="background: #182030; border: 1px solid #2a3447; border-radius: 12px; padding: 12px; margin-bottom: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); font-family: sans-serif;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
-                <span style="background: #059669; color: #ffffff; padding: 3px 8px; border-radius: 6px; font-weight: 800; font-size: 13px;">KV: {kv_count}</span>
-                <span style="color: #9ca3af; font-size: 14px; font-weight: 700;">№ {norm_id}</span>
+        <div style="background: linear-gradient(135deg, #0f1a34 0%, #0a1128 100%); border: 1.5px solid #1d3566; border-top: 4px solid #facc15; border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); font-family: sans-serif;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                <span style="background: linear-gradient(135deg, #facc15 0%, #eab308 100%); color: #070d1e; padding: 4px 12px; border-radius: 8px; font-weight: 800; font-size: 13px; box-shadow: 0 2px 8px rgba(250,204,21,0.3);">📦 № {norm_id}</span>
+                <span style="background: rgba(37,99,235,0.25); border: 1px solid #3b82f6; color: #60a5fa; padding: 3px 10px; border-radius: 8px; font-weight: 700; font-size: 12px;">Ковров: {kv_count} шт</span>
             </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size: 12px; color: #9ca3af; margin-bottom: 6px;">
-                <span>🚚 {curr_courier}</span>
-                <span>{date_str}</span>
+            <div style="font-size: 17px; font-weight: 800; color: #ffffff; margin-bottom: 6px; display:flex; align-items:center; justify-content:space-between;">
+                <span>👤 {client}</span>
+                <span style="font-size: 12px; color: #94a3b8; font-weight: 500;">{date_str}</span>
             </div>
-            <div style="font-size: 15px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">👤 {client}</div>
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size: 14px; margin-bottom: 4px;">
-                <span>📞 <a href="tel:+{clean_tel}" style="color: #3b82f6; text-decoration: none; font-weight: 700;">+{clean_tel}</a></span>
-                <a href="{r_url}" target="_blank" title="Яндекс Навигатор" style="color: #ef4444; font-size: 18px; text-decoration: none; font-weight: bold;">📍</a>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size: 14px; margin-bottom: 8px; background: #152347; padding: 8px 12px; border-radius: 10px; border: 1px solid #2563eb;">
+                <span>📞 <a href="tel:+{clean_tel}" style="color: #facc15; text-decoration: none; font-weight: 800; font-size: 15px;">+{clean_tel}</a></span>
+                <a href="{r_url}" target="_blank" title="Маршрут Навигатор" style="background: #2563eb; color: #ffffff; padding: 4px 10px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;">📍 Навигация</a>
             </div>
-            <div style="font-size: 13px; color: #e2e8f0; margin-bottom: 4px;">🏠 <b>{district}</b> {address}</div>
-            <div style="display:flex; gap: 8px; align-items:center; font-size: 12px; color: #9ca3af; margin-bottom: 4px;">
-                <span style="background: #374151; color: #d1d5db; padding: 2px 6px; border-radius: 4px;">🗣️ {lang_str}</span>
-                <span>👤 {dispatcher_name}</span>
-                <span style="background: #059669; color: white; padding: 1px 5px; border-radius: 4px; font-weight:700;">%</span>
+            <div style="font-size: 13px; color: #e2e8f0; margin-bottom: 6px;">🏠 <b>{district}</b> {address}</div>
+            <div style="display:flex; gap: 8px; align-items:center; font-size: 12px; color: #cbd5e1; margin-bottom: 6px; flex-wrap: wrap;">
+                <span style="background: #1e293b; border: 1px solid #3b82f6; color: #60a5fa; padding: 2px 8px; border-radius: 6px; font-weight:600;">🗣️ {lang_str}</span>
+                <span style="color:#94a3b8;">🚚 {curr_courier}</span>
+                <span style="color:#94a3b8;">👤 {dispatcher_name}</span>
             </div>
-            {f'<div style="font-size:13px; color:#34d399; font-weight:800; text-align:right; margin-top:4px;">💰 К оплате: {order_sum:,} сум</div>' if is_delivery else ''}
+            {f'<div style="font-size:15px; color:#facc15; font-weight:900; text-align:right; margin-top:8px; text-shadow:0 0 10px rgba(250,204,21,0.4);">💰 К оплате: {order_sum:,} сум</div>' if is_delivery else ''}
         </div>
         """).strip()
 
@@ -210,10 +208,10 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
 
         c_tr, c_ok, c_ed, c_del = st.columns(4)
 
-        b_tr = c_tr.button("⇄", key=f"btn_tr_act_{norm_id}_{idx}", use_container_width=True, help="Смена курьера")
-        b_ok = c_ok.button("✓", type="primary" if is_delivery else "secondary", key=f"btn_ok_act_{norm_id}_{idx}", use_container_width=True, help="Одобрить / Принять")
-        b_ed = c_ed.button("✏️", key=f"btn_ed_act_{norm_id}_{idx}", use_container_width=True, help="Изменить №, адрес, GPS")
-        b_del = c_del.button("❌", key=f"btn_del_act_{norm_id}_{idx}", use_container_width=True, help="Отменить заказ")
+        b_tr = c_tr.button("⇄ Передать", key=f"btn_tr_act_{norm_id}_{idx}", use_container_width=True)
+        b_ok = c_ok.button("✓ Выполнить" if is_delivery else "✓ Принять", type="primary" if is_delivery else "secondary", key=f"btn_ok_act_{norm_id}_{idx}", use_container_width=True)
+        b_ed = c_ed.button("✏️ Изменить", key=f"btn_ed_act_{norm_id}_{idx}", use_container_width=True)
+        b_del = c_del.button("❌ Отмена", key=f"btn_del_act_{norm_id}_{idx}", use_container_width=True)
 
         state_key = f"active_action_{norm_id}"
         if b_tr:
@@ -366,13 +364,13 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                     st.session_state[state_key] = None
                     st.rerun()
 
-        st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-bottom: 14px;'></div>", unsafe_allow_html=True)
 
     # ==================== ВКЛАДКА 1: ЗАЯВКИ НА ЗАБОР ====================
     with tab_pickup:
         if not pickup_df.empty:
             for idx, row in pickup_df.iterrows():
-                render_order_card(row, is_delivery=False)
+                render_order_card(row, is_delivery=False, idx=idx)
         else:
             st.info("🎉 Нет заказов, ожидающих забора.")
 
@@ -380,7 +378,7 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
     with tab_delivery:
         if not delivery_df.empty:
             for idx, row in delivery_df.iterrows():
-                render_order_card(row, is_delivery=True)
+                render_order_card(row, is_delivery=True, idx=idx)
         else:
             st.info("🎉 Нет готовых заказов на доставку.")
 

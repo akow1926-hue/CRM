@@ -13,7 +13,7 @@ def safe_numeric_sum(series):
 
 def render_dashboard_view(df):
     """
-    Простой, чистый и удобный дашборд статистики CRM
+    Дашборд статистики CRM в стилистике Blue & Yellow
     """
     ui_theme.inject_theme()
     lang = st.session_state.get("lang", "ru")
@@ -40,7 +40,7 @@ def render_dashboard_view(df):
 
     m1, m2, m3, m4, m5 = st.columns(5)
     m1.metric("📦 Всего заказов", total_orders)
-    m2.metric("🟠 Новые (Забор)", new_orders)
+    m2.metric("📄 Новые (Забор)", new_orders)
     m3.metric("🧺 В цеху / Стирка", in_work)
     m4.metric("🚚 На доставку (Готов)", ready)
     m5.metric("💰 Выручка", f"{revenue:,.0f} сум")
@@ -56,8 +56,16 @@ def render_dashboard_view(df):
             df_copy = df.copy()
             df_copy["ShortDate"] = df_copy["Дата"].astype(str).apply(lambda x: x.split(",")[0].strip() if "," in x else x[:10])
             daily_df = df_copy.groupby("ShortDate").size().reset_index(name="Количество")
-            fig_line = px.bar(daily_df, x="ShortDate", y="Количество", text_auto=True, color_discrete_sequence=["#2563eb"])
-            fig_line.update_layout(height=300, margin=dict(l=10, r=10, t=20, b=10))
+            fig_line = px.bar(daily_df, x="ShortDate", y="Количество", text_auto=True, color_discrete_sequence=["#facc15"])
+            fig_line.update_layout(
+                height=320, 
+                margin=dict(l=10, r=10, t=20, b=10),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#cbd5e1", family="Plus Jakarta Sans"),
+                xaxis=dict(gridcolor="#1d3566"),
+                yaxis=dict(gridcolor="#1d3566")
+            )
             st.plotly_chart(fig_line, use_container_width=True)
         else:
             st.info("Нет данных для графика")
@@ -67,8 +75,14 @@ def render_dashboard_view(df):
         if not df.empty and "Статус" in df.columns:
             st_counts = df["Статус"].value_counts().reset_index()
             st_counts.columns = ["Статус", "Количество"]
-            fig_pie = px.pie(st_counts, names="Статус", values="Количество", hole=0.4, color_discrete_sequence=px.colors.qualitative.Set2)
-            fig_pie.update_layout(height=300, margin=dict(l=10, r=10, t=20, b=10))
+            fig_pie = px.pie(st_counts, names="Статус", values="Количество", hole=0.4, color_discrete_sequence=["#facc15", "#2563eb", "#60a5fa", "#eab308", "#3b82f6"])
+            fig_pie.update_layout(
+                height=320, 
+                margin=dict(l=10, r=10, t=20, b=10),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#cbd5e1", family="Plus Jakarta Sans")
+            )
             st.plotly_chart(fig_pie, use_container_width=True)
         else:
             st.info("Нет данных")

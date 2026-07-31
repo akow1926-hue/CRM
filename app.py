@@ -1735,6 +1735,22 @@ elif role in ["Administrator", "Admin", "Администратор"]:
                     st.success("✅ Настройки Telegram Бота успешно сохранены!")
                     st.rerun()
 
+            st.markdown("---")
+            st.markdown("### 🤖 Запуск Telegram ИИ-Бота CRM")
+            st.info("Telegram Бот `tg_bot.py` умеет измерять ковры, принимать заказы текстом или голосом, менять статусы и выдавать статистику.")
+            
+            if st.button("⚡ Запустить ИИ-Бота Telegram (в фоновом режиме)", key="launch_tg_bot_bg", use_container_width=True):
+                if not bot_token_input.strip():
+                    st.error("Укажите Telegram Bot Token перед запуском!")
+                else:
+                    import subprocess
+                    try:
+                        subprocess.Popen([sys.executable, "tg_bot.py"], cwd=os.getcwd())
+                        st.success("🎉 Telegram ИИ-Бот успешно запущен в фоновом режиме! Напишите ему /start в Telegram.")
+                    except Exception as err:
+                        st.error(f"Ошибка запуска бота: {err}")
+
+
         with subtab_gsheet:
             st.subheader("🌐 Интеграция с Google Таблицей")
             

@@ -90,10 +90,10 @@ def render_washer_view(df, t, washer_name, update_order_func, send_tg_func):
 
     with c_info:
         st.markdown(f"""
-        <div style="background:#111827; border:1px solid #1f2937; padding:12px; border-radius:10px;">
-            <div style="font-size:16px; font-weight:700; color:#3b82f6;">📦 Заказ №{selected_id_str}</div>
-            <div style="font-size:13px; color:#9ca3af; margin-top:4px;">👤 Клиент: <b>{client_name}</b> ({client_phone})</div>
-            <div style="font-size:13px; color:#9ca3af;">🏠 Адрес: <b>{district}, {address}</b></div>
+        <div style="background:#131d33; border:1.5px solid #1d325c; border-left:4px solid #facc15; padding:14px; border-radius:12px; box-shadow: 0 4px 14px rgba(0,0,0,0.3);">
+            <div style="font-size:17px; font-weight:800; color:#facc15;">📦 Заказ №{selected_id_str}</div>
+            <div style="font-size:13px; color:#cbd5e1; margin-top:6px;">👤 Клиент: <b>{client_name}</b> ({client_phone})</div>
+            <div style="font-size:13px; color:#cbd5e1; margin-top:2px;">🏠 Адрес: <b>{district}, {address}</b></div>
         </div>
         """, unsafe_allow_html=True)
 
