@@ -15,21 +15,24 @@ SESSIONS_FILE = "telegram_sessions.json"
 
 
 def load_json_file(filename, default):
+    """Безопасная загрузка JSON с проверкой наличия и корректности файла"""
     if os.path.exists(filename):
         try:
             with open(filename, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[JSON Error] Ошибка чтения {filename}: {e}")
     return default
 
 
 def save_json_file(filename, data):
+    """Безопасное сохранение данных в JSON"""
     try:
         with open(filename, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         return True
-    except Exception:
+    except Exception as e:
+        print(f"[JSON Error] Ошибка записи {filename}: {e}")
         return False
 
 
@@ -93,12 +96,17 @@ def is_courier_role(role):
 
 def is_washer_role(role):
     r = str(role).lower()
-    return "washer" in r or "cleaner" in r or "мойщик" in r or "чистильщик" in r or "yuvuvchi" in r or "tozalovchi" in r or "sex" in r
+    return "washer" in r or "cleaner" in r or "мойщик" in r or "чистильщик" in r or "yuvuvchi" in r or "tozalovchi" in r
 
 
 def is_admin_role(role):
     r = str(role).lower()
     return "admin" in r or "админ" in r or "administrator" in r
+
+
+def is_dispatcher_role(role):
+    r = str(role).lower()
+    return "disp" in r or "диспетчер" in r or "оператор" in r or not (is_courier_role(role) or is_washer_role(role) or is_admin_role(role))
 
 
 def get_keyboard_by_role(role, lang="ru"):
@@ -122,7 +130,7 @@ def get_keyboard_by_role(role, lang="ru"):
                 ],
                 "resize_keyboard": True
             }
-        else: # Dispatcher (Диспетчер)
+        else:  # Dispatcher (Диспетчер)
             return {
                 "keyboard": [
                     [{"text": "➕ Yangi buyurtma"}, {"text": "📋 Buyurtmalar tarixi"}],
@@ -131,7 +139,7 @@ def get_keyboard_by_role(role, lang="ru"):
                 ],
                 "resize_keyboard": True
             }
-    else: # Russian
+    else:  # Russian
         if is_courier_role(role):
             return {
                 "keyboard": [
@@ -150,7 +158,7 @@ def get_keyboard_by_role(role, lang="ru"):
                 ],
                 "resize_keyboard": True
             }
-        else: # Dispatcher (Диспетчер)
+        else:  # Dispatcher (Диспетчер)
             return {
                 "keyboard": [
                     [{"text": "➕ Новый заказ"}, {"text": "📋 История заказов"}],
@@ -187,29 +195,54 @@ def format_phone_number(phone_raw):
 
 
 def get_next_id_from_backup():
+    """Получение нового уникального ID заказа без жестких ограничений"""
     orders = load_json_file(BACKUP_FILE, [])
     max_id = 5218
     for o in orders:
         try:
             val = int(float(str(o.get("ID", 0))))
-            if 5200 <= val < 9000 and val > max_id:
+            if val > max_id:
                 max_id = val
         except Exception:
             pass
     return max_id + 1
 
 
+def parse_order_from_text(text):
+    """Парсинг заказа из свободной текстовой строки формата:
+    Заказ: Имя, Телефон, Район, Адрес, Ковры
+    """
+    clean_text = re.sub(r'^(заказ:|yangi buyurtma:)', '', text, flags=re.IGNORECASE).strip()
+    parts = [p.strip() for p in clean_text.split(',')]
+
+    client = parts[0] if len(parts) > 0 and parts[0] else "Клиент"
+    phone = parts if len(parts) > 1 and parts else ""
+    district = parts if len(parts) > 2 and parts else "Сиёб (Siyob)"
+    address = parts if len(parts) > 3 and parts else (parts if len(parts) > 2 else "-")
+    items = parts[4] if len(parts) > 4 and parts[4] else "Ковры"
+
+    return {
+        "client": client,
+        "phone": phone,
+        "district": district,
+        "address": address,
+        "items": items
+    }
+
+
 PROCESSED_UPDATES = set()
+
 
 def process_telegram_update(token, update):
     """Обработка входящего сообщения от пользователя Telegram"""
+    global PROCESSED_UPDATES
     update_id = update.get("update_id")
     if update_id in PROCESSED_UPDATES:
         return
     if update_id is not None:
         PROCESSED_UPDATES.add(update_id)
         if len(PROCESSED_UPDATES) > 2000:
-            PROCESSED_UPDATES.clear()
+            PROCESSED_UPDATES = set(list(PROCESSED_UPDATES)[-1000:])
 
     message = update.get("message") or update.get("edited_message")
     callback_query = update.get("callback_query")
@@ -297,7 +330,7 @@ def process_telegram_update(token, update):
             matched = [o for o in orders if str(o.get("ID")) == str(order_id)]
             if matched:
                 o = matched[0]
-                
+
                 # Список курьеров для назначения
                 users = load_json_file(USERS_BACKUP_FILE, [])
                 couriers = [u.get("Username") for u in users if is_courier_role(u.get("Role"))]
@@ -335,10 +368,9 @@ def process_telegram_update(token, update):
 
         # Назначение курьера
         if cb_data.startswith("setcour_"):
-            parts = cb_data.split("_")
-            if len(parts) >= 3:
-                cour_name = parts[1]
-                order_id = parts[2]
+            rest = cb_data[len("setcour_"):]
+            if "_" in rest:
+                cour_name, order_id = rest.rsplit("_", 1)
                 orders = load_json_file(BACKUP_FILE, [])
                 for o in orders:
                     if str(o.get("ID")) == str(order_id):
@@ -350,10 +382,9 @@ def process_telegram_update(token, update):
 
         # Изменение статуса заказа
         if cb_data.startswith("st_"):
-            parts = cb_data.split("_")
-            if len(parts) >= 3:
-                new_st_code = parts[1]
-                order_id = parts[2]
+            rest = cb_data[len("st_"):]
+            if "_" in rest:
+                new_st_code, order_id = rest.split("_", 1)
 
                 st_map = {
                     "pickup": "Ожидает забора",
@@ -397,7 +428,7 @@ def process_telegram_update(token, update):
     if text == "/start" or not curr_step:
         sessions[chat_id] = {"step": "lang"}
         save_json_file(SESSIONS_FILE, sessions)
-        
+
         start_msg = (
             "👋 <b>Добро пожаловать в Cosmo Cleaning CRM Bot!</b>\n"
             "Пожалуйста, выберите язык общения:\n\n"
@@ -408,7 +439,7 @@ def process_telegram_update(token, update):
         return
 
     # ---------------- 3. ШАГ 1: ВЫБОР ЯЗЫКА ----------------
-    if curr_step == "lang" or text in ["🇷🇺 Русский язык", "🇺🇿 O'zbek tili"]:
+    if (curr_step == "lang" or text in ["🇷🇺 Русский язык", "🇺🇿 O'zbek tili"]) and curr_step != "authenticated":
         lang = "uz" if "O'zbek" in text else "ru"
         sessions[chat_id] = {
             "step": "login",
@@ -441,7 +472,7 @@ def process_telegram_update(token, update):
         lang = sess.get("lang", "ru")
 
         if len(parts) == 2:
-            login_attempt, pass_attempt = parts[0].strip(), parts[1].strip()
+            login_attempt, pass_attempt = parts[0].strip(), parts.strip()
             user_auth = authenticate_user(login_attempt, pass_attempt)
 
             if user_auth:
@@ -722,7 +753,7 @@ def process_telegram_update(token, update):
 
     if text in ["📦 Ожидают забора", "📦 Olib ketish kutilmoqda"]:
         orders = load_json_file(BACKUP_FILE, [])
-        pickup_orders = [o for o in orders if "забор" in str(o.get("Статус","")).lower() and (str(o.get("Курьер","")).lower() in [user_name.lower(), "не назначен", ""] or not o.get("Курьер"))]
+        pickup_orders = [o for o in orders if "забор" in str(o.get("Статус", "")).lower() and (str(o.get("Курьер", "")).lower() in [user_name.lower(), "не назначен", ""] or not o.get("Курьер"))]
         if not pickup_orders:
             send_message(token, chat_id, "ℹ️ Нет заказов на забор.", get_keyboard_by_role(user_role, lang))
             return
@@ -734,7 +765,7 @@ def process_telegram_update(token, update):
 
     if text in ["🚚 Готовые заказы (На доставку)", "🚚 Tayyor buyurtmalar"]:
         orders = load_json_file(BACKUP_FILE, [])
-        ready_orders = [o for o in orders if "Готов" in str(o.get("Статус",""))]
+        ready_orders = [o for o in orders if "Готов" in str(o.get("Статус", ""))]
         if not ready_orders:
             send_message(token, chat_id, "ℹ️ Нет готовых заказов к выдаче.", get_keyboard_by_role(user_role, lang))
             return
@@ -746,7 +777,7 @@ def process_telegram_update(token, update):
 
     if text in ["🧼 Мыто / Не мыто (Статусы)", "🧼 Yuvilgan / Yuvilmagan", "🧺 Заказы в цеху", "🧺 Sexdagi buyurtmalar"]:
         orders = load_json_file(BACKUP_FILE, [])
-        shop_orders = [o for o in orders if any(k in str(o.get("Статус","")).lower() for k in ["цех", "стирк", "мойк", "в цеху", "yuvish"])]
+        shop_orders = [o for o in orders if any(k in str(o.get("Статус", "")).lower() for k in ["цех", "стирк", "мойк", "в цеху", "yuvish"])]
         if not shop_orders:
             send_message(token, chat_id, "🎉 В цеху чисто! Все ковры помыты.", get_keyboard_by_role(user_role, lang))
             return
@@ -762,7 +793,7 @@ def process_telegram_update(token, update):
 
     # Авто-поиск по номеру заказа (ID) или номеру телефона
     clean_digits = ''.join(filter(str.isdigit, text))
-    if len(clean_digits) >= 4 and not text.lower().startswith("заказ:"):
+    if len(clean_digits) >= 4 and not text.lower().startswith("заказ:") and not text.lower().startswith("yangi buyurtma:"):
         orders = load_json_file(BACKUP_FILE, [])
         matched = []
         for o in orders:
@@ -773,8 +804,8 @@ def process_telegram_update(token, update):
             o = matched[0]
             target_id = str(o.get("ID"))
 
-            # Для Диспетчера показываем ТОЛЬКО кнопку "✏️ Изменить информацию" (согласно фото 4)
-            if not is_courier_role(user_role) and not is_washer_role(user_role):
+            # Диспетчерам показываем ТОЛЬКО "✏️ Изменить информацию"
+            if is_dispatcher_role(user_role):
                 inline_buttons = {
                     "inline_keyboard": [
                         [
