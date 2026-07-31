@@ -1273,6 +1273,8 @@ st.sidebar.write(f"💼 **{t['role_label']}:** `{disp_role_map.get(st.session_st
 
 if use_gsheet:
     st.sidebar.success("🌐 База: Google Sheets (Online)")
+else:
+    st.sidebar.info("💻 База: Локальная (Offline)")
 if "admin_nav_choice" not in st.session_state:
     st.session_state["admin_nav_choice"] = "📊 Главный дашборд"
 
