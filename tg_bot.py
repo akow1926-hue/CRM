@@ -35,7 +35,10 @@ def save_json_file(filename, data):
 
 def get_tg_token():
     cfg = load_json_file(CONFIG_FILE, {})
-    return cfg.get("bot_token", "").strip()
+    token = cfg.get("bot_token", "").strip()
+    if not token:
+        token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    return token
 
 
 def send_tg_request(token, method, payload=None):
