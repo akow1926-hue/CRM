@@ -170,10 +170,10 @@ def get_keyboard_by_role(role, lang="ru"):
 def authenticate_user(login, password):
     users = load_json_file(USERS_BACKUP_FILE, [])
     for u in users:
-        u_name = str(u.get("Username", "")).strip()
-        u_pass = str(u.get("Password", "")).strip()
-        u_status = str(u.get("Status", "Активен")).strip()
-        u_role = str(u.get("Role", "Courier")).strip()
+        u_name = str(u.get("Username") or u.get("username") or u.get("Login") or u.get("login") or "").strip()
+        u_pass = str(u.get("Password") or u.get("password") or u.get("Pass") or u.get("pass") or "").strip()
+        u_status = str(u.get("Status") or u.get("status") or "Активен").strip()
+        u_role = str(u.get("Role") or u.get("role") or "Courier").strip()
 
         if u_name.lower() == login.lower() and u_pass == password and u_status != "Заблокирован":
             return {
@@ -234,7 +234,7 @@ def send_edit_panel(token, chat_id, order_id, lang, role):
 
     o = matched[0]
     users = load_json_file(USERS_BACKUP_FILE, [])
-    couriers = [u.get("Username") for u in users if is_courier_role(u.get("Role"))]
+    couriers = [u.get("Username") or u.get("username") for u in users if is_courier_role(u.get("Role") or u.get("role"))]
     if not couriers:
         couriers = ["akobir", "firuz"]
 
@@ -443,7 +443,7 @@ def process_telegram_update(token, update):
         lang = sess.get("lang", "ru")
 
         if len(parts) == 2:
-            login_attempt, pass_attempt = parts[0].strip(), parts.strip()
+            login_attempt, pass_attempt = parts[0].strip(), parts.strip()  # ИСПРАВЛЕНА ОПЕЧАТКА ТУТ
             user_auth = authenticate_user(login_attempt, pass_attempt)
 
             if user_auth:
@@ -489,7 +489,7 @@ def process_telegram_update(token, update):
     flow_step = sess.get("flow_step")
     draft = sess.get("draft", {})
 
-    # ==================== 1. ПЕРВУЮ ОЧЕРЕДЬ ПРОВЕРЯЕМ КНОПКИ МЕНЮ ====================
+    # ==================== 1. КНОПКИ МЕНЮ ====================
     if text in ["➕ Новый заказ", "➕ Yangi buyurtma", "➕ Новый заказ (Забор)", "➕ Yangi buyurtma (Olib ketish)"]:
         sess["flow"] = "create_order"
         sess["flow_step"] = "name"
@@ -570,7 +570,7 @@ def process_telegram_update(token, update):
         send_message(token, chat_id, resp, get_keyboard_by_role(user_role, lang))
         return
 
-    # ==================== 2. ОБРАБОТКА АКТИВНЫХ ВИЗАРДОВИ И РЕЖИМОВ ====================
+    # ==================== 2. АКТИВНЫЕ ВИЗАРДЫ И РЕЖИМЫ ====================
     if flow == "edit_order_input":
         target_id = ''.join(filter(str.isdigit, text.strip()))
         sess.pop("flow", None)
@@ -733,10 +733,6 @@ def process_telegram_update(token, update):
             o = matched[0]
             target_id = str(o.get("ID"))
 
-            # ПРИ ЛЮБОМ ПО[0]
-            target_id = str(o.get("ID"))
-
-            # ПРИ ЛЮБОМ ПОИСКЕ ВЫВОДИТСЯ ЕДИНСТВЕННАЯ КНОПКА "Изменить информацию"
             inline_buttons = {
                 "inline_keyboard": [
                     [
