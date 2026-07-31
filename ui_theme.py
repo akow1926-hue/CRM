@@ -3,13 +3,13 @@ import base64
 import streamlit as st
 
 def get_dark_theme_css():
-    # Premium Indigo-Slate & Warm Amber Gold Palette Tokens
-    bg_color = "#0b1120"          # Soft Deep Slate Navy (Pleasant on eyes)
+    # Premium Indigo-Slate & Warm Amber Gold Palette Tokens (Compact Sizing)
+    bg_color = "#0b1120"          # Soft Deep Slate Navy
     sidebar_bg = "#080e1b"        # Deep Midnight Slate Sidebar
     card_bg = "#121b2d"           # Elegant Slate Surface
     card_border = "#1e2c46"       # Subtle Slate Border
-    card_glow_gold = "rgba(245, 158, 11, 0.22)"  # Soft Amber Gold Glow
-    card_glow_blue = "rgba(59, 130, 246, 0.2)"   # Soft Indigo Glow
+    card_glow_gold = "rgba(245, 158, 11, 0.18)"  # Soft Amber Gold Glow
+    card_glow_blue = "rgba(59, 130, 246, 0.15)"  # Soft Indigo Glow
 
     text_color = "#f8fafc"        # Crisp Readable White Text
     subtext_color = "#94a3b8"     # Soft Slate Subtext
@@ -26,9 +26,9 @@ def get_dark_theme_css():
 
     return f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
-    /* Global Root Styling - Ultra Modern Dark Glassmorphism */
+    /* Global Root Styling - Compact & Proportional Sizing */
     html, body, [class*="css"], .stApp, 
     [data-testid="stAppViewContainer"], 
     [data-testid="stHeader"], 
@@ -39,28 +39,30 @@ def get_dark_theme_css():
         font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
         background-color: {bg_color} !important;
         color: {text_color} !important;
+        font-size: 13.5px !important;
     }}
 
     /* Top Navigation Header Bar */
     [data-testid="stHeader"] {{
         background: rgba(11, 17, 32, 0.92) !important;
-        backdrop-filter: blur(16px) !important;
-        -webkit-backdrop-filter: blur(16px) !important;
-        border-bottom: 1.5px solid {card_border} !important;
+        backdrop-filter: blur(14px) !important;
+        -webkit-backdrop-filter: blur(14px) !important;
+        border-bottom: 1px solid {card_border} !important;
+        height: 48px !important;
     }}
 
     .main .block-container {{
-        padding-top: 1rem !important;
-        padding-bottom: 2.5rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
-        max-width: 1320px !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 1.5rem !important;
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+        max-width: 1240px !important;
     }}
 
     /* Sidebar Styling */
     section[data-testid="stSidebar"] {{
         background-color: {sidebar_bg} !important;
-        border-right: 1.5px solid {card_border} !important;
+        border-right: 1px solid {card_border} !important;
     }}
     
     section[data-testid="stSidebar"] .stMarkdown, 
@@ -71,79 +73,77 @@ def get_dark_theme_css():
     section[data-testid="stSidebar"] h2,
     section[data-testid="stSidebar"] h3 {{
         color: #e2e8f0 !important;
+        font-size: 13px !important;
     }}
 
-    /* Custom Header Banner */
+    /* Compact Header Banner */
     .cosmo-header {{
         background: linear-gradient(135deg, #152238 0%, #0d1526 100%);
-        border: 1.5px solid {card_border};
-        border-bottom: 3.5px solid {amber_gold};
-        border-radius: 18px;
-        padding: 16px 22px;
-        margin-bottom: 20px;
+        border: 1px solid {card_border};
+        border-bottom: 2.5px solid {amber_gold};
+        border-radius: 12px;
+        padding: 10px 16px;
+        margin-bottom: 14px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 16px {card_glow_gold};
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
     }}
 
     .cosmo-header-left {{
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 12px;
     }}
 
     .cosmo-logo-img {{
-        width: 48px;
-        height: 48px;
-        border-radius: 14px;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
         object-fit: cover;
-        border: 2px solid {amber_gold};
-        box-shadow: 0 0 14px {card_glow_gold};
+        border: 1.5px solid {amber_gold};
     }}
 
     .cosmo-title {{
-        font-size: 22px;
+        font-size: 17px;
         font-weight: 800;
         color: #ffffff !important;
         margin: 0;
-        letter-spacing: -0.3px;
+        letter-spacing: -0.2px;
     }}
     
     .cosmo-title-highlight {{
         color: {amber_light} !important;
-        text-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
     }}
 
     .cosmo-sub {{
-        font-size: 13px;
+        font-size: 11px;
         color: {blue_light} !important;
-        font-weight: 600;
-        margin-top: 2px;
+        font-weight: 500;
+        margin-top: 1px;
     }}
 
     .user-badge {{
         background: rgba(245, 158, 11, 0.12);
-        border: 1.5px solid {amber_gold};
+        border: 1px solid {amber_gold};
         color: {amber_light} !important;
-        padding: 8px 16px;
-        border-radius: 30px;
-        font-size: 13px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 11.5px;
         font-weight: 700;
-        box-shadow: 0 4px 14px rgba(245, 158, 11, 0.2);
         white-space: nowrap;
     }}
 
     /* Card & Container Blocks */
     div[data-testid="stForm"], div.stForm, div[data-testid="stExpander"] {{
         background-color: {card_bg} !important;
-        border: 1.5px solid {card_border} !important;
-        border-radius: 16px !important;
-        padding: 20px !important;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.35) !important;
+        border: 1px solid {card_border} !important;
+        border-radius: 12px !important;
+        padding: 14px 16px !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
     }}
 
-    /* Inputs & Form Controls */
+    /* Compact Inputs & Form Controls */
     .stTextInput input,
     .stSelectbox div[role="button"],
     .stMultiSelect div[role="button"],
@@ -155,11 +155,13 @@ def get_dark_theme_css():
     div[data-baseweb="input"] {{
         background-color: {input_bg} !important;
         color: {text_color} !important;
-        border-radius: 14px !important;
-        border: 1.5px solid {input_border} !important;
-        min-height: 48px !important;
-        font-size: 15px !important;
+        border-radius: 10px !important;
+        border: 1px solid {input_border} !important;
+        min-height: 38px !important;
+        height: 38px !important;
+        font-size: 13px !important;
         font-weight: 600 !important;
+        padding: 4px 10px !important;
     }}
     
     .stTextInput input:focus,
@@ -167,7 +169,7 @@ def get_dark_theme_css():
     .stTextArea textarea:focus,
     div[data-baseweb="select"] > div:focus-within {{
         border-color: {amber_gold} !important;
-        box-shadow: 0 0 12px {card_glow_gold} !important;
+        box-shadow: 0 0 8px {card_glow_gold} !important;
     }}
     
     /* Popover & Select Dropdown Menus */
@@ -176,47 +178,51 @@ def get_dark_theme_css():
     div[data-baseweb="tooltip"],
     ul[role="listbox"] {{
         background-color: {card_bg} !important;
-        border: 1.5px solid {amber_gold} !important;
+        border: 1px solid {amber_gold} !important;
         color: {text_color} !important;
-        border-radius: 16px !important;
-        box-shadow: 0 12px 36px rgba(0,0,0,0.6) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
     }}
     
     li[role="option"] {{
         color: {text_color} !important;
         background-color: {card_bg} !important;
-        min-height: 46px !important;
+        min-height: 36px !important;
+        height: 36px !important;
+        font-size: 13px !important;
         display: flex !important;
         align-items: center !important;
-        padding-left: 14px !important;
+        padding-left: 10px !important;
         font-weight: 600 !important;
     }}
     
     li[role="option"]:hover, li[aria-selected="true"] {{
         background-color: {amber_gold} !important;
         color: #080e1b !important;
-        font-weight: 800 !important;
+        font-weight: 700 !important;
     }}
 
-    /* Primary Action Buttons (Warm Amber Gold) */
+    /* Compact Primary Action Buttons */
     .stButton > button,
     .stDownloadButton > button,
     .stLinkButton > a {{
-        border-radius: 14px !important;
-        font-weight: 800 !important;
-        min-height: 48px !important;
-        font-size: 15px !important;
-        border: 1.5px solid #fde047 !important;
+        border-radius: 10px !important;
+        font-weight: 700 !important;
+        min-height: 38px !important;
+        height: 38px !important;
+        font-size: 13px !important;
+        border: 1px solid #fde047 !important;
         background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
         color: #080e1b !important;
-        box-shadow: 0 4px 16px {card_glow_gold} !important;
+        box-shadow: 0 2px 10px {card_glow_gold} !important;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         width: 100% !important;
-        letter-spacing: 0.3px !important;
+        letter-spacing: 0.2px !important;
         cursor: pointer !important;
+        padding: 0 12px !important;
     }}
 
     .stButton > button:hover,
@@ -225,8 +231,8 @@ def get_dark_theme_css():
         background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%) !important;
         border-color: #ffffff !important;
         color: #000000 !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 20px rgba(245, 158, 11, 0.45) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35) !important;
     }}
 
     .stButton > button:active,
@@ -234,12 +240,12 @@ def get_dark_theme_css():
         transform: scale(0.98) !important;
     }}
 
-    /* Secondary Action Buttons (Deep Slate Indigo) */
+    /* Compact Secondary Buttons */
     button[kind="secondary"] {{
         background: linear-gradient(135deg, #1b263b 0%, #0f172a 100%) !important;
         color: #e2e8f0 !important;
-        border: 1.5px solid {input_border} !important;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+        border: 1px solid {input_border} !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
     }}
 
     button[kind="secondary"]:hover {{
@@ -248,19 +254,28 @@ def get_dark_theme_css():
         border-color: {amber_gold} !important;
     }}
 
+    /* Compact Sidebar Buttons */
+    section[data-testid="stSidebar"] .stButton > button {{
+        min-height: 36px !important;
+        height: 36px !important;
+        font-size: 12.5px !important;
+        border-radius: 8px !important;
+        margin-bottom: 2px !important;
+    }}
+
     /* Horizontal Mobile Navigation Tabs */
     .stTabs [data-baseweb="tab-list"] {{
-        gap: 8px;
+        gap: 6px;
         background-color: #0d1526 !important;
-        padding: 6px !important;
-        border-radius: 16px !important;
-        border: 1.5px solid {card_border} !important;
+        padding: 4px !important;
+        border-radius: 12px !important;
+        border: 1px solid {card_border} !important;
         overflow-x: auto !important;
         scroll-behavior: smooth !important;
         -webkit-overflow-scrolling: touch !important;
         flex-wrap: nowrap !important;
         scrollbar-width: none !important;
-        box-shadow: 0 4px 14px rgba(0,0,0,0.3) !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
     }}
 
     .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar {{
@@ -268,13 +283,13 @@ def get_dark_theme_css():
     }}
 
     .stTabs [data-baseweb="tab"] {{
-        height: 44px !important;
+        height: 36px !important;
         white-space: nowrap !important;
-        border-radius: 12px !important;
+        border-radius: 10px !important;
         color: #cbd5e1 !important;
         font-weight: 700 !important;
-        font-size: 14px !important;
-        padding: 0 16px !important;
+        font-size: 12.5px !important;
+        padding: 0 12px !important;
         background-color: transparent !important;
         flex-shrink: 0 !important;
         border: 1px solid transparent !important;
@@ -284,153 +299,144 @@ def get_dark_theme_css():
     .stTabs [aria-selected="true"] {{
         background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
         color: #080e1b !important;
-        border: 1.5px solid #fde047 !important;
-        box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35) !important;
+        border: 1px solid #fde047 !important;
+        box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3) !important;
         font-weight: 800 !important;
     }}
 
-    /* Metrics Cards */
+    /* Compact Metrics Cards */
     div[data-testid="stMetric"] {{
         background: linear-gradient(135deg, #121b2d 0%, #0b1120 100%) !important;
-        border: 1.5px solid {card_border} !important;
-        border-top: 3.5px solid {amber_gold} !important;
-        padding: 16px 18px !important;
-        border-radius: 16px !important;
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35), 0 0 10px {card_glow_gold} !important;
+        border: 1px solid {card_border} !important;
+        border-top: 2.5px solid {amber_gold} !important;
+        padding: 10px 14px !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
     }}
     div[data-testid="stMetricLabel"] {{
         color: #cbd5e1 !important;
-        font-size: 12px !important;
-        font-weight: 700 !important;
+        font-size: 11px !important;
+        font-weight: 600 !important;
         text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
+        letter-spacing: 0.3px !important;
     }}
     div[data-testid="stMetricValue"] {{
         color: {amber_light} !important;
-        font-weight: 900 !important;
-        font-size: 24px !important;
-        text-shadow: 0 0 8px rgba(251, 191, 36, 0.3) !important;
+        font-weight: 800 !important;
+        font-size: 18px !important;
     }}
 
     /* Radio Buttons & Checkboxes */
     div[role="radiogroup"] label, div[data-testid="stCheckbox"] label {{
         color: {text_color} !important;
         font-weight: 600 !important;
-        padding: 6px 10px !important;
+        font-size: 12.5px !important;
+        padding: 4px 8px !important;
     }}
+
+    /* Headings */
+    h1 {{ font-size: 20px !important; font-weight: 800 !important; }}
+    h2 {{ font-size: 18px !important; font-weight: 800 !important; }}
+    h3 {{ font-size: 16px !important; font-weight: 700 !important; }}
+    h4 {{ font-size: 14.5px !important; font-weight: 700 !important; }}
+    h5 {{ font-size: 13.5px !important; font-weight: 700 !important; }}
 
     /* Dividers */
     hr {{
         border-color: {card_border} !important;
-        border-top-width: 1.5px !important;
-        margin: 1.2rem 0 !important;
+        border-top-width: 1px !important;
+        margin: 0.8rem 0 !important;
     }}
 
     /* Badges */
     .badge-yellow {{
         background: rgba(245, 158, 11, 0.16);
-        border: 1.5px solid #f59e0b;
+        border: 1px solid #f59e0b;
         color: #fbbf24 !important;
-        padding: 4px 10px;
-        border-radius: 20px;
+        padding: 2px 8px;
+        border-radius: 14px;
         font-weight: 700;
-        font-size: 12px;
+        font-size: 11px;
     }}
 
     .badge-blue {{
         background: rgba(59, 130, 246, 0.2);
-        border: 1.5px solid #3b82f6;
+        border: 1px solid #3b82f6;
         color: #60a5fa !important;
-        padding: 4px 10px;
-        border-radius: 20px;
+        padding: 2px 8px;
+        border-radius: 14px;
         font-weight: 700;
-        font-size: 12px;
+        font-size: 11px;
     }}
 
     /* Responsive Mobile Queries */
     @media (max-width: 768px) {{
         .main .block-container {{
-            padding-left: 0.5rem !important;
-            padding-right: 0.5rem !important;
-            padding-top: 0.4rem !important;
-            padding-bottom: 2rem !important;
+            padding-left: 0.4rem !important;
+            padding-right: 0.4rem !important;
+            padding-top: 0.3rem !important;
+            padding-bottom: 1.5rem !important;
             max-width: 100% !important;
         }}
 
         .cosmo-header {{
-            padding: 10px 14px !important;
-            margin-bottom: 14px !important;
-            border-radius: 14px !important;
+            padding: 8px 12px !important;
+            margin-bottom: 10px !important;
+            border-radius: 10px !important;
             flex-direction: row !important;
             align-items: center !important;
             justify-content: space-between !important;
         }}
 
         .cosmo-logo-img {{
-            width: 38px !important;
-            height: 38px !important;
+            width: 32px !important;
+            height: 32px !important;
         }}
 
         .cosmo-title {{
-            font-size: 16px !important;
+            font-size: 14.5px !important;
             margin: 0 !important;
         }}
 
         .cosmo-sub {{
-            font-size: 11px !important;
+            font-size: 10px !important;
         }}
 
         .user-badge {{
-            padding: 4px 10px !important;
-            font-size: 11px !important;
-            border-radius: 20px !important;
+            padding: 3px 8px !important;
+            font-size: 10px !important;
+            border-radius: 14px !important;
         }}
 
         div[data-testid="column"] {{
             width: 100% !important;
             flex: 1 1 100% !important;
             min-width: 100% !important;
-            margin-bottom: 6px !important;
+            margin-bottom: 4px !important;
         }}
 
         div[data-testid="stMetric"] {{
-            padding: 10px 14px !important;
-            border-radius: 12px !important;
-            margin-bottom: 8px !important;
+            padding: 8px 10px !important;
+            border-radius: 10px !important;
+            margin-bottom: 6px !important;
         }}
 
         div[data-testid="stMetricValue"] {{
-            font-size: 20px !important;
-        }}
-
-        .stTabs [data-baseweb="tab-list"] {{
-            overflow-x: auto !important;
-            display: flex !important;
-            flex-wrap: nowrap !important;
-            gap: 4px !important;
-            padding: 4px !important;
-            -webkit-overflow-scrolling: touch !important;
-        }}
-
-        .stTabs [data-baseweb="tab"] {{
-            height: 40px !important;
-            font-size: 13px !important;
-            padding: 0 12px !important;
-            flex-shrink: 0 !important;
-            white-space: nowrap !important;
+            font-size: 16px !important;
         }}
 
         .stButton > button, 
         .stDownloadButton > button, 
         .stLinkButton > a {{
-            min-height: 48px !important;
-            font-size: 14px !important;
-            border-radius: 12px !important;
+            min-height: 36px !important;
+            height: 36px !important;
+            font-size: 12.5px !important;
+            border-radius: 8px !important;
         }}
 
         div[data-testid="stForm"], div.stForm {{
-            padding: 14px !important;
-            border-radius: 14px !important;
+            padding: 10px 12px !important;
+            border-radius: 10px !important;
         }}
     }}
     </style>
