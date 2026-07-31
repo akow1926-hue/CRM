@@ -283,23 +283,23 @@ def get_dark_theme_css():
     }}
 
     /* Action Row for Courier Order Cards - 4 Buttons Side-by-Side in 1 Row (as in Photo 2) */
-    .cour-action-row {
+    .cour-action-row {{
         display: flex !important;
         flex-direction: row !important;
         gap: 6px !important;
         margin-top: 8px !important;
         width: 100% !important;
-    }
+    }}
 
-    .cour-action-row div[data-testid="column"] {
+    .cour-action-row div[data-testid="column"] {{
         width: 23% !important;
         flex: 1 1 23% !important;
         min-width: 23% !important;
         margin-bottom: 0 !important;
-    }
+    }}
 
     /* Button 1: Transfer (Grey) */
-    .cour-action-row div[data-testid="column"]:nth-child(1) button {
+    .cour-action-row div[data-testid="column"]:nth-child(1) button {{
         background: #334155 !important;
         color: #ffffff !important;
         border: 1px solid #475569 !important;
@@ -309,14 +309,14 @@ def get_dark_theme_css():
         min-height: 42px !important;
         height: 42px !important;
         padding: 0 !important;
-    }
-    .cour-action-row div[data-testid="column"]:nth-child(1) button:hover {
+    }}
+    .cour-action-row div[data-testid="column"]:nth-child(1) button:hover {{
         background: #475569 !important;
         color: #ffffff !important;
-    }
+    }}
 
     /* Button 2: Accept/Deliver (Vibrant Green) */
-    .cour-action-row div[data-testid="column"]:nth-child(2) button {
+    .cour-action-row div[data-testid="column"]:nth-child(2) button {{
         background: #22c55e !important;
         color: #000000 !important;
         border: 1px solid #4ade80 !important;
@@ -326,14 +326,14 @@ def get_dark_theme_css():
         min-height: 42px !important;
         height: 42px !important;
         padding: 0 !important;
-    }
-    .cour-action-row div[data-testid="column"]:nth-child(2) button:hover {
+    }}
+    .cour-action-row div[data-testid="column"]:nth-child(2) button:hover {{
         background: #16a34a !important;
         color: #ffffff !important;
-    }
+    }}
 
     /* Button 3: Edit (Warm Yellow) */
-    .cour-action-row div[data-testid="column"]:nth-child(3) button {
+    .cour-action-row div[data-testid="column"]:nth-child(3) button {{
         background: #eab308 !important;
         color: #000000 !important;
         border: 1px solid #fde047 !important;
@@ -343,14 +343,14 @@ def get_dark_theme_css():
         min-height: 42px !important;
         height: 42px !important;
         padding: 0 !important;
-    }
-    .cour-action-row div[data-testid="column"]:nth-child(3) button:hover {
+    }}
+    .cour-action-row div[data-testid="column"]:nth-child(3) button:hover {{
         background: #ca8a04 !important;
         color: #ffffff !important;
-    }
+    }}
 
     /* Button 4: Cancel (Vibrant Red) */
-    .cour-action-row div[data-testid="column"]:nth-child(4) button {
+    .cour-action-row div[data-testid="column"]:nth-child(4) button {{
         background: #ef4444 !important;
         color: #ffffff !important;
         border: 1px solid #f87171 !important;
@@ -360,11 +360,11 @@ def get_dark_theme_css():
         min-height: 42px !important;
         height: 42px !important;
         padding: 0 !important;
-    }
-    .cour-action-row div[data-testid="column"]:nth-child(4) button:hover {
+    }}
+    .cour-action-row div[data-testid="column"]:nth-child(4) button:hover {{
         background: #dc2626 !important;
         color: #ffffff !important;
-    }
+    }}
 
     .stTabs [data-baseweb="tab"] {{
         height: 36px !important;
