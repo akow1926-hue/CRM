@@ -571,9 +571,18 @@ def run_telegram_bot():
 
     print(f"🚀 [TG Bot Started] Бот запускается для токена: {token[:10]}...")
 
-    send_tg_request(token, "deleteWebhook")
+    # Сбрасываем старый вебхук и ОЧИЩАЕМ все накопившиеся старые сообщения в Telegram!
+    send_tg_request(token, "setWebhook", {"url": "", "drop_pending_updates": True})
+    time.sleep(0.5)
+    send_tg_request(token, "deleteWebhook", {"drop_pending_updates": True})
 
+    # Сбрасываем всю прошлую старую очередь сообщений
+    first_res = send_tg_request(token, "getUpdates", {"offset": -1, "timeout": 1})
     offset = 0
+    if first_res and first_res.get("ok") and first_res.get("result"):
+        last_upd = first_res["result"][-1]
+        offset = last_upd["update_id"] + 1
+
     while True:
         try:
             res = send_tg_request(token, "getUpdates", {"offset": offset, "timeout": 20})
