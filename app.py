@@ -1274,7 +1274,25 @@ st.sidebar.write(f"💼 **{t['role_label']}:** `{disp_role_map.get(st.session_st
 if use_gsheet:
     st.sidebar.success("🌐 База: Google Sheets (Online)")
 else:
-    st.sidebar.info("💻 База: Локальная (Offline)")
+    st.sidebar.markdown("---")
+st.sidebar.markdown("### 📌 Разделы CRM")
+
+admin_nav_options = [
+    "📊 Главный дашборд",
+    "📋 Все заказы",
+    "💰 Долги клиентов",
+    "👥 Управление сотрудниками",
+    "🗺️ Карта заказов",
+    "⚙️ Настройки"
+]
+
+admin_nav_choice = st.sidebar.radio(
+    "Перейти к разделу:",
+    admin_nav_options,
+    key="sidebar_admin_nav_choice"
+)
+
+st.sidebar.markdown("---")
 
 with st.sidebar.expander("📲 Telegram Уведомления", expanded=False):
     cfg = get_tg_config()
@@ -1350,19 +1368,11 @@ elif role in ["Washer", "Cleaner", "Мойщик", "Чистильщик от в
 
 elif role in ["Administrator", "Admin", "Администратор"]:
     lang = st.session_state.get("lang", "ru")
-    tab_stat, tab_orders, tab_debts, tab_users, tab_map, tab_settings = st.tabs([
-        f"📊 {locales.get_text('main_panel', lang)}",
-        f"📋 {locales.get_text('all_orders', lang)}",
-        f"💰 {locales.get_text('debts', lang)}",
-        f"👥 {locales.get_text('employee_mgmt', lang)}",
-        f"🗺️ {locales.get_text('map', lang)}",
-        f"⚙️ {locales.get_text('settings', lang)}"
-    ])
     
-    with tab_stat:
+    if "Главный дашборд" in admin_nav_choice:
         dashboard_view.render_dashboard_view(df)
 
-    with tab_orders:
+    elif "Все заказы" in admin_nav_choice:
         st.subheader("📋 Полный список всех заказов и управление")
         
         # Поиск и фильтрация заказов для админа
@@ -1402,12 +1412,11 @@ elif role in ["Administrator", "Admin", "Администратор"]:
                         use_container_width=True
                     )
 
-    with tab_debts:
+    elif "Долги клиентов" in admin_nav_choice:
         debt_manager.render_debts_ui(df, update_order_in_sheet)
 
-
-    # ===================== ВКЛАДКА 4: КАРТА (ЯНДЕКС.КАРТЫ) =====================
-    with tab_map:
+    # ===================== КАРТА (ЯНДЕКС.КАРТЫ) =====================
+    elif "Карта заказов" in admin_nav_choice:
         st.subheader("🗺️ Карта заказов и логистики")
         
         # 1. Фильтры даты, ID и категорий
@@ -1615,8 +1624,8 @@ elif role in ["Administrator", "Admin", "Администратор"]:
             for info in debug_info:
                 st.text(info)
 
-    # ===================== ВКЛАДКА 4: СОТРУДНИКИ =====================
-    with tab_users:
+    # ===================== СОТРУДНИКИ =====================
+    elif "Управление сотрудниками" in admin_nav_choice:
         st.subheader("👥 " + t["employee_management"])
         col_users_list, col_add_user = st.columns([2, 1])
         
@@ -1706,8 +1715,8 @@ elif role in ["Administrator", "Admin", "Администратор"]:
                     else:
                         st.error(t["fill_login_password"])
 
-    # ===================== ВКЛАДКА 6: НАСТРОЙКИ СИСТЕМЫ =====================
-    with tab_settings:
+    # ===================== НАСТРОЙКИ СИСТЕМЫ =====================
+    elif "Настройки" in admin_nav_choice:
         subtab_tg, subtab_gsheet, subtab_sms_cfg, subtab_sms_hist, subtab_pricing, subtab_backup = st.tabs([
             "🤖 Telegram Бот и Курьеры", "🌐 Google Таблица", "📱 Настройки SMS", "📜 История SMS", "🏷️ Прейскурант цен", "💾 Бекап и Резервное копирование"
         ])
