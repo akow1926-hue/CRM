@@ -108,7 +108,7 @@ def is_dispatcher_role(role):
 
 
 def get_keyboard_by_role(role, lang="ru"):
-    """Клавиатура для ролей: Диспетчер, Курьер, Мойщик"""
+    """Главная клавиатура навигации по ролям"""
     if lang == "uz":
         if is_courier_role(role):
             return {
@@ -128,7 +128,7 @@ def get_keyboard_by_role(role, lang="ru"):
                 ],
                 "resize_keyboard": True
             }
-        else:  # Dispatcher
+        else:  # Диспетчер
             return {
                 "keyboard": [
                     [{"text": "➕ Yangi buyurtma"}, {"text": "📋 Buyurtmalar tarixi"}],
@@ -137,7 +137,7 @@ def get_keyboard_by_role(role, lang="ru"):
                 ],
                 "resize_keyboard": True
             }
-    else:  # Russian
+    else:  # Русский
         if is_courier_role(role):
             return {
                 "keyboard": [
@@ -156,7 +156,7 @@ def get_keyboard_by_role(role, lang="ru"):
                 ],
                 "resize_keyboard": True
             }
-        else:  # Dispatcher
+        else:  # Диспетчер
             return {
                 "keyboard": [
                     [{"text": "➕ Новый заказ"}, {"text": "📋 История заказов"}],
@@ -212,7 +212,7 @@ def parse_order_from_text(text):
     phone = parts if len(parts) > 1 and parts else ""
     district = parts if len(parts) > 2 and parts else "Сиёб (Siyob)"
     address = parts if len(parts) > 3 and parts else (parts if len(parts) > 2 else "-")
-    items = parts[4] if len(parts) > 4 and parts[4] else "Ковры"
+    items = parts if len(parts) > 4 and parts else "Ковры"
 
     return {
         "client": client,
@@ -223,11 +223,8 @@ def parse_order_from_text(text):
     }
 
 
-PROCESSED_UPDATES = set()
-
-
 def send_edit_panel(token, chat_id, order_id, lang, role):
-    """Отправка полной панели управления заказом (статусы + выбор курьера)"""
+    """Панель управления заказом: изменение статуса и назначение курьера"""
     orders = load_json_file(BACKUP_FILE, [])
     matched = [o for o in orders if str(o.get("ID")) == str(order_id)]
     if not matched:
@@ -272,6 +269,9 @@ def send_edit_panel(token, chat_id, order_id, lang, role):
         "<i>Yangi holatni tanlang yoki kuryerni tayinlang:</i>"
     )
     send_message(token, chat_id, edit_msg, edit_buttons)
+
+
+PROCESSED_UPDATES = set()
 
 
 def process_telegram_update(token, update):
@@ -489,7 +489,88 @@ def process_telegram_update(token, update):
     flow_step = sess.get("flow_step")
     draft = sess.get("draft", {})
 
-    # ==================== ОБРАБОТКА ВВОДА В РЕЖИМЕ "ИЗМЕНЕНИЕ ЗАКАЗА" ====================
+    # ==================== 1. ПЕРВУЮ ОЧЕРЕДЬ ПРОВЕРЯЕМ КНОПКИ МЕНЮ ====================
+    if text in ["➕ Новый заказ", "➕ Yangi buyurtma", "➕ Новый заказ (Забор)", "➕ Yangi buyurtma (Olib ketish)"]:
+        sess["flow"] = "create_order"
+        sess["flow_step"] = "name"
+        sess["draft"] = {}
+        sessions[chat_id] = sess
+        save_json_file(SESSIONS_FILE, sessions)
+        msg = "👤 <b>Шаг 1 из 4:</b> Введите имя клиента:" if lang == "ru" else "👤 <b>1-bosqich:</b> Mijoz ismini kiriting:"
+        send_message(token, chat_id, msg)
+        return
+
+    if text in ["📏 Измерка ковров (Калькулятор)", "📏 Gilamlarni o'lchash"]:
+        sess["flow"] = "calc_size"
+        sess["flow_step"] = "order_id"
+        sess["draft"] = {}
+        sessions[chat_id] = sess
+        save_json_file(SESSIONS_FILE, sessions)
+        msg = "📦 <b>Введите ID заказа для внесения размеров (например: <code>5225</code>):</b>" if lang == "ru" else "📦 <b>Buyurtma ID-sini kiriting:</b>"
+        send_message(token, chat_id, msg)
+        return
+
+    if text in ["✏️ Изменение заказов", "✏️ Buyurtmani tahrirlash"]:
+        sess["flow"] = "edit_order_input"
+        sessions[chat_id] = sess
+        save_json_file(SESSIONS_FILE, sessions)
+        msg = "✏️ Напишите № заказа, который вы хотите изменить (например: <code>5202</code>):" if lang == "ru" else "✏️ Tahrirlamoqchi bo'lgan buyurtma ID-sini kiriting (masalan: <code>5202</code>):"
+        send_message(token, chat_id, msg, get_keyboard_by_role(user_role, lang))
+        return
+
+    if text.startswith("🔍") or text.startswith("/search") or text in ["🔍 Поиск заказов", "🔍 Buyurtmalarni qidirish", "🔍 Buyurtma va holat"]:
+        sess["flow"] = "search_order_input"
+        sessions[chat_id] = sess
+        save_json_file(SESSIONS_FILE, sessions)
+        msg = "🔍 Напишите № заказа или телефон для поиска (например: <code>5200</code> или <code>901234567</code>):" if lang == "ru" else "🔍 Buyurtma ID-si yoki telefon raqamini kiriting:"
+        send_message(token, chat_id, msg, get_keyboard_by_role(user_role, lang))
+        return
+
+    if text in ["📋 История заказов", "📋 Buyurtmalar tarixi", "📋 Все заказы"]:
+        orders = load_json_file(BACKUP_FILE, [])
+        resp = f"📋 <b>Последние заказы ({len(orders)}):</b>\n\n"
+        for o in orders[-8:][::-1]:
+            resp += f"📦 <b>№{o.get('ID')}</b> | 👤 {o.get('Клиент')} | 📊 {o.get('Статус')}\n"
+        send_message(token, chat_id, resp, get_keyboard_by_role(user_role, lang))
+        return
+
+    if text in ["📦 Ожидают забора", "📦 Olib ketish kutilmoqda"]:
+        orders = load_json_file(BACKUP_FILE, [])
+        pickup_orders = [o for o in orders if "забор" in str(o.get("Статус", "")).lower() and (str(o.get("Курьер", "")).lower() in [user_name.lower(), "не назначен", ""] or not o.get("Курьер"))]
+        if not pickup_orders:
+            send_message(token, chat_id, "ℹ️ Нет заказов на забор.", get_keyboard_by_role(user_role, lang))
+            return
+        resp = f"📦 <b>Заказы ожидающие забора ({len(pickup_orders)}):</b>\n\n"
+        for o in pickup_orders:
+            resp += f"📦 <b>№{o.get('ID')}</b> | 👤 {o.get('Клиент')} ({o.get('Телефон')})\n🏠 {o.get('Адрес')}\n\n"
+        send_message(token, chat_id, resp, get_keyboard_by_role(user_role, lang))
+        return
+
+    if text in ["🚚 Готовые заказы (На доставку)", "🚚 Tayyor buyurtmalar"]:
+        orders = load_json_file(BACKUP_FILE, [])
+        ready_orders = [o for o in orders if "Готов" in str(o.get("Статус", ""))]
+        if not ready_orders:
+            send_message(token, chat_id, "ℹ️ Нет готовых заказов к выдаче.", get_keyboard_by_role(user_role, lang))
+            return
+        resp = f"🚚 <b>Готовые заказы к выдаче ({len(ready_orders)}):</b>\n\n"
+        for o in ready_orders:
+            resp += f"📦 <b>№{o.get('ID')}</b> | 👤 {o.get('Клиент')} ({o.get('Телефон')})\n💰 К оплате: {o.get('Сумма')} сум\n\n"
+        send_message(token, chat_id, resp, get_keyboard_by_role(user_role, lang))
+        return
+
+    if text in ["🧼 Мыто / Не мыто (Статусы)", "🧼 Yuvilgan / Yuvilmagan", "🧺 Заказы в цеху", "🧺 Sexdagi buyurtmalar"]:
+        orders = load_json_file(BACKUP_FILE, [])
+        shop_orders = [o for o in orders if any(k in str(o.get("Статус", "")).lower() for k in ["цех", "стирк", "мойк", "в цеху", "yuvish"])]
+        if not shop_orders:
+            send_message(token, chat_id, "🎉 В цеху чисто! Все ковры помыты.", get_keyboard_by_role(user_role, lang))
+            return
+        resp = f"🧺 <b>Заказы в цеху на стирку ({len(shop_orders)}):</b>\n\n"
+        for o in shop_orders:
+            resp += f"📦 <b>№{o.get('ID')}</b> | 🧺 {o.get('Размеры')} | 📊 {o.get('Статус')}\n"
+        send_message(token, chat_id, resp, get_keyboard_by_role(user_role, lang))
+        return
+
+    # ==================== 2. ОБРАБОТКА АКТИВНЫХ ВИЗАРДОВИ И РЕЖИМОВ ====================
     if flow == "edit_order_input":
         target_id = ''.join(filter(str.isdigit, text.strip()))
         sess.pop("flow", None)
@@ -502,7 +583,6 @@ def process_telegram_update(token, update):
             send_message(token, chat_id, "⚠️ Некорректный номер заказа.", get_keyboard_by_role(user_role, lang))
         return
 
-    # ==================== ВИЗАРД 1: ДОБАВЛЕНИЕ ЗАКАЗА ====================
     if flow == "create_order":
         if flow_step == "name":
             draft["client"] = text
@@ -559,7 +639,6 @@ def process_telegram_update(token, update):
             send_message(token, chat_id, confirm_preview, inline_confirm_btns)
             return
 
-    # ==================== ВИЗАРД 2: КАЛЬКУЛЯТОР МОЙЩИКА ====================
     if flow == "calc_size":
         if flow_step == "order_id":
             target_id = ''.join(filter(str.isdigit, text.strip()))
@@ -586,7 +665,6 @@ def process_telegram_update(token, update):
                 sess["draft"] = draft
                 sessions[chat_id] = sess
                 save_json_file(SESSIONS_FILE, sessions)
-
                 msg = "📏 <b>Шаг 2 из 3:</b> Введите <b>длину</b> в метрах:" if lang == "ru" else "📏 <b>2-bosqich:</b> Gilam <b>bo'yini</b> kiriting:"
                 send_message(token, chat_id, msg)
             except Exception:
@@ -600,7 +678,6 @@ def process_telegram_update(token, update):
                 sess["draft"] = draft
                 sessions[chat_id] = sess
                 save_json_file(SESSIONS_FILE, sessions)
-
                 msg = "💰 <b>Шаг 3 из 3:</b> Введите цену за 1 кв.м в сумах:" if lang == "ru" else "💰 <b>3-bosqich:</b> 1 kv.m narxini kiriting:"
                 send_message(token, chat_id, msg)
             except Exception:
@@ -638,90 +715,7 @@ def process_telegram_update(token, update):
                 send_message(token, chat_id, f"⚠️ Ошибка расчета: {e}. Введите цену за кв.м:")
             return
 
-    # ==================== НАЖАТИЕ НА КНОПКИ МЕНЮ ====================
-    if text in ["➕ Новый заказ", "➕ Yangi buyurtma", "➕ Новый заказ (Забор)", "➕ Yangi buyurtma (Olib ketish)"]:
-        sess["flow"] = "create_order"
-        sess["flow_step"] = "name"
-        sess["draft"] = {}
-        sessions[chat_id] = sess
-        save_json_file(SESSIONS_FILE, sessions)
-        msg = "👤 <b>Шаг 1 из 4:</b> Введите имя клиента:" if lang == "ru" else "👤 <b>1-bosqich:</b> Mijoz ismini kiriting:"
-        send_message(token, chat_id, msg)
-        return
-
-    if text in ["📏 Измерка ковров (Калькулятор)", "📏 Gilamlarni o'lchash"]:
-        sess["flow"] = "calc_size"
-        sess["flow_step"] = "order_id"
-        sess["draft"] = {}
-        sessions[chat_id] = sess
-        save_json_file(SESSIONS_FILE, sessions)
-        msg = "📦 <b>Введите ID заказа для внесения размеров (например: <code>5225</code>):</b>" if lang == "ru" else "📦 <b>Buyurtma ID-sini kiriting:</b>"
-        send_message(token, chat_id, msg)
-        return
-
-    # КНОПКА "ИЗМЕНЕНИЕ ЗАКАЗОВ" - Включает режим ожидание ID заказа
-    if text in ["✏️ Изменение заказов", "✏️ Buyurtmani tahrirlash"]:
-        sess["flow"] = "edit_order_input"
-        sessions[chat_id] = sess
-        save_json_file(SESSIONS_FILE, sessions)
-        msg = "✏️ Напишите № заказа, который вы хотите изменить (например: <code>5202</code>):" if lang == "ru" else "✏️ Tahrirlamoqchi bo'lgan buyurtma ID-sini kiriting (masalan: <code>5202</code>):"
-        send_message(token, chat_id, msg, get_keyboard_by_role(user_role, lang))
-        return
-
-    # КНОПКА "ПОИСК ЗАКАЗОВ" - Включает режим обычного поиска
-    if text.startswith("🔍") or text.startswith("/search") or text in ["🔍 Поиск заказов", "🔍 Buyurtmalarni qidirish", "🔍 Buyurtma va holat"]:
-        sess["flow"] = "search_order_input"
-        sessions[chat_id] = sess
-        save_json_file(SESSIONS_FILE, sessions)
-        msg = "🔍 Напишите № заказа или телефон для поиска (например: <code>5200</code> или <code>901234567</code>):" if lang == "ru" else "🔍 Buyurtma ID-si yoki телефон рақамини киритинг:"
-        send_message(token, chat_id, msg, get_keyboard_by_role(user_role, lang))
-        return
-
-    if text in ["📋 История заказов", "📋 Buyurtmalar tarixi", "📋 Все заказы"]:
-        orders = load_json_file(BACKUP_FILE, [])
-        resp = f"📋 <b>Последние заказы ({len(orders)}):</b>\n\n"
-        for o in orders[-8:][::-1]:
-            resp += f"📦 <b>№{o.get('ID')}</b> | 👤 {o.get('Клиент')} | 📊 {o.get('Статус')}\n"
-        send_message(token, chat_id, resp, get_keyboard_by_role(user_role, lang))
-        return
-
-    if text in ["📦 Ожидают забора", "📦 Olib ketish kutilmoqda"]:
-        orders = load_json_file(BACKUP_FILE, [])
-        pickup_orders = [o for o in orders if "забор" in str(o.get("Статус", "")).lower() and (str(o.get("Курьер", "")).lower() in [user_name.lower(), "не назначен", ""] or not o.get("Курьер"))]
-        if not pickup_orders:
-            send_message(token, chat_id, "ℹ️ Нет заказов на забор.", get_keyboard_by_role(user_role, lang))
-            return
-        resp = f"📦 <b>Заказы ожидающие забора ({len(pickup_orders)}):</b>\n\n"
-        for o in pickup_orders:
-            resp += f"📦 <b>№{o.get('ID')}</b> | 👤 {o.get('Клиент')} ({o.get('Телефон')})\n🏠 {o.get('Адрес')}\n\n"
-        send_message(token, chat_id, resp, get_keyboard_by_role(user_role, lang))
-        return
-
-    if text in ["🚚 Готовые заказы (На доставку)", "🚚 Tayyor buyurtmalar"]:
-        orders = load_json_file(BACKUP_FILE, [])
-        ready_orders = [o for o in orders if "Готов" in str(o.get("Статус", ""))]
-        if not ready_orders:
-            send_message(token, chat_id, "ℹ️ Нет готовых заказов к выдаче.", get_keyboard_by_role(user_role, lang))
-            return
-        resp = f"🚚 <b>Готовые заказы к выдаче ({len(ready_orders)}):</b>\n\n"
-        for o in ready_orders:
-            resp += f"📦 <b>№{o.get('ID')}</b> | 👤 {o.get('Клиент')} ({o.get('Телефон')})\n💰 К оплате: {o.get('Сумма')} сум\n\n"
-        send_message(token, chat_id, resp, get_keyboard_by_role(user_role, lang))
-        return
-
-    if text in ["🧼 Мыто / Не мыто (Статусы)", "🧼 Yuvilgan / Yuvilmagan", "🧺 Заказы в цеху", "🧺 Sexdagi buyurtmalar"]:
-        orders = load_json_file(BACKUP_FILE, [])
-        shop_orders = [o for o in orders if any(k in str(o.get("Статус", "")).lower() for k in ["цех", "стирк", "мойк", "в цеху", "yuvish"])]
-        if not shop_orders:
-            send_message(token, chat_id, "🎉 В цеху чисто! Все ковры помыты.", get_keyboard_by_role(user_role, lang))
-            return
-        resp = f"🧺 <b>Заказы в цеху на стирку ({len(shop_orders)}):</b>\n\n"
-        for o in shop_orders:
-            resp += f"📦 <b>№{o.get('ID')}</b> | 🧺 {o.get('Размеры')} | 📊 {o.get('Статус')}\n"
-        send_message(token, chat_id, resp, get_keyboard_by_role(user_role, lang))
-        return
-
-    # ==================== ОБЫЧНЫЙ ПОИСК ПО НОМЕРУ / ТЕЛЕФОНУ ====================
+    # ==================== 3. ОБЫЧНЫЙ ПОИСК ПО НОМЕРУ / ТЕЛЕФОНУ ====================
     clean_digits = ''.join(filter(str.isdigit, text))
     if (flow == "search_order_input" or len(clean_digits) >= 4) and not text.lower().startswith("заказ:") and not text.lower().startswith("yangi buyurtma:"):
         if flow == "search_order_input":
@@ -739,7 +733,10 @@ def process_telegram_update(token, update):
             o = matched[0]
             target_id = str(o.get("ID"))
 
-            # ПРИ ОБЫЧНОМ ПОИСКЕ ПОКАЗЫВАЕМ ЕДИНСТВЕННУЮ КНОПКУ "Изменить информацию"
+            # ПРИ ЛЮБОМ ПО[0]
+            target_id = str(o.get("ID"))
+
+            # ПРИ ЛЮБОМ ПОИСКЕ ВЫВОДИТСЯ ЕДИНСТВЕННАЯ КНОПКА "Изменить информацию"
             inline_buttons = {
                 "inline_keyboard": [
                     [
@@ -761,7 +758,7 @@ def process_telegram_update(token, update):
             send_message(token, chat_id, info_text, inline_buttons)
             return
 
-    # ==================== СОЗДАНИЕ ЗАКАЗА ИЗ СВОБОДНОГО ТЕКСТА ====================
+    # ==================== 4. СОЗДАНИЕ ЗАКАЗА ИЗ ТЕКСТА (СТРОГО ПО ПРЕФИКСУ) ====================
     if text.lower().startswith("заказ:") or text.lower().startswith("yangi buyurtma:"):
         parsed = parse_order_from_text(text)
         new_id = get_next_id_from_backup()
