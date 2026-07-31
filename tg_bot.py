@@ -205,8 +205,18 @@ def get_next_id_from_backup():
     return max_id + 1
 
 
+PROCESSED_UPDATES = set()
+
 def process_telegram_update(token, update):
     """Обработка входящего сообщения от пользователя Telegram"""
+    update_id = update.get("update_id")
+    if update_id in PROCESSED_UPDATES:
+        return
+    if update_id is not None:
+        PROCESSED_UPDATES.add(update_id)
+        if len(PROCESSED_UPDATES) > 2000:
+            PROCESSED_UPDATES.clear()
+
     message = update.get("message") or update.get("edited_message")
     callback_query = update.get("callback_query")
 
@@ -427,7 +437,7 @@ def process_telegram_update(token, update):
             return
 
     # ----- МОЙЩИК / ЧИСТИЛЬЩИК (WASHER / CLEANER) -----
-    elif "Washer" in user_role or "Cleaner" in user_role or "Мойщик" in role or "Чистильщик" in role:
+    elif "Washer" in user_role or "Cleaner" in user_role or "Мойщик" in user_role or "Чистильщик" in user_role:
         if text in ["📏 Измерка ковров (Калькулятор)", "📏 Gilamlarni o'lchash"]:
             msg = (
                 "📏 <b>Калькулятор измерения ковра:</b>\n\n"
