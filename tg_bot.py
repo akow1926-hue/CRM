@@ -7,6 +7,14 @@ import urllib.parse
 import re
 from datetime import datetime
 
+# Настройка кодировки вывода для Windows
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 # Файлы конфигурации и данных CRM
 CONFIG_FILE = "telegram_config.json"
 BACKUP_FILE = "backup_orders.json"
