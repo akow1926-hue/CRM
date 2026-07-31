@@ -297,6 +297,15 @@ def process_telegram_update(token, update):
             matched = [o for o in orders if str(o.get("ID")) == str(order_id)]
             if matched:
                 o = matched[0]
+                
+                # Список курьеров для назначения
+                users = load_json_file(USERS_BACKUP_FILE, [])
+                couriers = [u.get("Username") for u in users if is_courier_role(u.get("Role"))]
+                if not couriers:
+                    couriers = ["akobir", "firuz"]
+
+                cour_btns = [{"text": f"🚗 {c}", "callback_data": f"setcour_{c}_{order_id}"} for c in couriers[:4]]
+
                 edit_buttons = {
                     "inline_keyboard": [
                         [
@@ -304,21 +313,39 @@ def process_telegram_update(token, update):
                             {"text": "🧺 В цех", "callback_data": f"st_shop_{order_id}"},
                             {"text": "🚚 Готов", "callback_data": f"st_ready_{order_id}"},
                             {"text": "✅ Выполнен", "callback_data": f"st_done_{order_id}"}
-                        ]
+                        ],
+                        cour_btns
                     ]
                 }
                 edit_msg = (
                     f"✏️ <b>ИЗМЕНЕНИЕ И УПРАВЛЕНИЕ ЗАКАЗОМ №{order_id}:</b>\n\n"
                     f"👤 <b>Клиент:</b> {o.get('Клиент')}\n"
+                    f"🚗 <b>Текущий курьер:</b> {o.get('Курьер')}\n"
                     f"📊 <b>Текущий статус:</b> {o.get('Статус')}\n\n"
-                    "<i>Выберите новый статус для этого заказа:</i>"
+                    "<i>Выберите новый статус или назначьте курьера ниже:</i>"
                 ) if lang == "ru" else (
                     f"✏️ <b>BUYURTMA №{order_id} HOLATINI O'ZGARTIRISH:</b>\n\n"
                     f"👤 <b>Mijoz:</b> {o.get('Клиент')}\n"
+                    f"🚗 <b>Kuryer:</b> {o.get('Курьер')}\n"
                     f"📊 <b>Joriy holat:</b> {o.get('Статус')}\n\n"
-                    "<i>Yangi holatni tanlang:</i>"
+                    "<i>Yangi holatni tanlang yoki kuryerni tayinlang:</i>"
                 )
                 send_message(token, chat_id, edit_msg, edit_buttons)
+            return
+
+        # Назначение курьера
+        if cb_data.startswith("setcour_"):
+            parts = cb_data.split("_")
+            if len(parts) >= 3:
+                cour_name = parts[1]
+                order_id = parts[2]
+                orders = load_json_file(BACKUP_FILE, [])
+                for o in orders:
+                    if str(o.get("ID")) == str(order_id):
+                        o["Курьер"] = cour_name
+                        break
+                save_json_file(BACKUP_FILE, orders)
+                send_message(token, chat_id, f"✅ <b>Заказ №{order_id} назначен курьеру:</b> «{cour_name}»!", get_keyboard_by_role(sess.get("role"), lang))
             return
 
         # Изменение статуса заказа
@@ -423,7 +450,7 @@ def process_telegram_update(token, update):
                 # Проверка: Админам доступ к боту запрещен!
                 if is_admin_role(user_role):
                     if lang == "uz":
-                        err_admin = "⚠️ <b>Kirish cheklangan:</b> Administratorlar CRM-ni veb-sayt orqali boshqaradi. Botga kirish faqat xodimlar (Dispetcher, Kuryer, Yuvuvchi) учун mo'ljallangan."
+                        err_admin = "⚠️ <b>Kirish cheklangan:</b> Administratorlar CRM-ni veb-sayt orqali boshqaradi. Botga kirish faqat xodimlar (Dispetcher, Kuryer, Yuvuvchi) uchun mo'ljallangan."
                     else:
                         err_admin = "⚠️ <b>Доступ ограничен:</b> Администраторы управляют CRM через веб-сайт. Вход в бот предназначен только для линейного персонала (Диспетчеры, Курьеры, Мойщики)."
                     send_message(token, chat_id, err_admin, get_remove_keyboard())
@@ -480,7 +507,7 @@ def process_telegram_update(token, update):
             return
         return
 
-    # ---------------- 5. ШАГ 3: АВТОРИЗОВАННЫЕ ПОЛЬЗОВАТЕЛИИ ----------------
+    # ---------------- 5. ШАГ 3: АВТОРИЗОВАННЫЕ ПОЛЬЗОВАТЕЛИ ----------------
     user_name = sess.get("username", "Пользователь")
     user_role = sess.get("role", "Courier")
     lang = sess.get("lang", "ru")
@@ -571,7 +598,7 @@ def process_telegram_update(token, update):
     # ==================== ВИЗАРД 2: ПОШАГОВЫЙ КАЛЬКУЛЯТОР МОЙЩИКА ====================
     if flow == "calc_size":
         if flow_step == "order_id":
-            target_id = text.strip()
+            target_id = ''.join(filter(str.isdigit, text.strip()))
             orders = load_json_file(BACKUP_FILE, [])
             matched = [o for o in orders if str(o.get("ID")) == str(target_id)]
             if not matched:
@@ -695,7 +722,7 @@ def process_telegram_update(token, update):
 
     if text in ["📦 Ожидают забора", "📦 Olib ketish kutilmoqda"]:
         orders = load_json_file(BACKUP_FILE, [])
-        pickup_orders = [o for o in orders if "забор" in str(o.get("Статус","")).lower()]
+        pickup_orders = [o for o in orders if "забор" in str(o.get("Статус","")).lower() and (str(o.get("Курьер","")).lower() in [user_name.lower(), "не назначен", ""] or not o.get("Курьер"))]
         if not pickup_orders:
             send_message(token, chat_id, "ℹ️ Нет заказов на забор.", get_keyboard_by_role(user_role, lang))
             return
@@ -719,7 +746,7 @@ def process_telegram_update(token, update):
 
     if text in ["🧼 Мыто / Не мыто (Статусы)", "🧼 Yuvilgan / Yuvilmagan", "🧺 Заказы в цеху", "🧺 Sexdagi buyurtmalar"]:
         orders = load_json_file(BACKUP_FILE, [])
-        shop_orders = [o for o in orders if "цех" in str(o.get("Статус","")).lower()]
+        shop_orders = [o for o in orders if any(k in str(o.get("Статус","")).lower() for k in ["цех", "стирк", "мойк", "в цеху", "yuvish"])]
         if not shop_orders:
             send_message(token, chat_id, "🎉 В цеху чисто! Все ковры помыты.", get_keyboard_by_role(user_role, lang))
             return
@@ -735,7 +762,7 @@ def process_telegram_update(token, update):
 
     # Авто-поиск по номеру заказа (ID) или номеру телефона
     clean_digits = ''.join(filter(str.isdigit, text))
-    if len(clean_digits) >= 4:
+    if len(clean_digits) >= 4 and not text.lower().startswith("заказ:"):
         orders = load_json_file(BACKUP_FILE, [])
         matched = []
         for o in orders:
@@ -779,6 +806,45 @@ def process_telegram_update(token, update):
             )
             send_message(token, chat_id, info_text, inline_buttons)
             return
+
+    # Создание заказа из свободного текста ТОЛЬКО при префиксе "заказ:" или "yangi buyurtma:"
+    if text.lower().startswith("заказ:") or text.lower().startswith("yangi buyurtma:"):
+        parsed = parse_order_from_text(text)
+        new_id = get_next_id_from_backup()
+
+        new_order = {
+            "ID": new_id,
+            "Дата": datetime.now().strftime("%d.%m.%Y, %H:%M:%S"),
+            "Клиент": parsed["client"],
+            "Телефон": parsed["phone"],
+            "Адрес": parsed["address"],
+            "Размеры": parsed["items"],
+            "Площадь": "0",
+            "Сумма": 0,
+            "Статус": "Ожидает забора",
+            "Курьер": user_name if is_courier_role(user_role) else "Не назначен",
+            "Диспетчер": f"Telegram ({user_name})",
+            "Район": parsed["district"],
+            "Язык": "Русский язык",
+            "Локация": "-",
+            "Оплачено": 0,
+            "Тип оплаты": "-",
+            "Причина": "-"
+        }
+
+        orders = load_json_file(BACKUP_FILE, [])
+        orders.append(new_order)
+        save_json_file(BACKUP_FILE, orders)
+
+        confirm_text = (
+            f"🎉 <b>НОВЫЙ ЗАКАЗ №{new_id} СОЗДАН!</b>\n\n"
+            f"👤 <b>Клиент:</b> {parsed['client']}\n"
+            f"📞 <b>Телефон:</b> {parsed['phone']}\n"
+            f"🏠 <b>Адрес:</b> {parsed['address']}\n"
+            f"🟡 <b>Статус:</b> Ожидает забора"
+        )
+        send_message(token, chat_id, confirm_text, get_keyboard_by_role(user_role, lang))
+        return
 
     reply_msg = "ℹ️ Выберите нужную команду на клавиатуре ниже или введите № заказа / телефон для поиска."
     send_message(token, chat_id, reply_msg, get_keyboard_by_role(user_role, lang))
