@@ -16,6 +16,7 @@ import sms_manager
 import pricing_manager
 import debt_manager
 import salary_manager
+import orders_view
 import dashboard_view
 import ui_theme
 import locales
@@ -1412,44 +1413,7 @@ elif role in ["Administrator", "Admin", "Администратор"]:
         dashboard_view.render_dashboard_view(df)
 
     elif "Все заказы" in admin_nav_choice:
-        st.subheader("📋 Полный список всех заказов и управление")
-        
-        # Поиск и фильтрация заказов для админа
-        col_as1, col_as2 = st.columns([2, 1])
-        admin_search = col_as1.text_input("🔍 Поиск заказа (по имени клиента, телефону или ID):", key="admin_order_search")
-        admin_status_filter = col_as2.selectbox("Фильтр по статусу:", ["Все статусы", "Ожидает забора", "В цеху", "Готов", "Выполнен"], key="admin_status_filter")
-        
-        filtered_df = df.copy()
-        if admin_status_filter != "Все статусы":
-            filtered_df = filtered_df[filtered_df["Статус"] == admin_status_filter]
-
-        if admin_search.strip():
-            filtered_df = filtered_df[
-                filtered_df["ID"].astype(str).str.contains(admin_search) |
-                filtered_df["Клиент"].astype(str).str.contains(admin_search, case=False) |
-                filtered_df["Телефон"].astype(str).str.contains(admin_search)
-            ]
-            
-        st.dataframe(filtered_df, use_container_width=True, hide_index=True)
-        
-        if "ID" in filtered_df.columns and not filtered_df.empty:
-            st.divider()
-            st.markdown("#### 🧾 Сформировать и скачать чек по номеру заказа")
-            col_rec1, col_rec2 = st.columns([2, 1])
-            with col_rec1:
-                selected_id = st.selectbox("Выберите ID заказа:", filtered_df["ID"].unique().tolist(), key="admin_rec_select")
-            with col_rec2:
-                if selected_id:
-                    sel_row = filtered_df[filtered_df["ID"] == selected_id].iloc[0]
-                    r_data = generate_receipt_html(sel_row)
-                    st.download_button(
-                        label=f"🧾 Скачать Чек №{selected_id} (HTML)",
-                        data=r_data,
-                        file_name=f"receipt_{selected_id}.html",
-                        mime="text/html",
-                        key=f"admin_download_receipt_btn_{selected_id}",
-                        use_container_width=True
-                    )
+        orders_view.render_orders_view(df, update_order_in_sheet, generate_receipt_html)
 
     elif "Долги клиентов" in admin_nav_choice:
         debt_manager.render_debts_ui(df, update_order_in_sheet)
