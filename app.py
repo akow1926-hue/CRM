@@ -15,6 +15,7 @@ import streamlit.components.v1 as components
 import sms_manager
 import pricing_manager
 import debt_manager
+import salary_manager
 import dashboard_view
 import ui_theme
 import locales
@@ -1289,6 +1290,7 @@ with st.sidebar.expander("📌 Разделы CRM", expanded=True):
         ("📊 Главный дашборд", "sb_btn_dash"),
         ("📋 Все заказы", "sb_btn_orders"),
         ("💰 Долги клиентов", "sb_btn_debts"),
+        ("💵 Зарплаты и Комиссии", "sb_btn_salary"),
         ("👥 Управление сотрудниками", "sb_btn_users"),
         ("🗺️ Карта заказов", "sb_btn_map")
     ]
@@ -1447,6 +1449,9 @@ elif role in ["Administrator", "Admin", "Администратор"]:
 
     elif "Долги клиентов" in admin_nav_choice:
         debt_manager.render_debts_ui(df, update_order_in_sheet)
+
+    elif "Зарплаты" in admin_nav_choice:
+        salary_manager.render_salary_ui(df, get_users_df())
 
     # ===================== КАРТА (ЯНДЕКС.КАРТЫ) =====================
     elif "Карта заказов" in admin_nav_choice:

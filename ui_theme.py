@@ -453,6 +453,17 @@ def inject_theme():
         <meta name="theme-color" content="#0b1120">
         <link rel="manifest" href="/manifest.json">
         <link rel="apple-touch-icon" href="/cosmo_logo.jpg">
+        <script>
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', function() {
+            navigator.serviceWorker.register('/sw.js').then(function(reg) {
+              console.log('PWA SW Registered!', reg.scope);
+            }).catch(function(err) {
+              console.log('PWA SW Fail:', err);
+            });
+          });
+        }
+        </script>
     """, unsafe_allow_html=True)
 
 def get_logo_base64():
