@@ -180,8 +180,8 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
         res_tuple = get_yandex_route_url_func(district, address, existing_loc)
         r_url = res_tuple[0] if isinstance(res_tuple, (tuple, list)) else res_tuple
 
-        card_html = textwrap.dedent(f"""
-        <div style="background: linear-gradient(135deg, #0f1a34 0%, #0a1128 100%); border: 1.5px solid #1d3566; border-top: 4px solid #facc15; border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); font-family: sans-serif;">
+        card_html_top = textwrap.dedent(f"""
+        <div style="background: linear-gradient(135deg, #0f1a34 0%, #0a1128 100%); border: 1.5px solid #1d3566; border-top: 4px solid #facc15; border-radius: 16px; padding: 14px; margin-bottom: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); font-family: sans-serif;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
                 <span style="background: linear-gradient(135deg, #facc15 0%, #eab308 100%); color: #070d1e; padding: 4px 12px; border-radius: 8px; font-weight: 800; font-size: 13px; box-shadow: 0 2px 8px rgba(250,204,21,0.3);">📦 № {norm_id}</span>
                 <span style="background: rgba(37,99,235,0.25); border: 1px solid #3b82f6; color: #60a5fa; padding: 3px 10px; border-radius: 8px; font-weight: 700; font-size: 12px;">Ковров: {kv_count} шт</span>
@@ -200,18 +200,21 @@ def render_courier_view(df, t, courier_name, update_order_func, get_yandex_route
                 <span style="color:#94a3b8;">🚚 {curr_courier}</span>
                 <span style="color:#94a3b8;">👤 {dispatcher_name}</span>
             </div>
-            {f'<div style="font-size:15px; color:#facc15; font-weight:900; text-align:right; margin-top:8px; text-shadow:0 0 10px rgba(250,204,21,0.4);">💰 К оплате: {order_sum:,} сум</div>' if is_delivery else ''}
-        </div>
+            {f'<div style="font-size:15px; color:#facc15; font-weight:900; text-align:right; margin-top:6px; margin-bottom:6px; text-shadow:0 0 10px rgba(250,204,21,0.4);">💰 К оплате: {order_sum:,} сум</div>' if is_delivery else ''}
         """).strip()
 
-        st.markdown(card_html, unsafe_allow_html=True)
+        st.markdown(card_html_top, unsafe_allow_html=True)
 
+        st.markdown('<div class="cour-action-row">', unsafe_allow_html=True)
         c_tr, c_ok, c_ed, c_del = st.columns(4)
 
-        b_tr = c_tr.button("⇄ Передать", key=f"btn_tr_act_{norm_id}_{idx}", use_container_width=True)
-        b_ok = c_ok.button("✓ Выполнить" if is_delivery else "✓ Принять", type="primary" if is_delivery else "secondary", key=f"btn_ok_act_{norm_id}_{idx}", use_container_width=True)
-        b_ed = c_ed.button("✏️ Изменить", key=f"btn_ed_act_{norm_id}_{idx}", use_container_width=True)
-        b_del = c_del.button("❌ Отмена", key=f"btn_del_act_{norm_id}_{idx}", use_container_width=True)
+        b_tr = c_tr.button("-->\n<--", key=f"btn_tr_act_{norm_id}_{idx}", use_container_width=True)
+        b_ok = c_ok.button("принять" if not is_delivery else "выполнить", key=f"btn_ok_act_{norm_id}_{idx}", use_container_width=True)
+        b_ed = c_ed.button("изменить", key=f"btn_ed_act_{norm_id}_{idx}", use_container_width=True)
+        b_del = c_del.button("X", key=f"btn_del_act_{norm_id}_{idx}", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
         state_key = f"active_action_{norm_id}"
         if b_tr:
