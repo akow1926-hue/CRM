@@ -1273,25 +1273,33 @@ st.sidebar.write(f"💼 **{t['role_label']}:** `{disp_role_map.get(st.session_st
 
 if use_gsheet:
     st.sidebar.success("🌐 База: Google Sheets (Online)")
-else:
-    st.sidebar.markdown("---")
+if "admin_nav_choice" not in st.session_state:
+    st.session_state["admin_nav_choice"] = "📊 Главный дашборд"
+
+st.sidebar.markdown("---")
 st.sidebar.markdown("### 📌 Разделы CRM")
 
-admin_nav_options = [
-    "📊 Главный дашборд",
-    "📋 Все заказы",
-    "💰 Долги клиентов",
-    "👥 Управление сотрудниками",
-    "🗺️ Карта заказов",
-    "⚙️ Настройки"
+nav_items = [
+    ("📊 Главный дашборд", "sb_btn_dash"),
+    ("📋 Все заказы", "sb_btn_orders"),
+    ("💰 Долги клиентов", "sb_btn_debts"),
+    ("👥 Управление сотрудниками", "sb_btn_users"),
+    ("🗺️ Карта заказов", "sb_btn_map"),
+    ("⚙️ Настройки", "sb_btn_settings")
 ]
 
-admin_nav_choice = st.sidebar.radio(
-    "Перейти к разделу:",
-    admin_nav_options,
-    key="sidebar_admin_nav_choice"
-)
+for label, btn_key in nav_items:
+    is_active = (st.session_state.get("admin_nav_choice") == label)
+    if st.sidebar.button(
+        label,
+        key=btn_key,
+        use_container_width=True,
+        type="primary" if is_active else "secondary"
+    ):
+        st.session_state["admin_nav_choice"] = label
+        st.rerun()
 
+admin_nav_choice = st.session_state.get("admin_nav_choice", "📊 Главный дашборд")
 st.sidebar.markdown("---")
 
 with st.sidebar.expander("📲 Telegram Уведомления", expanded=False):
