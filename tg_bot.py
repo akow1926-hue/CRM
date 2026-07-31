@@ -291,6 +291,36 @@ def process_telegram_update(token, update):
             send_message(token, chat_id, msg)
             return
 
+        if cb_data.startswith("edit_order_"):
+            order_id = cb_data.replace("edit_order_", "").strip()
+            orders = load_json_file(BACKUP_FILE, [])
+            matched = [o for o in orders if str(o.get("ID")) == str(order_id)]
+            if matched:
+                o = matched[0]
+                edit_buttons = {
+                    "inline_keyboard": [
+                        [
+                            {"text": "📄 Забор", "callback_data": f"st_pickup_{order_id}"},
+                            {"text": "🧺 В цех", "callback_data": f"st_shop_{order_id}"},
+                            {"text": "🚚 Готов", "callback_data": f"st_ready_{order_id}"},
+                            {"text": "✅ Выполнен", "callback_data": f"st_done_{order_id}"}
+                        ]
+                    ]
+                }
+                edit_msg = (
+                    f"✏️ <b>ИЗМЕНЕНИЕ И УПРАВЛЕНИЕ ЗАКАЗОМ №{order_id}:</b>\n\n"
+                    f"👤 <b>Клиент:</b> {o.get('Клиент')}\n"
+                    f"📊 <b>Текущий статус:</b> {o.get('Статус')}\n\n"
+                    "<i>Выберите новый статус для этого заказа:</i>"
+                ) if lang == "ru" else (
+                    f"✏️ <b>BUYURTMA №{order_id} HOLATINI O'ZGARTIRISH:</b>\n\n"
+                    f"👤 <b>Mijoz:</b> {o.get('Клиент')}\n"
+                    f"📊 <b>Joriy holat:</b> {o.get('Статус')}\n\n"
+                    "<i>Yangi holatni tanlang:</i>"
+                )
+                send_message(token, chat_id, edit_msg, edit_buttons)
+            return
+
         # Изменение статуса заказа
         if cb_data.startswith("st_"):
             parts = cb_data.split("_")
@@ -710,21 +740,34 @@ def process_telegram_update(token, update):
         if matched:
             o = matched[0]
             target_id = str(o.get("ID"))
-            inline_buttons = {
-                "inline_keyboard": [
-                    [
-                        {"text": "🧺 В цех", "callback_data": f"st_shop_{target_id}"},
-                        {"text": "🚚 Готов", "callback_data": f"st_ready_{target_id}"},
-                        {"text": "✅ Выполнен", "callback_data": f"st_done_{target_id}"}
+
+            # Для Диспетчера показываем ТОЛЬКО кнопку "✏️ Изменить информацию" (согласно фото 4)
+            if not is_courier_role(user_role) and not is_washer_role(user_role):
+                inline_buttons = {
+                    "inline_keyboard": [
+                        [
+                            {"text": "✏️ Изменить информацию", "callback_data": f"edit_order_{target_id}"} if lang == "ru" else {"text": "✏️ Ma'lumotlarni tahrirlash", "callback_data": f"edit_order_{target_id}"}
+                        ]
                     ]
-                ]
-            }
+                }
+            else:
+                # Для Курьеров и Мойщиков быстрые кнопки смены статуса
+                inline_buttons = {
+                    "inline_keyboard": [
+                        [
+                            {"text": "🧺 В цех", "callback_data": f"st_shop_{target_id}"},
+                            {"text": "🚚 Готов", "callback_data": f"st_ready_{target_id}"},
+                            {"text": "✅ Выполнен", "callback_data": f"st_done_{target_id}"}
+                        ]
+                    ]
+                }
+
             info_text = (
-                f"🔎 <b>Найден заказ №{target_id}:</b>\n\n"
+                f"🔎 <b>Заказ №{target_id}:</b>\n\n"
                 f"👤 <b>Клиент:</b> {o.get('Клиент')}\n"
                 f"📞 <b>Телефон:</b> {o.get('Телефон')}\n"
                 f"🏠 <b>Адрес:</b> {o.get('Район')}, {o.get('Адрес')}\n"
-                f"🧺 <b>Вещи/Размеры:</b> {o.get('Размеры')}\n"
+                f"🧺 <b>Вещи:</b> {o.get('Размеры')}\n"
                 f"📊 <b>Статус:</b> {o.get('Статус')}\n"
                 f"💰 <b>Сумма:</b> {o.get('Сумма')} сум\n"
                 f"🚗 <b>Курьер:</b> {o.get('Курьер')}"
