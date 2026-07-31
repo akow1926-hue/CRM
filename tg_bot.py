@@ -344,7 +344,7 @@ def process_telegram_update(token, update):
         return
 
     # ---------------- 3. ШАГ 2: АВТОРИЗАЦИЯ (ВВОД ЛОГИНА И ПАРОЛЯ) ----------------
-    if curr_step == "login" or curr_step != "authenticated":
+    if curr_step == "login" or sess.get("step") != "authenticated":
         parts = text.split()
         lang = sess.get("lang", "ru")
 
@@ -413,6 +413,7 @@ def process_telegram_update(token, update):
                 auth_req = "🔒 <b>Пожалуйста, введите ваш логин и пароль через пробел:</b>\n<code>логин пароль</code>"
             send_message(token, chat_id, auth_req, get_remove_keyboard())
             return
+        return
 
     # ---------------- 4. ШАГ 3: АВТОРИЗОВАННЫЕ КОМАНДЫ (ПО РОЛЯМ) ----------------
     user_name = sess.get("username", "Пользователь")
