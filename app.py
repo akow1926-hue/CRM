@@ -1276,6 +1276,9 @@ if use_gsheet:
 if "admin_nav_choice" not in st.session_state:
     st.session_state["admin_nav_choice"] = "📊 Главный дашборд"
 
+if "settings_subtab" not in st.session_state:
+    st.session_state["settings_subtab"] = "🤖 Telegram Бот и Курьеры"
+
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 📌 Разделы CRM")
 
@@ -1298,6 +1301,27 @@ for label, btn_key in nav_items:
     ):
         st.session_state["admin_nav_choice"] = label
         st.rerun()
+
+    # Вывод под-панелей прямо под кнопкой Настройки в боковой панели
+    if label == "⚙️ Настройки" and is_active:
+        settings_sub_items = [
+            ("🤖 Telegram Бот и Курьеры", "sub_btn_tg"),
+            ("🌐 Google Таблица", "sub_btn_gs"),
+            ("📱 Настройки SMS", "sub_btn_sms_cfg"),
+            ("📜 История SMS", "sub_btn_sms_hist"),
+            ("🏷️ Прейскурант цен", "sub_btn_pricing"),
+            ("💾 Бекап и Резерв", "sub_btn_backup")
+        ]
+        for sub_label, sub_key in settings_sub_items:
+            is_sub_active = (st.session_state.get("settings_subtab") == sub_label)
+            if st.sidebar.button(
+                f"   └ {sub_label}",
+                key=sub_key,
+                use_container_width=True,
+                type="primary" if is_sub_active else "secondary"
+            ):
+                st.session_state["settings_subtab"] = sub_label
+                st.rerun()
 
 admin_nav_choice = st.session_state.get("admin_nav_choice", "📊 Главный дашборд")
 st.sidebar.markdown("---")
@@ -1725,11 +1749,9 @@ elif role in ["Administrator", "Admin", "Администратор"]:
 
     # ===================== НАСТРОЙКИ СИСТЕМЫ =====================
     elif "Настройки" in admin_nav_choice:
-        subtab_tg, subtab_gsheet, subtab_sms_cfg, subtab_sms_hist, subtab_pricing, subtab_backup = st.tabs([
-            "🤖 Telegram Бот и Курьеры", "🌐 Google Таблица", "📱 Настройки SMS", "📜 История SMS", "🏷️ Прейскурант цен", "💾 Бекап и Резервное копирование"
-        ])
-        
-        with subtab_tg:
+        sel_sub = st.session_state.get("settings_subtab", "🤖 Telegram Бот и Курьеры")
+
+        if "Telegram" in sel_sub:
             st.subheader("🤖 Настройка Telegram Бота и Chat ID курьеров")
             tg_cfg = get_tg_config()
             
@@ -1769,8 +1791,7 @@ elif role in ["Administrator", "Admin", "Администратор"]:
                     except Exception as err:
                         st.error(f"Ошибка запуска бота: {err}")
 
-
-        with subtab_gsheet:
+        elif "Google" in sel_sub:
             st.subheader("🌐 Интеграция с Google Таблицей")
             
             gs_err = st.session_state.get("gsheet_error", "")
@@ -1817,14 +1838,14 @@ elif role in ["Administrator", "Admin", "Администратор"]:
                     st.cache_resource.clear()
                     st.success("✅ Настройки Google Таблицы сохранены! Перезагрузка системы...")
                     st.rerun()
-                
-        with subtab_sms_cfg:
+
+        elif "Настройки SMS" in sel_sub:
             render_sms_settings_ui(key_prefix="admin_tab_sms")
             
-        with subtab_sms_hist:
+        elif "История SMS" in sel_sub:
             render_sms_history_ui()
             
-        with subtab_pricing:
+        elif "Прейскурант" in sel_sub:
             st.subheader("🏷️ Официальный прейскурант цен Cosmo Cleaning Service")
             cat_data = []
             for k, v in pricing_manager.PRICING_CATALOG.items():
@@ -1837,7 +1858,7 @@ elif role in ["Administrator", "Admin", "Администратор"]:
                 })
             st.dataframe(pd.DataFrame(cat_data), use_container_width=True, hide_index=True)
             
-        with subtab_backup:
+        elif "Бекап" in sel_sub:
             st.subheader("💾 Резервное копирование данных (Backup)")
             st.write(f"Текущий локальный файл резервной копии: `{BACKUP_FILE}`")
             if os.path.exists(BACKUP_FILE):
