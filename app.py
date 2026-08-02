@@ -526,23 +526,52 @@ def get_tg_config():
                 cfg = json.load(f)
                 if "courier_chats" not in cfg:
                     cfg["courier_chats"] = {}
+                if "dispatcher_chats" not in cfg:
+                    cfg["dispatcher_chats"] = {}
                 return cfg
         except Exception:
             pass
-    return {"bot_token": "", "chat_id": "", "courier_chats": {}}
+    return {
+        "courier_bot_token": "",
+        "dispatcher_bot_token": "",
+        "bot_token": "",
+        "chat_id": "",
+        "courier_chats": {},
+        "dispatcher_chats": {}
+    }
 
 
-def save_tg_config(bot_token, chat_id, courier_chats=None):
+def save_tg_config(courier_bot_token=None, dispatcher_bot_token=None, chat_id=None, courier_chats=None, dispatcher_chats=None, **kwargs):
     try:
+        existing = get_tg_config()
+
+        # Positional call fallback if save_tg_config(val1, val2) was used
+        if courier_bot_token is not None and dispatcher_bot_token is not None and chat_id is None:
+            v2 = str(dispatcher_bot_token).strip()
+            if v2.startswith("-") or v2.isdigit():
+                chat_id = v2
+                dispatcher_bot_token = None
+
+        c_token = str(courier_bot_token).strip() if courier_bot_token is not None else existing.get("courier_bot_token", "")
+        d_token = str(dispatcher_bot_token).strip() if dispatcher_bot_token is not None else existing.get("dispatcher_bot_token", "")
+        c_id = str(chat_id).strip() if chat_id is not None else existing.get("chat_id", "")
+
+        c_chats = courier_chats if courier_chats is not None else existing.get("courier_chats", {})
+        d_chats = dispatcher_chats if dispatcher_chats is not None else existing.get("dispatcher_chats", {})
+
         data = {
-            "bot_token": str(bot_token).strip(),
-            "chat_id": str(chat_id).strip(),
-            "courier_chats": courier_chats if courier_chats is not None else {}
+            "courier_bot_token": c_token,
+            "dispatcher_bot_token": d_token,
+            "bot_token": c_token or d_token or existing.get("bot_token", ""),
+            "chat_id": c_id,
+            "courier_chats": c_chats,
+            "dispatcher_chats": d_chats
         }
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         return True
-    except Exception:
+    except Exception as e:
+        print(f"[save_tg_config error] {e}")
         return False
 
 
@@ -551,8 +580,11 @@ def send_telegram_notification(msg, target_couriers=None):
     Отправка уведомлений через Telegram Бота персонально каждому выбранному курьеру и/или в общую группу.
     """
     cfg = get_tg_config()
-    bot_token = st.session_state.get("tg_bot_token") or cfg.get("bot_token", "")
+    courier_token = cfg.get("courier_bot_token") or cfg.get("bot_token", "")
+    dispatcher_token = cfg.get("dispatcher_bot_token") or cfg.get("bot_token", "")
     
+    # Use courier token for notifying couriers, fallback to general token
+    bot_token = courier_token or dispatcher_token
     if not bot_token:
         return False
 
@@ -576,8 +608,19 @@ def send_telegram_notification(msg, target_couriers=None):
             c_names = []
 
         for cname in c_names:
-            if cname in courier_chats and str(courier_chats[cname]).strip():
-                chat_ids_to_send.add(str(courier_chats[cname]).strip())
+            cname_clean = cname.lower()
+            found_cid = None
+            for key_c, val_cid in courier_chats.items():
+                if key_c.lower() == cname_clean or cname_clean in key_c.lower():
+                    found_cid = val_cid
+                    break
+            if found_cid and str(found_cid).strip():
+                chat_ids_to_send.add(str(found_cid).strip())
+    else:
+        # If no target specified, send to all registered couriers
+        for cname, cid_val in courier_chats.items():
+            if str(cid_val).strip():
+                chat_ids_to_send.add(str(cid_val).strip())
 
     if not chat_ids_to_send:
         return False
@@ -1343,7 +1386,7 @@ if user_role in ["Administrator", "Admin", "Администратор"]:
         if tg_token or tg_chat:
             st.session_state["tg_bot_token"] = tg_token
             st.session_state["tg_chat_id"] = tg_chat
-            save_tg_config(tg_token, tg_chat)
+            save_tg_config(courier_bot_token=tg_token, chat_id=tg_chat)
             
         if tg_token and tg_chat:
             st.success("✅ Бот подключен")
@@ -1726,44 +1769,49 @@ elif role in ["Administrator", "Admin", "Администратор"]:
         sel_sub = st.session_state.get("settings_subtab", "🤖 Telegram Бот и Курьеры")
 
         if "Telegram" in sel_sub:
-            st.subheader("🤖 Настройка Telegram Бота и Chat ID курьеров")
+            st.subheader("🤖 Управление ботами Telegram (Курьер & Диспетчер)")
             tg_cfg = get_tg_config()
             
-            bot_token_input = st.text_input("Telegram Bot Token:", value=tg_cfg.get("bot_token", ""), placeholder="1234567890:ABCdefGhIJKlmNoPQR...", key="admin_tg_token")
-            main_chat_input = st.text_input("Основной Chat ID (Группа / Общий чат):", value=tg_cfg.get("chat_id", ""), placeholder="-1001234567890 или 12345678", key="admin_tg_main_chat")
+            c1, c2 = st.columns(2)
+            courier_token_input = c1.text_input("🚚 Токен Бот-Курьера:", value=tg_cfg.get("courier_bot_token") or tg_cfg.get("bot_token", ""), placeholder="7922655457:AAEcMY...", key="admin_tg_cour_token")
+            disp_token_input = c2.text_input("🎧 Токен Бот-Диспетчера:", value=tg_cfg.get("dispatcher_bot_token", ""), placeholder="8123456789:AABcDE...", key="admin_tg_disp_token")
             
-            st.markdown("#### 👥 Персональные Chat ID курьеров (для точечной рассылки):")
-            st.caption("Каждый курьер должен написать боту в Telegram сообщение `/start` и ввести свой Chat ID ниже:")
+            st.caption("💡 Если токен Диспетчера не указан, единый бот будет обрабатывать роли Диспетчера и Курьера автоматически.")
+            
+            main_chat_input = st.text_input("📢 Основной Chat ID (Группа / Чаты Диспетчеров):", value=tg_cfg.get("chat_id", ""), placeholder="-1001234567890 или 12345678", key="admin_tg_main_chat")
+            
+            st.markdown("#### 👥 Персональные Chat ID курьеров (для уведомлений о новых заказах):")
+            st.caption("Каждый курьер пишет `/start` в Бот Курьера, и его Chat ID привязывается к аккаунту:")
             
             courier_chats_input = {}
             u_df = get_users_df()
-            cour_names = u_df[u_df["Role"].astype(str).str.contains("Курьер|Courier|Yuboruvchi", case=False, na=False)]["Username"].tolist() if not u_df.empty else ["Алишер Каримов", "Бобур Ибрагимов", "Сардор Турсунов"]
+            cour_names = u_df[u_df["Role"].astype(str).str.contains("Курьер|Courier|Yuboruvchi|Доставщик", case=False, na=False)]["Username"].tolist() if not u_df.empty else ["akobir", "firuz", "Алишер Каримов"]
             
             existing_c_chats = tg_cfg.get("courier_chats", {})
             for cname in cour_names:
-                cid_val = st.text_input(f"Chat ID курьера `{cname}`:", value=existing_c_chats.get(cname, ""), key=f"tg_cid_{cname}")
+                cid_val = st.text_input(f"Chat ID курьера `{cname}`:", value=existing_c_chats.get(cname, "") or existing_c_chats.get(cname.lower(), ""), key=f"tg_cid_{cname}")
                 if cid_val.strip():
                     courier_chats_input[cname] = cid_val.strip()
             
-            if st.button("🚀 Сохранить настройки Telegram Бота", type="primary", use_container_width=True, key="save_tg_btn"):
-                if save_tg_config(bot_token_input, main_chat_input, courier_chats_input):
-                    st.success("✅ Настройки Telegram Бота успешно сохранены!")
+            if st.button("🚀 Сохранить настройки Telegram Ботов", type="primary", use_container_width=True, key="save_tg_btn"):
+                if save_tg_config(courier_token_input, disp_token_input, main_chat_input, courier_chats_input):
+                    st.success("✅ Настройки ботов Telegram успешно сохранены!")
                     st.rerun()
 
             st.markdown("---")
-            st.markdown("### 🤖 Запуск Telegram ИИ-Бота CRM")
-            st.info("Telegram Бот `tg_bot.py` умеет измерять ковры, принимать заказы текстом или голосом, менять статусы и выдавать статистику.")
+            st.markdown("### 🤖 Запуск двух Ботов Telegram (Курьер + Диспетчер)")
+            st.info("Скрипт `run_bots.py` запускает Бот Курьера и Бот Диспетчера одновременно с веб-сервером WebApp.")
             
-            if st.button("⚡ Запустить ИИ-Бота Telegram (в фоновом режиме)", key="launch_tg_bot_bg", use_container_width=True):
-                if not bot_token_input.strip():
-                    st.error("Укажите Telegram Bot Token перед запуском!")
+            if st.button("⚡ Запустить Ботов Telegram (run_bots.py)", key="launch_tg_bot_bg", use_container_width=True):
+                if not courier_token_input.strip() and not disp_token_input.strip():
+                    st.error("Укажите хотя бы один Telegram Bot Token перед запуском!")
                 else:
                     import subprocess
                     try:
-                        subprocess.Popen([sys.executable, "tg_bot.py"], cwd=os.getcwd())
-                        st.success("🎉 Telegram ИИ-Бот успешно запущен в фоновом режиме! Напишите ему /start в Telegram.")
+                        subprocess.Popen([sys.executable, "run_bots.py"], cwd=os.getcwd())
+                        st.success("🎉 Боты Telegram успешно запущены в фоновом режиме через `run_bots.py`!")
                     except Exception as err:
-                        st.error(f"Ошибка запуска бота: {err}")
+                        st.error(f"Ошибка запуска ботов: {err}")
 
         elif "Google" in sel_sub:
             st.subheader("🌐 Интеграция с Google Таблицей")

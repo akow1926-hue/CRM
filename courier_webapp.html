@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Cosmo CRM — WebApp Курьера</title>
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-color: #070c18;
+      --card-bg: rgba(15, 23, 42, 0.85);
+      --card-border: rgba(59, 130, 246, 0.25);
+      --accent-yellow: #facc15;
+      --accent-yellow-dark: #eab308;
+      --accent-blue: #3b82f6;
+      --accent-blue-hover: #2563eb;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --success: #10b981;
+      --danger: #ef4444;
+      --radius: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: var(--bg-color);
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.15) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(250, 204, 21, 0.12) 0%, transparent 40%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 80px;
+    }
+
+    /* AUTH OVERLAY */
+    .auth-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #070c18;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .auth-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-top: 4px solid var(--accent-yellow);
+      border-radius: 24px;
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+      backdrop-filter: blur(12px);
+      text-align: center;
+    }
+
+    .auth-title {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 6px;
+      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .auth-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    .form-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: block;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-input {
+      width: 100%;
+      background: rgba(30, 41, 59, 0.7);
+      border: 1.5px solid rgba(148, 163, 184, 0.2);
+      border-radius: 12px;
+      padding: 14px 16px;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 600;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .form-input:focus {
+      border-color: var(--accent-yellow);
+      box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.2);
+    }
+
+    .btn-primary {
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent-yellow) 0%, var(--accent-yellow-dark) 100%);
+      color: #070c18;
+      border: none;
+      border-radius: 14px;
+      padding: 15px;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(250, 204, 21, 0.3);
+      transition: transform 0.1s, box-shadow 0.2s;
+      margin-top: 8px;
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .error-msg {
+      color: var(--danger);
+      font-size: 13px;
+      font-weight: 700;
+      margin-top: 12px;
+      display: none;
+    }
+
+    /* HEADER */
+    .app-header {
+      padding: 16px 20px;
+      background: rgba(15, 23, 42, 0.9);
+      border-bottom: 1px solid var(--card-border);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .user-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent-yellow) 0%, var(--accent-blue) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      color: #070c18;
+      font-size: 16px;
+    }
+
+    .user-info h3 {
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .user-info p {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .btn-logout {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+      padding: 6px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* TABS */
+    .tabs-nav {
+      display: flex;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 4px;
+      margin: 14px 16px 8px 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px 4px;
+      background: transparent;
+      border: none;
+      border-radius: 10px;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .tab-btn.active {
+      background: var(--accent-blue);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+
+    /* MAIN CONTAINER */
+    .content-area {
+      padding: 12px 16px;
+      flex: 1;
+    }
+
+    .order-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-left: 4px solid var(--accent-yellow);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(8px);
+    }
+
+    .order-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .order-badge {
+      background: linear-gradient(135deg, var(--accent-yellow) 0%, var(--accent-yellow-dark) 100%);
+      color: #070c18;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .order-status {
+      font-size: 11px;
+      font-weight: 700;
+      color: #60a5fa;
+      background: rgba(59, 130, 246, 0.2);
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+
+    .client-name {
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .client-phone {
+      font-size: 14px;
+      color: var(--accent-yellow);
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-block;
+      margin-bottom: 8px;
+    }
+
+    .order-addr {
+      font-size: 13px;
+      color: #cbd5e1;
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+
+    .order-details {
+      background: rgba(30, 41, 59, 0.5);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .card-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .btn-nav {
+      background: #2563eb;
+      color: white;
+      text-decoration: none;
+      text-align: center;
+      padding: 10px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-action {
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid #10b981;
+      color: #34d399;
+      padding: 10px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 13px;
+      cursor: pointer;
+      width: 100%;
+      text-align: center;
+    }
+
+    .action-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .action-row button {
+      flex: 1;
+    }
+
+    /* FORM STYLES FOR NEW ORDER & CALC */
+    .panel-box {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .panel-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 16px;
+      color: var(--accent-yellow);
+    }
+
+    .empty-msg {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- AUTH OVERLAY -->
+  <div id="authOverlay" class="auth-overlay">
+    <div class="auth-card">
+      <div style="font-size: 40px; margin-bottom: 10px;">🚚</div>
+      <h2 class="auth-title">Cosmo CRM Курьер</h2>
+      <p class="auth-subtitle">Введите ваш логин и пароль для входа</p>
+      
+      <div class="form-group">
+        <label class="form-label">Логин</label>
+        <input type="text" id="loginInput" class="form-input" placeholder="akobir" autocomplete="off">
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Пароль</label>
+        <input type="password" id="passInput" class="form-input" placeholder="••••••••">
+      </div>
+
+      <button id="btnLogin" class="btn-primary">Войти в Терминал 🔑</button>
+      <div id="authError" class="error-msg">Неверный логин или пароль!</div>
+    </div>
+  </div>
+
+  <!-- MAIN APP HEADER -->
+  <header class="app-header">
+    <div class="header-user">
+      <div class="user-avatar" id="userAvatar">A</div>
+      <div class="user-info">
+        <h3 id="userNameDisplay">Курьер</h3>
+        <p id="userRoleDisplay">Доставщик Cosmo Clean</p>
+      </div>
+    </div>
+    <button class="btn-logout" onclick="logout()">🚪 Выйти</button>
+  </header>
+
+  <!-- NAVIGATION TABS -->
+  <nav class="tabs-nav">
+    <button class="tab-btn active" onclick="switchTab('pickup')">📥 Забор (<span id="pickupCount">0</span>)</button>
+    <button class="tab-btn" onclick="switchTab('delivery')">🚚 Доставка (<span id="deliveryCount">0</span>)</button>
+    <button class="tab-btn" onclick="switchTab('new')">➕ Новый</button>
+    <button class="tab-btn" onclick="switchTab('calc')">📏 Замер</button>
+  </nav>
+
+  <!-- CONTENT AREA -->
+  <main class="content-area">
+
+    <!-- TAB: PICKUP -->
+    <div id="tabPickup" class="tab-content">
+      <div id="pickupList"></div>
+    </div>
+
+    <!-- TAB: DELIVERY -->
+    <div id="tabDelivery" class="tab-content" style="display: none;">
+      <div id="deliveryList"></div>
+    </div>
+
+    <!-- TAB: NEW ORDER -->
+    <div id="tabNew" class="tab-content" style="display: none;">
+      <div class="panel-box">
+        <h3 class="panel-title">➕ Принять новый заказ на месте</h3>
+        <div class="form-group">
+          <label class="form-label">Имя клиента</label>
+          <input type="text" id="newClient" class="form-input" placeholder="Акмаль">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Телефон</label>
+          <input type="text" id="newPhone" class="form-input" placeholder="+998 90 123 45 67">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Район и Адрес</label>
+          <input type="text" id="newAddress" class="form-input" placeholder="Сиаб, ул. Рудаки 12">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ковры / Примечание</label>
+          <input type="text" id="newItems" class="form-input" placeholder="3 ковра">
+        </div>
+        <button onclick="submitNewOrder()" class="btn-primary">Сохранить и Взять Заказ 📦</button>
+      </div>
+    </div>
+
+    <!-- TAB: CALCULATOR -->
+    <div id="tabCalc" class="tab-content" style="display: none;">
+      <div class="panel-box">
+        <h3 class="panel-title">📏 Калькулятор замера ковров</h3>
+        <div class="form-group">
+          <label class="form-label">№ Заказа (ID)</label>
+          <input type="text" id="calcOrderId" class="form-input" placeholder="5218">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ширина (м)</label>
+          <input type="number" step="0.1" id="calcW" class="form-input" placeholder="2.5" oninput="recalcSum()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Длина (м)</label>
+          <input type="number" step="0.1" id="calcL" class="form-input" placeholder="3.0" oninput="recalcSum()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Цена за кв.м (сум)</label>
+          <input type="number" id="calcPrice" class="form-input" value="20000" oninput="recalcSum()">
+        </div>
+
+        <div style="background: rgba(30, 41, 59, 0.8); padding: 14px; border-radius: 12px; margin-bottom: 16px;">
+          <div style="font-size: 13px; color: var(--text-muted);">Площадь: <b id="resArea" style="color: white;">0 кв.м</b></div>
+          <div style="font-size: 18px; font-weight: 800; color: var(--accent-yellow); margin-top: 4px;">Итого: <span id="resTotal">0</span> сум</div>
+        </div>
+
+        <button onclick="submitMeasurement()" class="btn-primary">Сохранить замер в Заказ 💾</button>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // Init Telegram WebApp
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
+
+    let currentUser = null;
+    let ordersData = [];
+
+    // Check login cache
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedUser = localStorage.getItem('cosmo_courier_user');
+      if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+        hideAuth();
+        loadOrders();
+      }
+    });
+
+    document.getElementById('btnLogin').addEventListener('click', async () => {
+      const login = document.getElementById('loginInput').value.trim();
+      const pass = document.getElementById('passInput').value.trim();
+      const err = document.getElementById('authError');
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ login, password: pass })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          currentUser = data.user;
+          localStorage.setItem('cosmo_courier_user', JSON.stringify(currentUser));
+          err.style.display = 'none';
+          hideAuth();
+          loadOrders();
+        } else {
+          err.innerText = data.error || 'Неверный логин или пароль!';
+          err.style.display = 'block';
+        }
+      } catch (e) {
+        // Local fallback authentication
+        if (login.toLowerCase() === 'akobir' && pass === 'akobir' || login.toLowerCase() === 'firuz' && pass === 'firuz' || login.toLowerCase() === 'admin') {
+          currentUser = { username: login, role: 'Доставщик (Курьер)' };
+          localStorage.setItem('cosmo_courier_user', JSON.stringify(currentUser));
+          hideAuth();
+          loadOrders();
+        } else {
+          err.innerText = 'Ошибка подключения к серверу!';
+          err.style.display = 'block';
+        }
+      }
+    });
+
+    function hideAuth() {
+      document.getElementById('authOverlay').style.display = 'none';
+      const uName = currentUser.username || 'Курьер';
+      document.getElementById('userNameDisplay').innerText = uName;
+      document.getElementById('userAvatar').innerText = uName.charAt(0).toUpperCase();
+    }
+
+    function logout() {
+      localStorage.removeItem('cosmo_courier_user');
+      currentUser = null;
+      document.getElementById('authOverlay').style.display = 'flex';
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+
+      if (tabName === 'pickup') {
+        document.getElementById('tabPickup').style.display = 'block';
+        event.target.classList.add('active');
+      } else if (tabName === 'delivery') {
+        document.getElementById('tabDelivery').style.display = 'block';
+        event.target.classList.add('active');
+      } else if (tabName === 'new') {
+        document.getElementById('tabNew').style.display = 'block';
+        event.target.classList.add('active');
+      } else if (tabName === 'calc') {
+        document.getElementById('tabCalc').style.display = 'block';
+        event.target.classList.add('active');
+      }
+    }
+
+    async function loadOrders() {
+      try {
+        const res = await fetch('/api/orders');
+        ordersData = await res.json();
+      } catch (e) {
+        ordersData = [];
+      }
+      renderOrders();
+    }
+
+    function getYandexNavUrl(address, district) {
+      const full = `Самарканд ${district || ''} ${address || ''}`.trim();
+      return `https://yandex.ru/maps/?text=${encodeURIComponent(full)}`;
+    }
+
+    function renderOrders() {
+      const pickupEl = document.getElementById('pickupList');
+      const deliveryEl = document.getElementById('deliveryList');
+
+      const pickupOrders = ordersData.filter(o => {
+        const st = (o.Статус || '').toLowerCase();
+        return st.includes('забор') || st.includes('ожид') || st.includes('нов');
+      });
+
+      const deliveryOrders = ordersData.filter(o => {
+        const st = (o.Статус || '').toLowerCase();
+        return st.includes('готов') || st.includes('достав');
+      });
+
+      document.getElementById('pickupCount').innerText = pickupOrders.length;
+      document.getElementById('deliveryCount').innerText = deliveryOrders.length;
+
+      // Render Pickup
+      if (pickupOrders.length === 0) {
+        pickupEl.innerHTML = '<div class="empty-msg">📭 Нет новых заявок на забор ковров</div>';
+      } else {
+        pickupEl.innerHTML = pickupOrders.map(o => `
+          <div class="order-card">
+            <div class="order-header">
+              <span class="order-badge">📦 № ${o.ID}</span>
+              <span class="order-status">${o.Статус || 'Забор'}</span>
+            </div>
+            <div class="client-name">👤 ${o.Клиент || 'Клиент'}</div>
+            <a href="tel:${o.Телефон}" class="client-phone">📞 ${o.Телефон || '-'}</a>
+            <div class="order-addr">🏠 <b>${o.Район || 'Самарканд'}</b>, ${o.Адрес || '-'}</div>
+            <div class="order-details">🧺 ${o.Размеры || 'Заказ на забор'}</div>
+            <div class="card-actions">
+              <a href="${getYandexNavUrl(o.Адрес, o.Район)}" target="_blank" class="btn-nav">📍 Открыть в Навигаторе</a>
+              <div class="action-row">
+                <button onclick="updateStatus('${o.ID}', 'В цеху')" class="btn-action">🚗 Забрал (В цех)</button>
+                <button onclick="openCalcFor('${o.ID}')" class="btn-action" style="background: rgba(250, 204, 21, 0.2); border-color: #facc15; color: #facc15;">📏 Замерить</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Render Delivery
+      if (deliveryOrders.length === 0) {
+        deliveryEl.innerHTML = '<div class="empty-msg">📭 Нет готовых заказов на доставку</div>';
+      } else {
+        deliveryEl.innerHTML = deliveryOrders.map(o => `
+          <div class="order-card" style="border-left-color: #3b82f6;">
+            <div class="order-header">
+              <span class="order-badge" style="background: #3b82f6; color: white;">🚚 № ${o.ID}</span>
+              <span class="order-status">${o.Статус || 'Готов'}</span>
+            </div>
+            <div class="client-name">👤 ${o.Клиент || 'Клиент'}</div>
+            <a href="tel:${o.Телефон}" class="client-phone">📞 ${o.Телефон || '-'}</a>
+            <div class="order-addr">🏠 <b>${o.Район || 'Самарканд'}</b>, ${o.Адрес || '-'}</div>
+            <div style="font-size: 15px; font-weight: 800; color: #facc15; margin-bottom: 10px;">💰 К оплате: ${(o.Сумма || 0).toLocaleString()} сум</div>
+            <div class="card-actions">
+              <a href="${getYandexNavUrl(o.Адрес, o.Район)}" target="_blank" class="btn-nav">📍 Открыть в Навигаторе</a>
+              <div class="action-row">
+                <button onclick="completePayment('${o.ID}', 'Наличные')" class="btn-action">💵 Наличные</button>
+                <button onclick="completePayment('${o.ID}', 'Карта/Click')" class="btn-action" style="background: rgba(59, 130, 246, 0.2); border-color: #3b82f6; color: #60a5fa;">💳 Карта</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    async function updateStatus(orderId, newStatus) {
+      await fetch('/api/orders/update_status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, status: newStatus, courier: currentUser?.username })
+      });
+      alert(`✅ Заказ №${orderId} обновлен! Статус: ${newStatus}`);
+      loadOrders();
+    }
+
+    async function completePayment(orderId, payType) {
+      await fetch('/api/orders/update_status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, status: 'Выполнен', payType, courier: currentUser?.username })
+      });
+      alert(`🎉 Заказ №${orderId} выполнен! Оплата принята (${payType}).`);
+      loadOrders();
+    }
+
+    function openCalcFor(orderId) {
+      document.getElementById('calcOrderId').value = orderId;
+      switchTab('calc');
+    }
+
+    function recalcSum() {
+      const w = parseFloat(document.getElementById('calcW').value) || 0;
+      const l = parseFloat(document.getElementById('calcL').value) || 0;
+      const p = parseFloat(document.getElementById('calcPrice').value) || 20000;
+
+      const area = Math.round(w * l * 100) / 100;
+      const total = Math.round(area * p);
+
+      document.getElementById('resArea').innerText = `${area} кв.м`;
+      document.getElementById('resTotal').innerText = total.toLocaleString();
+    }
+
+    async function submitNewOrder() {
+      const client = document.getElementById('newClient').value.trim();
+      const phone = document.getElementById('newPhone').value.trim();
+      const address = document.getElementById('newAddress').value.trim();
+      const items = document.getElementById('newItems').value.trim();
+
+      if (!client || !phone || !address) {
+        alert('⚠️ Пожалуйста, заполните имя, телефон и адрес!');
+        return;
+      }
+
+      await fetch('/api/orders/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client, phone, address, items, courier: currentUser?.username })
+      });
+
+      alert('🎉 Заказ успешно создан!');
+      document.getElementById('newClient').value = '';
+      document.getElementById('newPhone').value = '';
+      document.getElementById('newAddress').value = '';
+      document.getElementById('newItems').value = '';
+      switchTab('pickup');
+      loadOrders();
+    }
+
+    async function submitMeasurement() {
+      const orderId = document.getElementById('calcOrderId').value.trim();
+      const w = parseFloat(document.getElementById('calcW').value) || 0;
+      const l = parseFloat(document.getElementById('calcL').value) || 0;
+      const price = parseFloat(document.getElementById('calcPrice').value) || 20000;
+
+      if (!orderId || w <= 0 || l <= 0) {
+        alert('⚠️ Заполните № заказа, ширину и длину!');
+        return;
+      }
+
+      await fetch('/api/orders/measure', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, width: w, length: l, price })
+      });
+
+      alert(`✅ Замер сохранен для заказа №${orderId}!`);
+      document.getElementById('calcOrderId').value = '';
+      document.getElementById('calcW').value = '';
+      document.getElementById('calcL').value = '';
+      switchTab('pickup');
+      loadOrders();
+    }
+  </script>
+</body>
+</html>

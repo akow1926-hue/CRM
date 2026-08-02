@@ -1,6 +1,8 @@
 # Secrets & Configs
+.env
 key.json
 telegram_config.json
+telegram_sessions.json
 sms_config.json
 sms_history.json
 gsheet_config.json
