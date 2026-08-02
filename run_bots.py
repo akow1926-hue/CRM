@@ -43,9 +43,10 @@ async def start_web_server():
 
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", 8080)
+    port = int(os.environ.get("PORT", 8080))
+    site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
-    print("🌐 [WebApp API] Сервер запущен на http://localhost:8080/webapp !")
+    print(f"🌐 [WebApp API] Сервер запущен на порту {port} (/webapp) !")
 
 async def main():
     cfg = load_config()
