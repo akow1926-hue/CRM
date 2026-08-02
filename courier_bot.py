@@ -117,15 +117,17 @@ def get_yandex_nav_url(address: str, district: str, location_str: str = "") -> s
 
 def get_courier_login_keyboard() -> ReplyKeyboardMarkup:
     kb = []
-    if COURIER_WEBAPP_URL.startswith("https://"):
-        kb.append([KeyboardButton(text="📱 Открыть WebApp Курьера", web_app=WebAppInfo(url=COURIER_WEBAPP_URL))])
+    url = get_courier_webapp_url()
+    if url.startswith("https://"):
+        kb.append([KeyboardButton(text="📱 Открыть WebApp Курьера", web_app=WebAppInfo(url=url))])
     kb.append([KeyboardButton(text="🔑 Войти по логину и паролю")])
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
 def get_courier_main_keyboard() -> ReplyKeyboardMarkup:
     kb = []
-    if COURIER_WEBAPP_URL.startswith("https://"):
-        kb.append([KeyboardButton(text="📱 Открыть WebApp Курьера", web_app=WebAppInfo(url=COURIER_WEBAPP_URL))])
+    url = get_courier_webapp_url()
+    if url.startswith("https://"):
+        kb.append([KeyboardButton(text="📱 Открыть WebApp Курьера", web_app=WebAppInfo(url=url))])
     
     kb.append([KeyboardButton(text="📥 Забор ковров"), KeyboardButton(text="🚚 Доставка ковров")])
     kb.append([KeyboardButton(text="➕ Новый заказ"), KeyboardButton(text="📏 Замерить ковер")])
@@ -176,11 +178,12 @@ async def cmd_start(message: Message, bot: Bot):
     sessions[chat_id] = sess
     save_json_file(SESSIONS_FILE, sessions)
 
+    cour_url = get_courier_webapp_url()
     try:
-        if COURIER_WEBAPP_URL.startswith("https://"):
+        if cour_url.startswith("https://"):
             await bot.set_chat_menu_button(
                 chat_id=message.chat.id,
-                menu_button=MenuButtonWebApp(text="📱 WebApp Курьера", web_app=WebAppInfo(url=COURIER_WEBAPP_URL))
+                menu_button=MenuButtonWebApp(text="📱 WebApp Курьера", web_app=WebAppInfo(url=cour_url))
             )
     except Exception as e:
         print(f"[Courier MenuButton Warning] {e}")
@@ -200,13 +203,13 @@ async def cmd_start(message: Message, bot: Bot):
         welcome_text = (
             f"🚚 **Cosmo CRM — Бот Курьера**\n\n"
             f"👤 **Вы авторизованы как:** `{username}` ({role})\n\n"
-            f"🌐 **WebApp Курьера:** {COURIER_WEBAPP_URL}"
+            f"🌐 **WebApp Курьера:** {cour_url}"
         )
         await message.answer(welcome_text, reply_markup=get_courier_main_keyboard(), parse_mode="Markdown")
     else:
         auth_msg = (
             "🔒 **Cosmo CRM — Бот Курьера**\n\n"
-            f"🌐 **WebApp Курьера:** {COURIER_WEBAPP_URL}\n\n"
+            f"🌐 **WebApp Курьера:** {cour_url}\n\n"
             "Пожалуйста, авторизуйтесь. Введите `логин пароль` через пробел или нажмите кнопку **🔑 Войти по логину и паролю**."
         )
         await message.answer(auth_msg, reply_markup=get_courier_login_keyboard(), parse_mode="Markdown")
@@ -256,17 +259,18 @@ async def cmd_login(message: Message, bot: Bot):
         cfg["courier_chats"] = courier_chats
         save_json_file(CONFIG_FILE, cfg)
 
-        if COURIER_WEBAPP_URL.startswith("https://"):
+        cour_url = get_courier_webapp_url()
+        if cour_url.startswith("https://"):
             try:
                 await bot.set_chat_menu_button(
                     chat_id=message.chat.id,
-                    menu_button=MenuButtonWebApp(text="📱 WebApp Курьера", web_app=WebAppInfo(url=COURIER_WEBAPP_URL))
+                    menu_button=MenuButtonWebApp(text="📱 WebApp Курьера", web_app=WebAppInfo(url=cour_url))
                 )
             except Exception:
                 pass
 
         await message.answer(
-            f"✅ **Успешная авторизация!**\nПриветствуем, курьер `{auth_data['username']}`!\n\n🌐 **WebApp:** {COURIER_WEBAPP_URL}",
+            f"✅ **Успешная авторизация!**\nПриветствуем, курьер `{auth_data['username']}`!\n\n🌐 **WebApp:** {cour_url}",
             reply_markup=get_courier_main_keyboard(),
             parse_mode="Markdown"
         )
@@ -282,6 +286,7 @@ async def handle_courier_messages(message: Message):
     username = sess.get("cour_username") or (sess.get("username") if is_courier_role(sess.get("role", "")) else None)
     role = sess.get("cour_role") or (sess.get("role") if is_courier_role(sess.get("role", "")) else None)
     state = sess.get("state", "")
+    cour_url = get_courier_webapp_url()
 
     if not username or not is_courier_role(role):
         if text == "🔑 Войти по логину и паролю":
@@ -307,8 +312,8 @@ async def handle_courier_messages(message: Message):
             sess.pop("state", None)
 
             if auth_data:
-                sess["username"] = auth_data["username"]
-                sess["role"] = auth_data["role"]
+                sess["cour_username"] = auth_data["username"]
+                sess["cour_role"] = auth_data["role"]
                 sessions[chat_id] = sess
                 save_json_file(SESSIONS_FILE, sessions)
 
@@ -319,7 +324,7 @@ async def handle_courier_messages(message: Message):
                 save_json_file(CONFIG_FILE, cfg)
 
                 await message.answer(
-                    f"✅ **Успешный вход!**\nС возвращением, курьер `{auth_data['username']}`!\n\n🌐 **WebApp:** {COURIER_WEBAPP_URL}",
+                    f"✅ **Успешный вход!**\nС возвращением, курьер `{auth_data['username']}`!\n\n🌐 **WebApp:** {cour_url}",
                     reply_markup=get_courier_main_keyboard(),
                     parse_mode="Markdown"
                 )
@@ -333,8 +338,8 @@ async def handle_courier_messages(message: Message):
         if len(words) == 2 and not text.startswith("/"):
             auth_data = authenticate_courier(words[0], words[1])
             if auth_data:
-                sess["username"] = auth_data["username"]
-                sess["role"] = auth_data["role"]
+                sess["cour_username"] = auth_data["username"]
+                sess["cour_role"] = auth_data["role"]
                 sessions[chat_id] = sess
                 save_json_file(SESSIONS_FILE, sessions)
 
@@ -345,7 +350,7 @@ async def handle_courier_messages(message: Message):
                 save_json_file(CONFIG_FILE, cfg)
 
                 await message.answer(
-                    f"✅ **Успешный вход!**\nКурьер: `{auth_data['username']}`\n\n🌐 **WebApp:** {COURIER_WEBAPP_URL}",
+                    f"✅ **Успешный вход!**\nКурьер: `{auth_data['username']}`\n\n🌐 **WebApp:** {cour_url}",
                     reply_markup=get_courier_main_keyboard(),
                     parse_mode="Markdown"
                 )

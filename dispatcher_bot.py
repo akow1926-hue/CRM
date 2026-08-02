@@ -116,15 +116,17 @@ def format_phone(raw_phone: str) -> str:
 
 def get_dispatcher_login_keyboard() -> ReplyKeyboardMarkup:
     kb = []
-    if DISPATCHER_WEBAPP_URL.startswith("https://"):
-        kb.append([KeyboardButton(text="🖥️ Открыть CRM Диспетчера", web_app=WebAppInfo(url=DISPATCHER_WEBAPP_URL))])
+    url = get_dispatcher_webapp_url()
+    if url.startswith("https://"):
+        kb.append([KeyboardButton(text="🖥️ Открыть CRM Диспетчера", web_app=WebAppInfo(url=url))])
     kb.append([KeyboardButton(text="🔑 Войти по логину и паролю")])
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
 def get_dispatcher_main_keyboard() -> ReplyKeyboardMarkup:
     kb = []
-    if DISPATCHER_WEBAPP_URL.startswith("https://"):
-        kb.append([KeyboardButton(text="🖥️ Открыть CRM Диспетчера", web_app=WebAppInfo(url=DISPATCHER_WEBAPP_URL))])
+    url = get_dispatcher_webapp_url()
+    if url.startswith("https://"):
+        kb.append([KeyboardButton(text="🖥️ Открыть CRM Диспетчера", web_app=WebAppInfo(url=url))])
     
     kb.append([KeyboardButton(text="➕ Новый заказ"), KeyboardButton(text="📋 Список заказов")])
     kb.append([KeyboardButton(text="🚚 Назначить курьера"), KeyboardButton(text="🔍 Поиск заказа")])
@@ -150,11 +152,12 @@ async def cmd_start(message: Message, bot: Bot):
     sessions[chat_id] = sess
     save_json_file(SESSIONS_FILE, sessions)
 
+    disp_url = get_dispatcher_webapp_url()
     try:
-        if DISPATCHER_WEBAPP_URL.startswith("https://"):
+        if disp_url.startswith("https://"):
             await bot.set_chat_menu_button(
                 chat_id=message.chat.id,
-                menu_button=MenuButtonWebApp(text="🖥️ CRM Диспетчера", web_app=WebAppInfo(url=DISPATCHER_WEBAPP_URL))
+                menu_button=MenuButtonWebApp(text="🖥️ CRM Диспетчера", web_app=WebAppInfo(url=disp_url))
             )
     except Exception as e:
         print(f"[Dispatcher MenuButton Warning] {e}")
@@ -174,13 +177,13 @@ async def cmd_start(message: Message, bot: Bot):
         welcome_text = (
             f"🎧 **Cosmo CRM — Бот Диспетчера**\n\n"
             f"👤 **Вы авторизованы как:** `{username}` ({role})\n\n"
-            f"🌐 **Панель CRM Диспетчера:** {DISPATCHER_WEBAPP_URL}"
+            f"🌐 **Панель CRM Диспетчера:** {disp_url}"
         )
         await message.answer(welcome_text, reply_markup=get_dispatcher_main_keyboard(), parse_mode="Markdown")
     else:
         auth_msg = (
             "🔒 **Cosmo CRM — Бот Диспетчера**\n\n"
-            f"🌐 **Панель CRM Диспетчера:** {DISPATCHER_WEBAPP_URL}\n\n"
+            f"🌐 **Панель CRM Диспетчера:** {disp_url}\n\n"
             "Пожалуйста, авторизуйтесь. Введите `логин пароль` через пробел (например: `bobur bobur`) или нажмите **🔑 Войти по логину и паролю**."
         )
         await message.answer(auth_msg, reply_markup=get_dispatcher_login_keyboard(), parse_mode="Markdown")
@@ -230,17 +233,18 @@ async def cmd_login(message: Message, bot: Bot):
         cfg["dispatcher_chats"] = disp_chats
         save_json_file(CONFIG_FILE, cfg)
 
-        if DISPATCHER_WEBAPP_URL.startswith("https://"):
+        disp_url = get_dispatcher_webapp_url()
+        if disp_url.startswith("https://"):
             try:
                 await bot.set_chat_menu_button(
                     chat_id=message.chat.id,
-                    menu_button=MenuButtonWebApp(text="🖥️ CRM Диспетчера", web_app=WebAppInfo(url=DISPATCHER_WEBAPP_URL))
+                    menu_button=MenuButtonWebApp(text="🖥️ CRM Диспетчера", web_app=WebAppInfo(url=disp_url))
                 )
             except Exception:
                 pass
 
         await message.answer(
-            f"✅ **Успешный вход!**\nДиспетчер: `{auth_data['username']}`\n\n🌐 **CRM WebApp:** {DISPATCHER_WEBAPP_URL}",
+            f"✅ **Успешный вход!**\nДиспетчер: `{auth_data['username']}`\n\n🌐 **CRM WebApp:** {disp_url}",
             reply_markup=get_dispatcher_main_keyboard(),
             parse_mode="Markdown"
         )
@@ -256,6 +260,7 @@ async def handle_dispatcher_messages(message: Message):
     username = sess.get("disp_username") or (sess.get("username") if is_dispatcher_role(sess.get("role", "")) else None)
     role = sess.get("disp_role") or (sess.get("role") if is_dispatcher_role(sess.get("role", "")) else None)
     state = sess.get("state", "")
+    disp_url = get_dispatcher_webapp_url()
 
     if not username or not is_dispatcher_role(role):
         if text == "🔑 Войти по логину и паролю":
@@ -281,8 +286,8 @@ async def handle_dispatcher_messages(message: Message):
             sess.pop("state", None)
 
             if auth_data:
-                sess["username"] = auth_data["username"]
-                sess["role"] = auth_data["role"]
+                sess["disp_username"] = auth_data["username"]
+                sess["disp_role"] = auth_data["role"]
                 sessions[chat_id] = sess
                 save_json_file(SESSIONS_FILE, sessions)
 
@@ -293,7 +298,7 @@ async def handle_dispatcher_messages(message: Message):
                 save_json_file(CONFIG_FILE, cfg)
 
                 await message.answer(
-                    f"✅ **Успешная авторизация!**\nПриветствуем, `{auth_data['username']}`!\n\n🌐 **CRM WebApp:** {DISPATCHER_WEBAPP_URL}",
+                    f"✅ **Успешная авторизация!**\nПриветствуем, `{auth_data['username']}`!\n\n🌐 **CRM WebApp:** {disp_url}",
                     reply_markup=get_dispatcher_main_keyboard(),
                     parse_mode="Markdown"
                 )
@@ -307,8 +312,8 @@ async def handle_dispatcher_messages(message: Message):
         if len(words) == 2 and not text.startswith("/"):
             auth_data = authenticate_dispatcher(words[0], words[1])
             if auth_data:
-                sess["username"] = auth_data["username"]
-                sess["role"] = auth_data["role"]
+                sess["disp_username"] = auth_data["username"]
+                sess["disp_role"] = auth_data["role"]
                 sessions[chat_id] = sess
                 save_json_file(SESSIONS_FILE, sessions)
 
@@ -319,7 +324,7 @@ async def handle_dispatcher_messages(message: Message):
                 save_json_file(CONFIG_FILE, cfg)
 
                 await message.answer(
-                    f"✅ **Успешный вход!**\nПользователь: `{auth_data['username']}`\n\n🌐 **CRM WebApp:** {DISPATCHER_WEBAPP_URL}",
+                    f"✅ **Успешный вход!**\nПользователь: `{auth_data['username']}`\n\n🌐 **CRM WebApp:** {disp_url}",
                     reply_markup=get_dispatcher_main_keyboard(),
                     parse_mode="Markdown"
                 )
