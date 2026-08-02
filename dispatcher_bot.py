@@ -36,8 +36,6 @@ BACKUP_FILE = "backup_orders.json"
 USERS_BACKUP_FILE = "backup_users.json"
 SESSIONS_FILE = "telegram_sessions.json"
 
-DISPATCHER_WEBAPP_URL = os.environ.get("DISPATCHER_WEBAPP_URL", "https://all-camels-dispatcher.loca.lt")
-
 def load_json_file(filename: str, default: dict | list) -> dict | list:
     if os.path.exists(filename):
         try:
@@ -46,6 +44,14 @@ def load_json_file(filename: str, default: dict | list) -> dict | list:
         except Exception as e:
             print(f"[JSON Error] Ошибка чтения {filename}: {e}")
     return default
+
+def get_dispatcher_webapp_url() -> str:
+    cfg = load_json_file(CONFIG_FILE, {})
+    if isinstance(cfg, dict) and cfg.get("dispatcher_webapp_url"):
+        return cfg.get("dispatcher_webapp_url")
+    return os.environ.get("DISPATCHER_WEBAPP_URL", "https://all-camels-dispatcher.loca.lt")
+
+DISPATCHER_WEBAPP_URL = get_dispatcher_webapp_url()
 
 def save_json_file(filename: str, data: dict | list) -> bool:
     try:
