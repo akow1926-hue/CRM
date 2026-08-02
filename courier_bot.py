@@ -46,6 +46,9 @@ def load_json_file(filename: str, default: dict | list) -> dict | list:
     return default
 
 def get_courier_webapp_url() -> str:
+    render_url = os.environ.get("RENDER_EXTERNAL_URL")
+    if render_url:
+        return render_url.rstrip("/") + "/webapp"
     cfg = load_json_file(CONFIG_FILE, {})
     if isinstance(cfg, dict) and cfg.get("courier_webapp_url"):
         return cfg.get("courier_webapp_url")
