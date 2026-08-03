@@ -112,7 +112,7 @@ async def main():
                 except Exception as e:
                     print(f"[Notify Dispatcher Error] {e}")
 
-    async def notify_courier(text: str, target_courier: str = "all"):
+    async def notify_courier(text: str, target_courier: str = "all", reply_markup = None):
         cfg_latest = load_config()
         courier_chats = cfg_latest.get("courier_chats", {})
         target_bot = c_bot_instance or d_bot_instance
@@ -120,14 +120,16 @@ async def main():
             if target_courier == "all":
                 for c_id in set(courier_chats.values()):
                     try:
-                        await target_bot.send_message(chat_id=c_id, text=text, parse_mode="Markdown")
+                        await target_bot.send_message(chat_id=c_id, text=text, parse_mode="Markdown", reply_markup=reply_markup)
                     except Exception as e:
                         print(f"[Notify Courier Error] {e}")
             else:
                 c_id = courier_chats.get(target_courier.lower())
                 if c_id:
                     try:
-                        await target_bot.send_message(chat_id=c_id, text=text, parse_mode="Markdown")
+                        await target_bot.send_message(chat_id=c_id, text=text, parse_mode="Markdown", reply_markup=reply_markup)
+                    except Exception as e:
+                        print(f"[Notify Courier Error] {e}")
                     except Exception as e:
                         print(f"[Notify Courier Error] {e}")
 

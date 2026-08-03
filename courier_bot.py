@@ -621,6 +621,54 @@ async def handle_courier_messages(message: Message):
 
     await message.answer(f"👇 Меню курьера ниже:\n\n🌐 **WebApp:** {COURIER_WEBAPP_URL}", reply_markup=get_courier_main_keyboard())
 
+@router.callback_query(F.data.startswith("cour_claim_"))
+async def cb_cour_claim(callback: CallbackQuery):
+    order_id = callback.data.replace("cour_claim_", "").strip()
+    chat_id = str(callback.message.chat.id)
+    sessions = load_json_file(SESSIONS_FILE, {})
+    sess = sessions.get(chat_id, {})
+    username = sess.get("cour_username") or sess.get("username", "Курьер")
+
+    orders = load_json_file(BACKUP_FILE, [])
+    target_order = None
+    for o in orders:
+        if str(o.get("ID")) == str(order_id):
+            target_order = o
+            break
+
+    if not target_order:
+        await callback.answer("❌ Заказ не найден в базе!", show_alert=True)
+        return
+
+    current_courier = str(target_order.get("Курьер", "")).strip()
+
+    if current_courier and current_courier not in ["Не назначен", "None", "", "Курьер"] and current_courier.lower() != username.lower():
+        await callback.answer(f"⚠️ Заказ №{order_id} уже забронирован курьером {current_courier}!", show_alert=True)
+        return
+
+    target_order["Курьер"] = username
+    target_order["Статус"] = "Принят курьером"
+    save_json_file(BACKUP_FILE, orders)
+
+    await callback.answer(f"🎉 Вы успешно приняли заказ №{order_id}!", show_alert=True)
+
+    actions_kb = get_order_inline_actions(order_id, target_order.get("Статус", ""), target_order.get("Адрес", ""), target_order.get("Район", ""), target_order.get("Локация", ""))
+    
+    card_text = (
+        f"✅ **Заказ №{order_id} забронирован за вами ({username})!**\n\n"
+        f"👤 **Клиент:** {target_order.get('Клиент')}\n"
+        f"📞 **Тел:** `{target_order.get('Телефон')}`\n"
+        f"🏠 **Адрес:** {target_order.get('Район')}, {target_order.get('Адрес')}\n"
+        f"💬 **Комментарий:** {target_order.get('Размеры') or target_order.get('Примечание') or '-'}"
+    )
+    try:
+        await callback.message.edit_text(card_text, reply_markup=actions_kb, parse_mode="Markdown")
+    except Exception:
+        await callback.message.answer(card_text, reply_markup=actions_kb, parse_mode="Markdown")
+
+    if notify_dispatcher_func:
+        asyncio.create_task(notify_dispatcher_func(f"🚚 **Курьер {username} первым принял заказ №{order_id}!**"))
+
 @router.callback_query(F.data.startswith("cour_st_"))
 async def cb_change_status(callback: CallbackQuery):
     await callback.answer()
@@ -807,12 +855,22 @@ async def handle_api_create_order(request):
         orders.insert(0, new_order)
         save_json_file(BACKUP_FILE, orders)
 
+        if notify_courier_func:
+            msg_text = (
+                f"📥 **Новый заказ №{new_id}!**\n\n"
+                f"👤 **Клиент:** {client}\n"
+                f"📞 **Тел:** `{phone}`\n"
+                f"🏠 **Адрес:** {district}, {address}\n"
+                f"💬 **Комментарий:** {items}"
+            )
+            claim_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text=f"📥 Принять заказ №{new_id}", callback_data=f"cour_claim_{new_id}")]
+            ])
+            target_cour = courier if (courier and courier not in ["Не назначен", "all"]) else "all"
+            asyncio.create_task(notify_courier_func(msg_text, target_courier=target_cour, reply_markup=claim_kb))
+
         if notify_dispatcher_func:
-            urgent_tag = "🚨 **СРОЧНЫЙ ЗАКАЗ!** " if "СРОЧН" in str(priority).upper() else "🆕 "
-            msg_text = f"{urgent_tag}**Новый заказ №{new_id}!**\n👤 **Клиент:** {client} ({phone})\n🏠 **Адрес:** {district}, {address}\n🚗 **Курьер:** {courier}\n⏰ **Время забора:** {pickup_time}"
-            if extra_note:
-                msg_text += f"\n📍 **Ориентир:** {extra_note}"
-            asyncio.create_task(notify_dispatcher_func(msg_text))
+            asyncio.create_task(notify_dispatcher_func(f"🆕 **Создан новый заказ №{new_id}!** (Клиент: {client}, Адрес: {district}, {address})"))
 
         return web.json_response({"ok": True, "orderId": new_id})
     except Exception as e:
@@ -823,11 +881,12 @@ async def handle_api_notify_couriers(request):
         data = await request.json()
         text = data.get("text", "").strip()
         sender = data.get("sender", "Диспетчер")
-        if notify_dispatcher_func and text:
-            msg = f"📢 **Уведомление от Диспетчера ({sender}):**\n\n{text}"
-            asyncio.create_task(notify_dispatcher_func(msg))
+        target_cour = data.get("courier", "all")
+        if notify_courier_func and text:
+            msg = f"📢 **Сообщение от Диспетчера ({sender}):**\n\n{text}"
+            asyncio.create_task(notify_courier_func(msg, target_courier=target_cour))
             return web.json_response({"ok": True})
-        return web.json_response({"ok": False, "error": "Пустое сообщение"}, status=400)
+        return web.json_response({"ok": False, "error": "Пустое сообщение или нет функции уведомлений"}, status=400)
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500)
 
