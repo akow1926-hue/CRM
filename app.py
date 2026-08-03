@@ -31,9 +31,10 @@ qp = st.query_params
 if qp.get("mode") in ["courier", "webapp", "mobile"] or qp.get("view") in ["courier", "webapp"]:
     st.markdown("""
         <style>
-            header, footer, [data-testid="stSidebar"], [data-testid="stHeader"], #MainMenu { display: none !important; }
+            header, footer, [data-testid="stSidebar"], [data-testid="stHeader"], #MainMenu, .stAppHeader { display: none !important; }
+            .stApp { background: #070c18 !important; padding: 0 !important; margin: 0 !important; }
             .block-container { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
-            iframe { width: 100vw !important; height: 100vh !important; border: none !important; }
+            iframe { width: 100vw !important; height: 100vh !important; min-height: 100vh !important; border: none !important; position: fixed !important; top: 0 !important; left: 0 !important; z-index: 999999 !important; }
         </style>
     """, unsafe_allow_html=True)
     
