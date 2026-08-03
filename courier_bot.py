@@ -49,22 +49,22 @@ def get_courier_webapp_url() -> str:
     cfg = load_json_file(CONFIG_FILE, {})
     if isinstance(cfg, dict) and cfg.get("courier_webapp_url"):
         url = str(cfg.get("courier_webapp_url")).strip()
-        if url:
+        if url and "trycloudflare" not in url and "loca.lt" not in url:
             if "mode=" not in url:
-                url = url.rstrip("/") + ("/?mode=courier" if not url.endswith("/webapp") else "")
+                url = url.replace("/webapp", "").rstrip("/") + "/?mode=courier"
             return url
 
     render_url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("WEBAPP_URL") or os.environ.get("COURIER_WEBAPP_URL")
-    if render_url:
-        url = render_url.rstrip("/")
+    if render_url and "trycloudflare" not in render_url:
+        url = render_url.replace("/webapp", "").rstrip("/")
         return url + "/?mode=courier"
 
     try:
         import streamlit as st
         if hasattr(st, "secrets"):
             sec_url = st.secrets.get("courier_webapp_url") or st.secrets.get("WEBAPP_URL") or st.secrets.get("telegram", {}).get("courier_webapp_url")
-            if sec_url:
-                url = str(sec_url).rstrip("/")
+            if sec_url and "trycloudflare" not in str(sec_url):
+                url = str(sec_url).replace("/webapp", "").rstrip("/")
                 return url + "/?mode=courier"
     except Exception:
         pass
