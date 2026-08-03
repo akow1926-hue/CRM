@@ -28,7 +28,9 @@ st.set_page_config(page_title="Cosmo Cleaning Service CRM — WebApp", layout="w
 
 # --- РЕЖИМ ULTRA-CLEAN СВЕРХЛЕГКОГО МИНИ-ВЕБ-АПП ДЛЯ ТЕЛЕФОНА (КУРЬЕР) ---
 qp = st.query_params
-if qp.get("mode") in ["courier", "webapp", "mobile"] or qp.get("view") in ["courier", "webapp"]:
+mode = str(qp.get("mode") or qp.get("view") or "").lower()
+
+if mode in ["courier", "webapp", "mobile"]:
     st.markdown("""
         <style>
             header, footer, [data-testid="stSidebar"], [data-testid="stHeader"], #MainMenu, .stAppHeader { display: none !important; }
@@ -37,22 +39,43 @@ if qp.get("mode") in ["courier", "webapp", "mobile"] or qp.get("view") in ["cour
             iframe { width: 100vw !important; height: 100vh !important; min-height: 100vh !important; border: none !important; position: fixed !important; top: 0 !important; left: 0 !important; z-index: 999999 !important; }
         </style>
     """, unsafe_allow_html=True)
-    
     try:
         with open("backup_orders.json", "r", encoding="utf-8") as f:
             orders_data = f.read()
     except Exception:
         orders_data = "[]"
-        
     try:
         with open("courier_webapp.html", "r", encoding="utf-8") as f:
             html_code = f.read()
-            
         injection = f"<script>window.initialOrders = {orders_data};</script>"
         html_code = html_code.replace("</head>", f"{injection}\n</head>")
         components.html(html_code, height=950, scrolling=True)
     except Exception as e:
-        st.error(f"Ошибка загрузки WebApp: {e}")
+        st.error(f"Ошибка загрузки WebApp Курьера: {e}")
+    st.stop()
+
+elif mode in ["dispatcher", "disp"]:
+    st.markdown("""
+        <style>
+            header, footer, [data-testid="stSidebar"], [data-testid="stHeader"], #MainMenu, .stAppHeader { display: none !important; }
+            .stApp { background: #070c18 !important; padding: 0 !important; margin: 0 !important; }
+            .block-container { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
+            iframe { width: 100vw !important; height: 100vh !important; min-height: 100vh !important; border: none !important; position: fixed !important; top: 0 !important; left: 0 !important; z-index: 999999 !important; }
+        </style>
+    """, unsafe_allow_html=True)
+    try:
+        with open("backup_orders.json", "r", encoding="utf-8") as f:
+            orders_data = f.read()
+    except Exception:
+        orders_data = "[]"
+    try:
+        with open("dispatcher_webapp.html", "r", encoding="utf-8") as f:
+            html_code = f.read()
+        injection = f"<script>window.initialOrders = {orders_data};</script>"
+        html_code = html_code.replace("</head>", f"{injection}\n</head>")
+        components.html(html_code, height=950, scrolling=True)
+    except Exception as e:
+        st.error(f"Ошибка загрузки WebApp Диспетчера: {e}")
     st.stop()
 
 ui_theme.inject_theme()

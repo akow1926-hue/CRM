@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Cosmo CRM — WebApp Диспетчера</title>
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-color: #070c18;
+      --card-bg: rgba(15, 23, 42, 0.85);
+      --card-border: rgba(59, 130, 246, 0.25);
+      --accent-yellow: #facc15;
+      --accent-yellow-dark: #eab308;
+      --accent-blue: #3b82f6;
+      --accent-blue-hover: #2563eb;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --success: #10b981;
+      --danger: #ef4444;
+      --radius: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: var(--bg-color);
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.15) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(250, 204, 21, 0.12) 0%, transparent 40%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 80px;
+    }
+
+    /* AUTH OVERLAY */
+    .auth-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #070c18;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .auth-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-top: 4px solid var(--accent-yellow);
+      border-radius: 24px;
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+      backdrop-filter: blur(12px);
+      text-align: center;
+    }
+
+    .auth-title {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 6px;
+      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .auth-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    .form-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: block;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-input, .form-select {
+      width: 100%;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: white;
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .form-input:focus, .form-select:focus {
+      border-color: var(--accent-blue);
+      background: rgba(30, 41, 59, 1);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    .btn-submit {
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent-yellow) 0%, var(--accent-yellow-dark) 100%);
+      color: #070c18;
+      border: none;
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      margin-top: 10px;
+      box-shadow: 0 4px 15px rgba(250, 204, 21, 0.3);
+    }
+
+    /* HEADER */
+    .header {
+      padding: 16px 20px;
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-badge {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent-blue) 0%, #1e40af 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+
+    .app-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: white;
+    }
+
+    .app-subtitle {
+      font-size: 11px;
+      color: var(--accent-yellow);
+      font-weight: 600;
+    }
+
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--accent-yellow);
+      color: #070c18;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 11px;
+    }
+
+    /* MAIN CONTAINER */
+    .container {
+      padding: 16px;
+      flex: 1;
+      max-width: 600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* METRICS DASHBOARD */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 10px 6px;
+      text-align: center;
+    }
+
+    .metric-num {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--accent-yellow);
+    }
+
+    .metric-lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    /* TABS */
+    .nav-tabs {
+      display: flex;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 4px;
+      margin-bottom: 16px;
+      gap: 4px;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      flex: 1;
+      min-width: 65px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px 6px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    .tab-btn.active {
+      background: var(--accent-blue);
+      color: white;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    /* SEARCH BAR */
+    .search-box {
+      margin-bottom: 14px;
+    }
+
+    /* ORDER CARD */
+    .order-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-left: 4px solid var(--accent-yellow);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      backdrop-filter: blur(8px);
+    }
+
+    .order-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .order-badge {
+      background: rgba(250, 204, 21, 0.15);
+      border: 1px solid var(--accent-yellow);
+      color: var(--accent-yellow);
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .order-status {
+      font-size: 12px;
+      font-weight: 700;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.15);
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+
+    .client-name {
+      font-size: 16px;
+      font-weight: 800;
+      color: white;
+      margin-bottom: 4px;
+    }
+
+    .client-phone {
+      color: var(--accent-yellow);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 14px;
+      display: inline-block;
+      margin-bottom: 6px;
+    }
+
+    .order-addr {
+      font-size: 13px;
+      color: #cbd5e1;
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+
+    .order-details {
+      font-size: 12px;
+      color: var(--text-muted);
+      background: rgba(30, 41, 59, 0.5);
+      padding: 8px 10px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+
+    .card-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .action-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-action {
+      flex: 1;
+      background: rgba(59, 130, 246, 0.2);
+      border: 1px solid var(--accent-blue);
+      color: white;
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .btn-nav {
+      background: rgba(250, 204, 21, 0.15);
+      border: 1px solid var(--accent-yellow);
+      color: var(--accent-yellow);
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 800;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .empty-msg {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* FORM CARD */
+    .form-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- AUTH OVERLAY -->
+  <div id="authOverlay" class="auth-overlay">
+    <div class="auth-card">
+      <div class="auth-title">Cosmo CRM 🎧</div>
+      <div class="auth-subtitle">Вход для Диспетчера</div>
+      <form onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label class="form-label">Логин</label>
+          <input type="text" id="loginUser" class="form-input" placeholder="например: admin" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Пароль</label>
+          <input type="password" id="loginPass" class="form-input" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn-submit">🔑 Войти в систему</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo-area">
+      <div class="logo-badge">🎧</div>
+      <div>
+        <div class="app-title">Cosmo CRM</div>
+        <div class="app-subtitle">Диспетчер</div>
+      </div>
+    </div>
+    <div id="userBadge" class="user-pill" style="display:none;" onclick="logout()">
+      <div id="userAvatar" class="avatar">D</div>
+      <span id="userName">Диспетчер</span>
+      <span style="font-size:10px; color:#ef4444;">🚪</span>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="container">
+    
+    <!-- METRICS -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div id="cntPickup" class="metric-num">0</div>
+        <div class="metric-lbl">📥 Забор</div>
+      </div>
+      <div class="metric-card">
+        <div id="cntShop" class="metric-num">0</div>
+        <div class="metric-lbl">🧺 В цеху</div>
+      </div>
+      <div class="metric-card">
+        <div id="cntDelivery" class="metric-num">0</div>
+        <div class="metric-lbl">📦 Готовы</div>
+      </div>
+      <div class="metric-card">
+        <div id="cntDone" class="metric-num">0</div>
+        <div class="metric-lbl">✅ Завершено</div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('new')">➕ Новый</button>
+      <button class="tab-btn" onclick="switchTab('pickup')">📥 Забор</button>
+      <button class="tab-btn" onclick="switchTab('shop')">🧺 В цеху</button>
+      <button class="tab-btn" onclick="switchTab('delivery')">📦 Готовы</button>
+      <button class="tab-btn" onclick="switchTab('all')">📋 Все</button>
+    </div>
+
+    <!-- TAB 1: CREATE NEW ORDER -->
+    <div id="tabNew" class="tab-content">
+      <div class="form-card">
+        <h3 style="font-size: 16px; font-weight: 800; color: var(--accent-yellow); margin-bottom: 14px;">➕ Оформить новый заказ</h3>
+        <form onsubmit="handleCreateOrder(event)">
+          <div class="form-group">
+            <label class="form-label">👤 ФИО Клиента *</label>
+            <input type="text" id="newClient" class="form-input" placeholder="Иван Иванов" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">📞 Телефон (9 цифр) *</label>
+            <input type="tel" id="newPhone" class="form-input" placeholder="901234567" max_chars="9" required>
+          </div>
+
+          <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label">🏠 Район *</label>
+              <select id="newDistrict" class="form-select">
+                <option value="Сиёб (Siyob)">Сиёб (Siyob)</option>
+                <option value="Багишамальский">Багишамальский</option>
+                <option value="Согдиана">Согдиана</option>
+                <option value="Микрорайон">Микрорайон</option>
+                <option value="Саттепо">Саттепо</option>
+                <option value="Железнодорожный">Железнодорожный</option>
+                <option value="Самаркандский р-н">Самаркандский р-н</option>
+              </select>
+            </div>
+
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label">🚚 Курьер *</label>
+              <select id="newCourier" class="form-select">
+                <option value="Алишер Каримов">Алишер Каримов</option>
+                <option value="Бобур Ибрагимов">Бобур Ибрагимов</option>
+                <option value="Сардор Турсунов">Сардор Турсунов</option>
+                <option value="Firuz">Firuz</option>
+                <option value="Nazarov01">Nazarov01</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">🏠 Точный адрес *</label>
+            <input type="text" id="newAddress" class="form-input" placeholder="ул. Навои 12, кв 4" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">🧺 Состав заказа / Ковры</label>
+            <input type="text" id="newItems" class="form-input" placeholder="Забор 3 ковров">
+          </div>
+
+          <button type="submit" class="btn-submit">🚀 Оформить и отправить курьеру</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- TAB 2: PICKUP ORDERS -->
+    <div id="tabPickup" class="tab-content" style="display:none;">
+      <div id="pickupList"></div>
+    </div>
+
+    <!-- TAB 3: IN SHOP ORDERS -->
+    <div id="tabShop" class="tab-content" style="display:none;">
+      <div id="shopList"></div>
+    </div>
+
+    <!-- TAB 4: DELIVERY ORDERS -->
+    <div id="tabDelivery" class="tab-content" style="display:none;">
+      <div id="deliveryList"></div>
+    </div>
+
+    <!-- TAB 5: ALL ORDERS + SEARCH -->
+    <div id="tabAll" class="tab-content" style="display:none;">
+      <div class="search-box">
+        <input type="text" id="searchQuery" class="form-input" placeholder="🔍 Поиск по номеру, имени или ID..." oninput="renderOrders()">
+      </div>
+      <div id="allList"></div>
+    </div>
+
+  </div>
+
+  <script>
+    let tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.expand();
+      tg.ready();
+    }
+
+    let currentUser = null;
+    let ordersData = [];
+    const couriersList = ["Алишер Каримов", "Бобур Ибрагимов", "Сардор Турсунов", "Firuz", "Nazarov01"];
+
+    window.onload = function() {
+      const saved = localStorage.getItem('cosmo_disp_user');
+      if (saved) {
+        try {
+          currentUser = JSON.parse(saved);
+          showUserApp();
+        } catch (e) {
+          document.getElementById('authOverlay').style.display = 'flex';
+        }
+      } else {
+        document.getElementById('authOverlay').style.display = 'flex';
+      }
+    };
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const u = document.getElementById('loginUser').value.trim();
+      const p = document.getElementById('loginPass').value.trim();
+
+      currentUser = { username: u, role: 'Dispatcher' };
+      localStorage.setItem('cosmo_disp_user', JSON.stringify(currentUser));
+      showUserApp();
+    }
+
+    function showUserApp() {
+      document.getElementById('authOverlay').style.display = 'none';
+      const uName = currentUser.username || 'Диспетчер';
+      document.getElementById('userName').innerText = uName;
+      document.getElementById('userAvatar').innerText = uName.charAt(0).toUpperCase();
+      document.getElementById('userBadge').style.display = 'flex';
+      loadOrders();
+    }
+
+    function logout() {
+      localStorage.removeItem('cosmo_disp_user');
+      currentUser = null;
+      document.getElementById('authOverlay').style.display = 'flex';
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+
+      if (tabName === 'new') {
+        document.getElementById('tabNew').style.display = 'block';
+      } else if (tabName === 'pickup') {
+        document.getElementById('tabPickup').style.display = 'block';
+      } else if (tabName === 'shop') {
+        document.getElementById('tabShop').style.display = 'block';
+      } else if (tabName === 'delivery') {
+        document.getElementById('tabDelivery').style.display = 'block';
+      } else if (tabName === 'all') {
+        document.getElementById('tabAll').style.display = 'block';
+      }
+      if (event && event.target) event.target.classList.add('active');
+    }
+
+    async function loadOrders() {
+      try {
+        const res = await fetch('/api/orders');
+        if (res.ok) {
+          ordersData = await res.json();
+        } else if (window.initialOrders) {
+          ordersData = window.initialOrders;
+        }
+      } catch (e) {
+        ordersData = window.initialOrders || [];
+      }
+      renderOrders();
+    }
+
+    function getNavUrls(loc, address, district) {
+      let lat = null, lng = null;
+      if (loc && typeof loc === 'string') {
+        let matches = loc.match(/([0-9]+\.[0-9]+)/g);
+        if (matches && matches.length >= 2) {
+          let n1 = parseFloat(matches[0]), n2 = parseFloat(matches[1]);
+          if (n1 >= 30 && n1 <= 45 && n2 >= 60 && n2 <= 75) { lat = n1; lng = n2; }
+          else if (n2 >= 30 && n2 <= 45 && n1 >= 60 && n1 <= 75) { lat = n2; lng = n1; }
+        }
+      }
+      if (lat && lng) {
+        return {
+          navi: `yandexnavi://build_route_on_map?lat_to=${lat}&lon_to=${lng}`,
+          ymaps: `https://yandex.ru/maps/?rtext=~${lat},${lng}&rtt=auto`,
+          gmaps: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
+          isExact: true
+        };
+      }
+      const full = `Самарканд ${district || ''} ${address || ''}`.trim();
+      const enc = encodeURIComponent(full);
+      return {
+        navi: `yandexnavi://build_route_on_map?lat_to=&lon_to=&text=${enc}`,
+        ymaps: `https://yandex.ru/maps/?text=${enc}`,
+        gmaps: `https://www.google.com/maps/search/?api=1&query=${enc}`,
+        isExact: false
+      };
+    }
+
+    function renderOrders() {
+      const q = (document.getElementById('searchQuery')?.value || '').toLowerCase().trim();
+      
+      const pickupOrders = ordersData.filter(o => (o.Статус || '').toLowerCase().includes('забор') || (o.Статус || '').toLowerCase().includes('ожид'));
+      const shopOrders = ordersData.filter(o => (o.Статус || '').toLowerCase().includes('цех') || (o.Статус || '').toLowerCase().includes('мойк'));
+      const deliveryOrders = ordersData.filter(o => (o.Статус || '').toLowerCase().includes('готов') || (o.Статус || '').toLowerCase().includes('достав'));
+      const doneOrders = ordersData.filter(o => (o.Статус || '').toLowerCase().includes('выполн') || (o.Статус || '').toLowerCase().includes('заверш'));
+
+      document.getElementById('cntPickup').innerText = pickupOrders.length;
+      document.getElementById('cntShop').innerText = shopOrders.length;
+      document.getElementById('cntDelivery').innerText = deliveryOrders.length;
+      document.getElementById('cntDone').innerText = doneOrders.length;
+
+      const renderList = (list) => {
+        if (!list || list.length === 0) return '<div class="empty-msg">📭 Нет заказов в этом статусе</div>';
+        return list.map(o => {
+          const nav = getNavUrls(o.Локация, o.Адрес, o.Район);
+          return `
+          <div class="order-card">
+            <div class="order-header">
+              <span class="order-badge">📦 № ${o.ID}</span>
+              <span class="order-status">${o.Статус || 'Забор'}</span>
+            </div>
+            <div class="client-name">👤 ${o.Клиент || 'Клиент'}</div>
+            <a href="tel:${o.Телефон}" class="client-phone">📞 ${o.Телефон || '-'}</a>
+            <div class="order-addr">🏠 <b>${o.Район || 'Самарканд'}</b>, ${o.Адрес || '-'}</div>
+            <div class="order-details">
+              🧺 ${o.Размеры || 'Заказ'} | 🚚 <b>${o.Курьер || 'Не назначен'}</b>
+              ${nav.isExact ? '<span style="color:#10b981; font-weight:bold;"> 📍 (GPS)</span>' : ''}
+            </div>
+            <div class="card-actions">
+              <div style="display:flex; gap:6px;">
+                <a href="${nav.navi}" class="btn-nav" style="flex:1;">🧭 Навигатор</a>
+                <a href="${nav.ymaps}" target="_blank" class="btn-nav" style="flex:1; background:#3b82f6;">🗺️ Я.Карты</a>
+              </div>
+              <div class="action-row" style="margin-top:6px;">
+                <button onclick="changeStatus('${o.ID}', 'Ожидает забора')" class="btn-action">📥 Забор</button>
+                <button onclick="changeStatus('${o.ID}', 'В цеху')" class="btn-action">🧺 В цех</button>
+                <button onclick="changeStatus('${o.ID}', 'Готов')" class="btn-action">📦 Готов</button>
+              </div>
+            </div>
+          </div>
+          `;
+        }).join('');
+      };
+
+      document.getElementById('pickupList').innerHTML = renderList(pickupOrders);
+      document.getElementById('shopList').innerHTML = renderList(shopOrders);
+      document.getElementById('deliveryList').innerHTML = renderList(deliveryOrders);
+
+      let filteredAll = ordersData;
+      if (q) {
+        filteredAll = ordersData.filter(o => 
+          (o.ID || '').toString().toLowerCase().includes(q) ||
+          (o.Клиент || '').toLowerCase().includes(q) ||
+          (o.Телефон || '').toLowerCase().includes(q) ||
+          (o.Адрес || '').toLowerCase().includes(q)
+        );
+      }
+      document.getElementById('allList').innerHTML = renderList(filteredAll);
+    }
+
+    async function changeStatus(orderId, newStatus) {
+      try {
+        await fetch('/api/orders/update_status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId, status: newStatus, courier: currentUser?.username })
+        });
+        alert(`✅ Заказ №${orderId} переведен в статус: ${newStatus}`);
+        loadOrders();
+      } catch (e) {
+        alert('⚠️ Ошибка сети: ' + e);
+      }
+    }
+
+    async function handleCreateOrder(e) {
+      e.preventDefault();
+      const client = document.getElementById('newClient').value.trim();
+      const phone = document.getElementById('newPhone').value.trim();
+      const district = document.getElementById('newDistrict').value;
+      const courier = document.getElementById('newCourier').value;
+      const address = document.getElementById('newAddress').value.trim();
+      const items = document.getElementById('newItems').value.trim() || 'Забор ковров';
+
+      try {
+        const res = await fetch('/api/orders/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ client, phone, district, courier, address, items })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          alert(`🎉 Заказ №${data.orderId} успешно создан и передан курьеру ${courier}!`);
+          document.getElementById('newClient').value = '';
+          document.getElementById('newPhone').value = '';
+          document.getElementById('newAddress').value = '';
+          document.getElementById('newItems').value = '';
+          loadOrders();
+          switchTab('pickup');
+        } else {
+          alert('⚠️ Ошибка: ' + (data.error || ''));
+        }
+      } catch (err) {
+        alert('⚠️ Ошибка соединения с сервером');
+      }
+    }
+  </script>
+</body>
+</html>

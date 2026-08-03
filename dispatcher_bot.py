@@ -46,26 +46,30 @@ def load_json_file(filename: str, default: dict | list) -> dict | list:
     return default
 
 def get_dispatcher_webapp_url() -> str:
+    cfg = load_json_file(CONFIG_FILE, {})
+    if isinstance(cfg, dict) and cfg.get("dispatcher_webapp_url"):
+        url = str(cfg.get("dispatcher_webapp_url")).strip()
+        if url and "trycloudflare" not in url and "loca.lt" not in url:
+            if "mode=" not in url:
+                url = url.rstrip("/") + "/?mode=dispatcher"
+            return url
+
     render_url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("DISPATCHER_WEBAPP_URL")
-    if render_url:
-        return render_url.rstrip("/")
+    if render_url and "trycloudflare" not in render_url:
+        url = render_url.rstrip("/")
+        return url + "/?mode=dispatcher"
 
     try:
         import streamlit as st
         if hasattr(st, "secrets"):
             sec_url = st.secrets.get("dispatcher_webapp_url") or st.secrets.get("DISPATCHER_WEBAPP_URL") or st.secrets.get("telegram", {}).get("dispatcher_webapp_url")
-            if sec_url:
-                return str(sec_url).rstrip("/")
+            if sec_url and "trycloudflare" not in str(sec_url):
+                url = str(sec_url).rstrip("/")
+                return url + "/?mode=dispatcher"
     except Exception:
         pass
 
-    cfg = load_json_file(CONFIG_FILE, {})
-    if isinstance(cfg, dict) and cfg.get("dispatcher_webapp_url"):
-        url = str(cfg.get("dispatcher_webapp_url")).strip()
-        if url:
-            return url
-
-    return "https://crm-cosmo.streamlit.app"
+    return "https://crm-cosmo.streamlit.app/?mode=dispatcher"
 
 DISPATCHER_WEBAPP_URL = get_dispatcher_webapp_url()
 
@@ -630,3 +634,11 @@ async def cb_disp_msg_cour(callback: CallbackQuery):
     save_json_file(SESSIONS_FILE, sessions)
 
     await callback.message.answer(f"💬 Введите **текст сообщения** для `{cour_target}`:")
+
+async def handle_dispatcher_webapp_index(request):
+    try:
+        with open("dispatcher_webapp.html", "r", encoding="utf-8") as f:
+            content = f.read()
+        return web.Response(text=content, content_type="text/html", charset="utf-8")
+    except Exception as e:
+        return web.Response(text=f"<h1>Error loading Dispatcher WebApp</h1><p>{e}</p>", content_type="text/html", status=500)
