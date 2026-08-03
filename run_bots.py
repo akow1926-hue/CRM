@@ -47,9 +47,23 @@ def load_config():
 
     return cfg
 
+@web.middleware
+async def cors_middleware(request, handler):
+    if request.method == "OPTIONS":
+        response = web.Response(status=200)
+    else:
+        try:
+            response = await handler(request)
+        except web.HTTPException as ex:
+            response = ex
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+    return response
+
 async def start_web_server():
     try:
-        app = web.Application()
+        app = web.Application(middlewares=[cors_middleware])
         app.router.add_get("/", courier_bot.handle_webapp_index)
         app.router.add_get("/webapp", courier_bot.handle_webapp_index)
         app.router.add_get("/dispatcher", courier_bot.handle_webapp_index)

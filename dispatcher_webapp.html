@@ -353,10 +353,9 @@
     <button onclick="logout()" class="btn-logout">🚪 Выйти</button>
   </div>
 
-  <!-- 3 SIMPLE TABS ONLY -->
+  <!-- 2 SIMPLE TABS ONLY -->
   <div class="tabs-nav">
     <button class="tab-btn active" onclick="switchTab('new', event)">📥 Принять заказ</button>
-    <button class="tab-btn" onclick="switchTab('orders', event)">📋 Заказы</button>
     <button class="tab-btn" onclick="switchTab('msg', event)">💬 Написать курьерам</button>
   </div>
 
@@ -416,14 +415,6 @@
           <button type="submit" class="btn-primary">🚀 Принять заказ</button>
         </form>
       </div>
-    </div>
-
-    <!-- TAB 2: СПИСОК ВСЕХ ЗАКАЗОВ С КОММЕНТАРИЯМИ -->
-    <div id="tabOrders" class="tab-content" style="display:none;">
-      <div style="margin-bottom: 12px;">
-        <input type="text" id="searchQuery" class="form-input" placeholder="🔍 Поиск по имени, номеру или ID..." oninput="renderOrders()">
-      </div>
-      <div id="ordersList"></div>
     </div>
 
     <!-- TAB 3: НАПИСАТЬ КУРЬЕРАМ -->
@@ -504,9 +495,8 @@
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
 
-      if (tabName === 'new') document.getElementById('tabNew').style.display = 'block';
-      else if (tabName === 'orders') document.getElementById('tabOrders').style.display = 'block';
-      else if (tabName === 'msg') document.getElementById('tabMsg').style.display = 'block';
+      if (tabName === 'msg') document.getElementById('tabMsg').style.display = 'block';
+      else document.getElementById('tabNew').style.display = 'block';
 
       if (evt && evt.target) evt.target.classList.add('active');
     }
@@ -663,7 +653,7 @@
         document.getElementById('newAddress').value = '';
         document.getElementById('newComment').value = '';
         await loadOrders();
-        switchTab('orders');
+        switchTab('new');
       } catch (err) {
         alert('⚠️ Ошибка связи с сервером: ' + err.message);
       }
