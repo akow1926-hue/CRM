@@ -44,7 +44,9 @@ if mode in ["courier", "webapp", "mobile"]:
         try:
             with open("telegram_config.json", "r", encoding="utf-8") as f:
                 cfg_data = json.load(f)
-                cfg_api_url = cfg_data.get("courier_webapp_url", "").replace("/webapp", "").rstrip("/")
+                raw_url = str(cfg_data.get("courier_webapp_url", "")).strip()
+                if raw_url and "streamlit" not in raw_url and "trycloudflare" in raw_url:
+                    cfg_api_url = raw_url.split("?")[0].replace("/webapp", "").rstrip("/")
         except Exception:
             pass
 
@@ -77,7 +79,9 @@ elif mode in ["dispatcher", "disp"]:
         try:
             with open("telegram_config.json", "r", encoding="utf-8") as f:
                 cfg_data = json.load(f)
-                cfg_api_url = cfg_data.get("dispatcher_webapp_url", "").replace("/dispatcher", "").rstrip("/")
+                raw_url = str(cfg_data.get("dispatcher_webapp_url", "")).strip()
+                if raw_url and "streamlit" not in raw_url and "trycloudflare" in raw_url:
+                    cfg_api_url = raw_url.split("?")[0].replace("/dispatcher", "").rstrip("/")
         except Exception:
             pass
     try:

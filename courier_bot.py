@@ -238,7 +238,7 @@ async def clean_previous_messages(bot: Bot, chat_id: int | str, delete_incoming_
         except Exception:
             pass
 
-    for mid in old_msg_ids:
+    for mid in list(old_msg_ids):
         try:
             await bot.delete_message(chat_id, mid)
         except Exception:
@@ -253,11 +253,20 @@ def register_sent_message_id(chat_id: int | str, msg_id: int):
     sessions = load_json_file(SESSIONS_FILE, {})
     sess = sessions.get(chat_id_str, {})
     old = sess.get("last_msg_ids", [])
+    if not isinstance(old, list):
+        old = []
     if msg_id not in old:
         old.append(msg_id)
-    sess["last_msg_ids"] = old[-5:]
+    sess["last_msg_ids"] = old[-20:]
     sessions[chat_id_str] = sess
     save_json_file(SESSIONS_FILE, sessions)
+
+async def send_clean_message(bot: Bot, chat_id: int | str, text: str, reply_markup=None, parse_mode="Markdown", delete_incoming_id: int = None, keep_old: bool = False) -> Message:
+    if not keep_old:
+        await clean_previous_messages(bot, chat_id, delete_incoming_id=delete_incoming_id)
+    sent = await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode=parse_mode)
+    register_sent_message_id(chat_id, sent.message_id)
+    return sent
 
 router = Router()
 
@@ -297,17 +306,17 @@ async def cmd_start(message: Message, bot: Bot):
             f"👤 **Вы авторизованы как:** `{username}` ({role})\n\n"
             f"🌐 **WebApp Курьера:** {cour_url}"
         )
-        await message.answer(welcome_text, reply_markup=get_courier_main_keyboard(), parse_mode="Markdown")
+        await send_clean_message(bot, message.chat.id, welcome_text, reply_markup=get_courier_main_keyboard(), delete_incoming_id=message.message_id)
     else:
         auth_msg = (
             "🔒 **Cosmo CRM — Бот Курьера**\n\n"
             f"🌐 **WebApp Курьера:** {cour_url}\n\n"
             "Пожалуйста, авторизуйтесь. Введите `логин пароль` через пробел или нажмите кнопку **🔑 Войти по логину и паролю**."
         )
-        await message.answer(auth_msg, reply_markup=get_courier_login_keyboard(), parse_mode="Markdown")
+        await send_clean_message(bot, message.chat.id, auth_msg, reply_markup=get_courier_login_keyboard(), delete_incoming_id=message.message_id)
 
 @router.message(Command("logout"))
-async def cmd_logout(message: Message):
+async def cmd_logout(message: Message, bot: Bot):
     chat_id = str(message.chat.id)
     sessions = load_json_file(SESSIONS_FILE, {})
     if chat_id in sessions:
@@ -323,13 +332,13 @@ async def cmd_logout(message: Message):
             cfg["courier_chats"] = c_chats
             save_json_file(CONFIG_FILE, cfg)
 
-    await message.answer("🚪 **Вы вышли из системы Курьера.**\n\n🔑 Введите `логин пароль` через пробел или нажмите **Войти по логину и паролю** для нового входа:", reply_markup=get_courier_login_keyboard(), parse_mode="Markdown")
+    await send_clean_message(bot, message.chat.id, "🚪 **Вы вышли из системы Курьера.**\n\n🔑 Введите `логин пароль` через пробел или нажмите **Войти по логину и паролю** для нового входа:", reply_markup=get_courier_login_keyboard(), delete_incoming_id=message.message_id)
 
 @router.message(Command("login"))
 async def cmd_login(message: Message, bot: Bot):
     args = message.text.split(maxsplit=2)
     if len(args) < 3:
-        await message.answer("⚠️ Формат входа: `/login логин пароль`", parse_mode="Markdown")
+        await send_clean_message(bot, message.chat.id, "⚠️ Формат входа: `/login логин пароль`", delete_incoming_id=message.message_id)
         return
 
     login_in, pass_in = args[1], args[2]
@@ -361,16 +370,18 @@ async def cmd_login(message: Message, bot: Bot):
             except Exception:
                 pass
 
-        await message.answer(
+        await send_clean_message(
+            bot,
+            message.chat.id,
             f"✅ **Успешная авторизация!**\nПриветствуем, курьер `{auth_data['username']}`!\n\n🌐 **WebApp:** {cour_url}",
             reply_markup=get_courier_main_keyboard(),
-            parse_mode="Markdown"
+            delete_incoming_id=message.message_id
         )
     else:
-        await message.answer("❌ Ошибка входа: у вас нет прав Курьера или неверный логин/пароль!")
+        await send_clean_message(bot, message.chat.id, "❌ Ошибка входа: у вас нет прав Курьера или неверный логин/пароль!", reply_markup=get_courier_login_keyboard(), delete_incoming_id=message.message_id)
 
 @router.message(F.text)
-async def handle_courier_messages(message: Message):
+async def handle_courier_messages(message: Message, bot: Bot):
     text = message.text.strip()
     chat_id = str(message.chat.id)
     sessions = load_json_file(SESSIONS_FILE, {})
@@ -385,7 +396,7 @@ async def handle_courier_messages(message: Message):
             sess["state"] = "awaiting_login"
             sessions[chat_id] = sess
             save_json_file(SESSIONS_FILE, sessions)
-            await message.answer("👤 Введите ваш **логин** курьера:")
+            await send_clean_message(bot, message.chat.id, "👤 Введите ваш **логин** курьера:", delete_incoming_id=message.message_id)
             return
 
         if state == "awaiting_login":
@@ -393,7 +404,7 @@ async def handle_courier_messages(message: Message):
             sess["state"] = "awaiting_password"
             sessions[chat_id] = sess
             save_json_file(SESSIONS_FILE, sessions)
-            await message.answer("🔑 Введите ваш **пароль**:")
+            await send_clean_message(bot, message.chat.id, "🔑 Введите ваш **пароль**:", delete_incoming_id=message.message_id)
             return
 
         if state == "awaiting_password":
@@ -415,15 +426,17 @@ async def handle_courier_messages(message: Message):
                 cfg["courier_chats"] = courier_chats
                 save_json_file(CONFIG_FILE, cfg)
 
-                await message.answer(
+                await send_clean_message(
+                    bot,
+                    message.chat.id,
                     f"✅ **Успешный вход!**\nС возвращением, курьер `{auth_data['username']}`!\n\n🌐 **WebApp:** {cour_url}",
                     reply_markup=get_courier_main_keyboard(),
-                    parse_mode="Markdown"
+                    delete_incoming_id=message.message_id
                 )
             else:
                 sessions[chat_id] = sess
                 save_json_file(SESSIONS_FILE, sessions)
-                await message.answer("❌ Неверный логин или пароль!", reply_markup=get_courier_login_keyboard())
+                await send_clean_message(bot, message.chat.id, "❌ Неверный логин или пароль!", reply_markup=get_courier_login_keyboard(), delete_incoming_id=message.message_id)
             return
 
         words = text.split()
@@ -441,18 +454,20 @@ async def handle_courier_messages(message: Message):
                 cfg["courier_chats"] = courier_chats
                 save_json_file(CONFIG_FILE, cfg)
 
-                await message.answer(
+                await send_clean_message(
+                    bot,
+                    message.chat.id,
                     f"✅ **Успешный вход!**\nКурьер: `{auth_data['username']}`\n\n🌐 **WebApp:** {cour_url}",
                     reply_markup=get_courier_main_keyboard(),
-                    parse_mode="Markdown"
+                    delete_incoming_id=message.message_id
                 )
                 return
 
-        await message.answer(f"🔒 Пожалуйста, войдите в систему курьера. Введите `логин пароль`.", reply_markup=get_courier_login_keyboard())
+        await send_clean_message(bot, message.chat.id, f"🔒 Пожалуйста, войдите в систему курьера. Введите `логин пароль`.", reply_markup=get_courier_login_keyboard(), delete_incoming_id=message.message_id)
         return
 
     if text in ["🚪 Выйти из аккаунта (/logout)", "/logout", "Выйти"]:
-        await cmd_logout(message)
+        await cmd_logout(message, bot)
         return
 
     if text in ["📥 Забор ковров", "Забор"]:
@@ -463,10 +478,13 @@ async def handle_courier_messages(message: Message):
             and not any(w in str(o.get("Статус", "")).lower() for w in ["цех", "цеху", "цехе", "мойк", "готов", "выполн"])
         ]
         if not pickup_orders:
-            await message.answer("📭 На данный момент нет новых заявок на забор ковров.")
+            await send_clean_message(bot, message.chat.id, "📭 На данный момент нет новых заявок на забор ковров.", delete_incoming_id=message.message_id)
             return
 
-        await message.answer(f"📥 **Заявки на забор ({len(pickup_orders)} шт.):**", parse_mode="Markdown")
+        await clean_previous_messages(bot, message.chat.id, delete_incoming_id=message.message_id)
+        h_msg = await bot.send_message(message.chat.id, f"📥 **Заявки на забор ({len(pickup_orders)} шт.):**", parse_mode="Markdown")
+        register_sent_message_id(message.chat.id, h_msg.message_id)
+
         for o in pickup_orders[:8]:
             o_id = orders_db.normalize_id(o.get("ID"))
             card = (
@@ -476,17 +494,21 @@ async def handle_courier_messages(message: Message):
                 f"🏠 **Адрес:** {o.get('Район')}, {o.get('Адрес')}\n"
                 f"🧺 **Детали:** {o.get('Размеры')}"
             )
-            await message.answer(card, reply_markup=get_order_inline_actions(o_id, o.get("Статус"), o.get("Адрес", ""), o.get("Район", ""), o.get("Локация", "")), parse_mode="Markdown")
+            c_msg = await bot.send_message(message.chat.id, card, reply_markup=get_order_inline_actions(o_id, o.get("Статус"), o.get("Адрес", ""), o.get("Район", ""), o.get("Локация", "")), parse_mode="Markdown")
+            register_sent_message_id(message.chat.id, c_msg.message_id)
         return
 
     if text in ["🚚 Доставка ковров", "Доставка"]:
         orders = orders_db.get_orders()
         delivery_orders = [o for o in orders if any(w in str(o.get("Статус", "")).lower() for w in ["готов", "достав"])]
         if not delivery_orders:
-            await message.answer("📭 Нет готовых заказов на доставку.")
+            await send_clean_message(bot, message.chat.id, "📭 Нет готовых заказов на доставку.", delete_incoming_id=message.message_id)
             return
 
-        await message.answer(f"🚚 **Заказы на доставку ({len(delivery_orders)} шт.):**", parse_mode="Markdown")
+        await clean_previous_messages(bot, message.chat.id, delete_incoming_id=message.message_id)
+        h_msg = await bot.send_message(message.chat.id, f"🚚 **Заказы на доставку ({len(delivery_orders)} шт.):**", parse_mode="Markdown")
+        register_sent_message_id(message.chat.id, h_msg.message_id)
+
         for o in delivery_orders[:8]:
             o_id = orders_db.normalize_id(o.get("ID"))
             card = (
@@ -496,27 +518,28 @@ async def handle_courier_messages(message: Message):
                 f"🏠 **Адрес:** {o.get('Район')}, {o.get('Адрес')}\n"
                 f"💰 **К оплате:** `{o.get('Сумма')}` сум"
             )
-            await message.answer(card, reply_markup=get_order_inline_actions(o_id, o.get("Статус"), o.get("Адрес", ""), o.get("Район", ""), o.get("Локация", "")), parse_mode="Markdown")
+            c_msg = await bot.send_message(message.chat.id, card, reply_markup=get_order_inline_actions(o_id, o.get("Статус"), o.get("Адрес", ""), o.get("Район", ""), o.get("Локация", "")), parse_mode="Markdown")
+            register_sent_message_id(message.chat.id, c_msg.message_id)
         return
 
     if text == "📋 Мои заказы":
         orders = orders_db.get_orders()
         my_list = [o for o in orders if username.lower() in str(o.get("Курьер", "")).lower()]
         if not my_list:
-            await message.answer("📭 У вас пока нет закрепленных заказов.")
+            await send_clean_message(bot, message.chat.id, "📭 У вас пока нет закрепленных заказов.", delete_incoming_id=message.message_id)
             return
 
         msg = f"📋 **Все заказы курьера {username} ({len(my_list)} шт.):**\n\n"
         for o in my_list[:8]:
             msg += f"🔹 **Заказ №{orders_db.normalize_id(o.get('ID'))}** | {o.get('Клиент')}\n🏠 {o.get('Район')}, {o.get('Адрес')}\n📊 Статус: **{o.get('Статус')}**\n\n"
-        await message.answer(msg, parse_mode="Markdown")
+        await send_clean_message(bot, message.chat.id, msg, delete_incoming_id=message.message_id)
         return
 
     if text == "🔍 Поиск заказа":
         sess["state"] = "search_order"
         sessions[chat_id] = sess
         save_json_file(SESSIONS_FILE, sessions)
-        await message.answer("🔍 Введите **номер заказа** (например `5218`) или **телефон**:")
+        await send_clean_message(bot, message.chat.id, "🔍 Введите **номер заказа** (например `5218`) или **телефон**:", delete_incoming_id=message.message_id)
         return
 
     if state == "search_order":
@@ -529,9 +552,10 @@ async def handle_courier_messages(message: Message):
         found = [o for o in orders if q in str(o.get("ID", "")).lower() or q in str(o.get("Телефон", "")).lower() or q in str(o.get("Клиент", "")).lower()]
 
         if not found:
-            await message.answer(f"❌ Заказ '{text}' не найден.")
+            await send_clean_message(bot, message.chat.id, f"❌ Заказ '{text}' не найден.", delete_incoming_id=message.message_id)
             return
 
+        await clean_previous_messages(bot, message.chat.id, delete_incoming_id=message.message_id)
         for o in found[:5]:
             o_id = orders_db.normalize_id(o.get("ID"))
             card = (
@@ -541,14 +565,15 @@ async def handle_courier_messages(message: Message):
                 f"🏠 **Адрес:** {o.get('Район')}, {o.get('Адрес')}\n"
                 f"📊 **Статус:** {o.get('Статус')}"
             )
-            await message.answer(card, reply_markup=get_order_inline_actions(o_id, o.get("Статус"), o.get("Адрес", ""), o.get("Район", ""), o.get("Локация", "")), parse_mode="Markdown")
+            c_msg = await bot.send_message(message.chat.id, card, reply_markup=get_order_inline_actions(o_id, o.get("Статус"), o.get("Адрес", ""), o.get("Район", ""), o.get("Локация", "")), parse_mode="Markdown")
+            register_sent_message_id(message.chat.id, c_msg.message_id)
         return
 
     if text == "➕ Новый заказ":
         sess["state"] = "create_order_step1"
         sessions[chat_id] = sess
         save_json_file(SESSIONS_FILE, sessions)
-        await message.answer("➕ **Новый заказ (1/4):** Введите **Имя клиента**:")
+        await send_clean_message(bot, message.chat.id, "➕ **Новый заказ (1/4):** Введите **Имя клиента**:", delete_incoming_id=message.message_id)
         return
 
     if state == "create_order_step1":
@@ -556,7 +581,7 @@ async def handle_courier_messages(message: Message):
         sess["state"] = "create_order_step2"
         sessions[chat_id] = sess
         save_json_file(SESSIONS_FILE, sessions)
-        await message.answer("Шаг 2/4: Введите **Телефон клиента**:")
+        await send_clean_message(bot, message.chat.id, "Шаг 2/4: Введите **Телефон клиента**:", delete_incoming_id=message.message_id)
         return
 
     if state == "create_order_step2":
@@ -564,7 +589,7 @@ async def handle_courier_messages(message: Message):
         sess["state"] = "create_order_step3"
         sessions[chat_id] = sess
         save_json_file(SESSIONS_FILE, sessions)
-        await message.answer("Шаг 3/4: Введите **Район и Адрес**:")
+        await send_clean_message(bot, message.chat.id, "Шаг 3/4: Введите **Район и Адрес**:", delete_incoming_id=message.message_id)
         return
 
     if state == "create_order_step3":
@@ -572,7 +597,7 @@ async def handle_courier_messages(message: Message):
         sess["state"] = "create_order_step4"
         sessions[chat_id] = sess
         save_json_file(SESSIONS_FILE, sessions)
-        await message.answer("Шаг 4/4: Введите **детали / количество ковров**:")
+        await send_clean_message(bot, message.chat.id, "Шаг 4/4: Введите **детали / количество ковров**:", delete_incoming_id=message.message_id)
         return
 
     if state == "create_order_step4":
@@ -610,7 +635,7 @@ async def handle_courier_messages(message: Message):
         sessions[chat_id] = sess
         save_json_file(SESSIONS_FILE, sessions)
 
-        await message.answer(f"🎉 **Заказ №{new_id} создан!**\n👤 Клиент: {client}\n📞 Тел: {phone}\n🏠 Адрес: {addr}", reply_markup=get_courier_main_keyboard(), parse_mode="Markdown")
+        await send_clean_message(bot, message.chat.id, f"🎉 **Заказ №{new_id} создан!**\n👤 Клиент: {client}\n📞 Тел: {phone}\n🏠 Адрес: {addr}", reply_markup=get_courier_main_keyboard(), delete_incoming_id=message.message_id)
 
         # Notify dispatcher
         if notify_dispatcher_func:
@@ -626,10 +651,12 @@ async def handle_courier_messages(message: Message):
 
         orders_db.update_order(oid, {"Размеры": text})
 
-        await message.answer(
+        await send_clean_message(
+            bot,
+            message.chat.id,
             f"✅ **Детали забора для Заказа №{oid} сохранены!**\n🧺 **Содержимое:** `{text}`",
             reply_markup=get_courier_main_keyboard(),
-            parse_mode="Markdown"
+            delete_incoming_id=message.message_id
         )
 
         if notify_dispatcher_func:
@@ -642,7 +669,7 @@ async def handle_courier_messages(message: Message):
         sess["state"] = "calc_step1"
         sessions[chat_id] = sess
         save_json_file(SESSIONS_FILE, sessions)
-        await message.answer("📏 **Замер:** Введите **№ заказа** (например: `5218`):")
+        await send_clean_message(bot, message.chat.id, "📏 **Замер:** Введите **№ заказа** (например: `5218`):", delete_incoming_id=message.message_id)
         return
 
     if state == "calc_step1":
@@ -650,7 +677,7 @@ async def handle_courier_messages(message: Message):
         sess["state"] = "calc_step2"
         sessions[chat_id] = sess
         save_json_file(SESSIONS_FILE, sessions)
-        await message.answer(f"📐 Заказ №{text}: Введите **Ширину** и **Длину** через пробел (например: `2.5 3.0`):")
+        await send_clean_message(bot, message.chat.id, f"📐 Заказ №{text}: Введите **Ширину** и **Длину** через пробел (например: `2.5 3.0`):", delete_incoming_id=message.message_id)
         return
 
     if state == "calc_step2":
@@ -673,15 +700,15 @@ async def handle_courier_messages(message: Message):
             sessions[chat_id] = sess
             save_json_file(SESSIONS_FILE, sessions)
 
-            await message.answer(f"✅ **Замер сохранен (№{oid})!**\n📏 Размер: `{w}x{l} м` ({area} м²)\n💰 Сумма: `{total:,} сум`", reply_markup=get_courier_main_keyboard(), parse_mode="Markdown")
+            await send_clean_message(bot, message.chat.id, f"✅ **Замер сохранен (№{oid})!**\n📏 Размер: `{w}x{l} м` ({area} м²)\n💰 Сумма: `{total:,} сум`", reply_markup=get_courier_main_keyboard(), delete_incoming_id=message.message_id)
 
             if notify_dispatcher_func:
                 asyncio.create_task(notify_dispatcher_func(f"📏 **Курьер {username} замерил заказ №{oid}:**\nРазмер: {w}x{l} м ({area} кв.м)\nСумма: {total:,} сум"))
         except Exception:
-            await message.answer("⚠️ Введите два числа через пробел (например: `2.5 3.0`).")
+            await send_clean_message(bot, message.chat.id, "⚠️ Введите два числа через пробел (например: `2.5 3.0`).", delete_incoming_id=message.message_id)
         return
 
-    await message.answer(f"👇 Меню курьера ниже:\n\n🌐 **WebApp:** {COURIER_WEBAPP_URL}", reply_markup=get_courier_main_keyboard())
+    await send_clean_message(bot, message.chat.id, f"👇 Меню курьера ниже:\n\n🌐 **WebApp:** {COURIER_WEBAPP_URL}", reply_markup=get_courier_main_keyboard(), delete_incoming_id=message.message_id)
 
 @router.callback_query(F.data.startswith("cour_claim_"))
 async def cb_cour_claim(callback: CallbackQuery):
@@ -730,7 +757,7 @@ async def cb_cour_claim(callback: CallbackQuery):
         asyncio.create_task(notify_dispatcher_func(f"🚚 **Курьер {username} первым принял заказ №{order_id}!**"))
 
 @router.callback_query(F.data.startswith("cour_st_"))
-async def cb_change_status(callback: CallbackQuery):
+async def cb_change_status(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     parts = callback.data.split("_")
     if len(parts) < 4:
@@ -746,13 +773,13 @@ async def cb_change_status(callback: CallbackQuery):
 
     orders_db.update_order(order_id, {"Статус": new_status, "Курьер": username})
 
-    await callback.message.answer(f"✅ **Заказ №{order_id} обновлен на: {new_status}!** ({username})", parse_mode="Markdown")
+    await send_clean_message(bot, callback.message.chat.id, f"✅ **Заказ №{order_id} обновлен на: {new_status}!** ({username})", reply_markup=get_courier_main_keyboard(), parse_mode="Markdown")
 
     if notify_dispatcher_func:
         asyncio.create_task(notify_dispatcher_func(f"🚗 **Курьер {username} забрал заказ №{order_id} (В цеху)!**"))
 
 @router.callback_query(F.data.startswith("cour_pay_"))
-async def cb_pay_done(callback: CallbackQuery):
+async def cb_pay_done(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     parts = callback.data.split("_")
     if len(parts) < 4:
@@ -780,13 +807,13 @@ async def cb_pay_done(callback: CallbackQuery):
         "Курьер": username
     })
 
-    await callback.message.answer(f"🎉 **Заказ №{order_id} выполнен!** Оплата: {sum_val} сум ({pay_type_name})", parse_mode="Markdown")
+    await send_clean_message(bot, callback.message.chat.id, f"🎉 **Заказ №{order_id} выполнен!**\n💰 Оплата: `{sum_val} сум` ({pay_type_name})", reply_markup=get_courier_main_keyboard(), parse_mode="Markdown")
 
     if notify_dispatcher_func:
         asyncio.create_task(notify_dispatcher_func(f"💵 **Курьер {username} доставил заказ №{order_id}!**\nСумма: {sum_val} сум ({pay_type_name})"))
 
 @router.callback_query(F.data.startswith("cour_route_"))
-async def cb_cour_route(callback: CallbackQuery):
+async def cb_cour_route(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     order_id = orders_db.normalize_id(callback.data.replace("cour_route_", "").strip())
     orders = orders_db.get_orders()
@@ -812,38 +839,40 @@ async def cb_cour_route(callback: CallbackQuery):
         gmaps_url = f"https://www.google.com/maps/dir/?api=1&destination={lat},{lng}"
         
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🧭 Открыть в Яндекс.Навигаторе", url=navi_url)],
-            [InlineKeyboardButton(text="🗺️ Открыть в Яндекс.Картах", url=ymaps_url)],
-            [InlineKeyboardButton(text="📍 Открыть в Google Maps", url=gmaps_url)]
+            [InlineKeyboardButton(text="🧭 Яндекс.Навигатор", url=navi_url), InlineKeyboardButton(text="🗺️ Яндекс.Карты", url=ymaps_url)],
+            [InlineKeyboardButton(text="📍 Google Maps", url=gmaps_url)]
         ])
         msg_text = (
             f"🧭 **Маршрут доставки до клиента (Заказ №{order_id}):**\n\n"
             f"👤 **Клиент:** {target_order.get('Клиент')}\n"
-            f"📞 **Тел:** `{target_order.get('Телефон')}`\n"
+            f"📞 **Тел:** `{format_phone(str(target_order.get('Телефон')))}`\n"
             f"🏠 **Адрес:** {district}, {address}\n"
             f"📍 **GPS Координаты:** `{lat}, {lng}`\n\n"
-            f"Нажмите кнопку ниже для авто-прокладки маршрута в навигаторе 👇"
+            f"👇 Выберите навигатор для авто-прокладки маршрута:"
         )
     else:
         full_addr = f"Самарканд {district} {address}".strip()
         encoded = urllib.parse.quote(full_addr)
-        ymaps_url = f"https://yandex.ru/maps/?text={encoded}"
+        navi_url = f"yandexnavi://map?text={encoded}"
+        ymaps_url = f"https://yandex.ru/maps/?text={encoded}&rtt=auto"
         
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🗺️ Поиск адреса в Яндекс.Картах", url=ymaps_url)]
+            [InlineKeyboardButton(text="🧭 Яндекс.Навигатор", url=navi_url), InlineKeyboardButton(text="🗺️ Яндекс.Карты", url=ymaps_url)]
         ])
         msg_text = (
-            f"🗺️ **Поиск адреса клиента (Заказ №{order_id}):**\n\n"
+            f"🗺️ **Поиск адреса / маршрута клиента (Заказ №{order_id}):**\n\n"
             f"👤 **Клиент:** {target_order.get('Клиент')}\n"
-            f"📞 **Тел:** `{target_order.get('Телефон')}`\n"
+            f"📞 **Тел:** `{format_phone(str(target_order.get('Телефон')))}`\n"
             f"🏠 **Адрес:** {district}, {address}\n\n"
-            f"💡 Точные GPS координаты не зафиксированы. Используйте кнопку ниже для поиска адреса в Картах 👇"
+            f"💡 *Точные GPS координаты не сохранены. Маршрут строится по адресу.*"
         )
 
-    await callback.message.answer(msg_text, reply_markup=kb, parse_mode="Markdown")
+    await clean_previous_messages(bot, callback.message.chat.id)
+    sent = await bot.send_message(callback.message.chat.id, msg_text, reply_markup=kb, parse_mode="Markdown")
+    register_sent_message_id(callback.message.chat.id, sent.message_id)
 
 @router.callback_query(F.data.startswith("cour_receipt_"))
-async def cb_cour_receipt(callback: CallbackQuery):
+async def cb_cour_receipt(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     order_id = orders_db.normalize_id(callback.data.replace("cour_receipt_", "").strip())
     orders = orders_db.get_orders()
@@ -857,20 +886,24 @@ async def cb_cour_receipt(callback: CallbackQuery):
         await callback.message.answer("❌ Заказ не найден!")
         return
 
+    await clean_previous_messages(bot, callback.message.chat.id)
+
     receipt_text = receipt_generator.generate_receipt_text(target_order)
     receipt_html = receipt_generator.generate_receipt_html(target_order)
     
     receipt_bytes = receipt_html.encode('utf-8')
     input_file = BufferedInputFile(receipt_bytes, filename=f"Receipt_Order_{order_id}.html")
 
-    await callback.message.answer_document(
+    sent = await bot.send_document(
+        chat_id=callback.message.chat.id,
         document=input_file,
         caption=receipt_text,
         parse_mode="Markdown"
     )
+    register_sent_message_id(callback.message.chat.id, sent.message_id)
 
 @router.callback_query(F.data.startswith("cour_calc_"))
-async def cb_start_calc(callback: CallbackQuery):
+async def cb_start_calc(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     order_id = orders_db.normalize_id(callback.data.replace("cour_calc_", "").strip())
     chat_id = str(callback.message.chat.id)
@@ -881,10 +914,10 @@ async def cb_start_calc(callback: CallbackQuery):
     sessions[chat_id] = sess
     save_json_file(SESSIONS_FILE, sessions)
 
-    await callback.message.answer(f"📏 Замер для №{order_id}: Введите Ширину и Длину через пробел (например: `2.5 3.0`):")
+    await send_clean_message(bot, callback.message.chat.id, f"📏 Замер для №{order_id}: Введите Ширину и Длину через пробел (например: `2.5 3.0`):")
 
 @router.callback_query(F.data.startswith("cour_items_"))
-async def cb_edit_items_prompt(callback: CallbackQuery):
+async def cb_edit_items_prompt(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     order_id = orders_db.normalize_id(callback.data.replace("cour_items_", "").strip())
     chat_id = str(callback.message.chat.id)
@@ -895,14 +928,16 @@ async def cb_edit_items_prompt(callback: CallbackQuery):
     sessions[chat_id] = sess
     save_json_file(SESSIONS_FILE, sessions)
 
-    await callback.message.answer(
+    await send_clean_message(
+        bot,
+        callback.message.chat.id,
         f"🧺 **Указание деталей/предметов для Заказа №{order_id}:**\n\n"
         f"Введите в ответном сообщении количество и типы вещей (например: `3 ковра, 2 курпачи, 4 подушки`):",
         parse_mode="Markdown"
     )
 
 @router.callback_query(F.data.startswith("cour_loc_"))
-async def cb_request_loc(callback: CallbackQuery):
+async def cb_request_loc(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     order_id = orders_db.normalize_id(callback.data.replace("cour_loc_", "").strip())
     chat_id = str(callback.message.chat.id)
@@ -921,7 +956,9 @@ async def cb_request_loc(callback: CallbackQuery):
         one_time_keyboard=True
     )
 
-    await callback.message.answer(
+    await send_clean_message(
+        bot,
+        callback.message.chat.id,
         f"📍 **Фиксация GPS координаты для Заказа №{order_id}:**\n\n"
         f"Пожалуйста, нажмите кнопку **«📍 Поделиться геопозицией Заказа №{order_id}»** ниже или отправьте локацию в чат (📎 Скрепка -> Локация).\n\n"
         f"Бот привяжет точные GPS координаты к заказу!",
@@ -930,7 +967,7 @@ async def cb_request_loc(callback: CallbackQuery):
     )
 
 @router.callback_query(F.data.startswith("cour_edit_st_"))
-async def cb_edit_st_menu(callback: CallbackQuery):
+async def cb_edit_st_menu(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     order_id = callback.data.replace("cour_edit_st_", "").strip()
     buttons = [
@@ -938,7 +975,7 @@ async def cb_edit_st_menu(callback: CallbackQuery):
         [InlineKeyboardButton(text="💵 Доставлено (Наличные)", callback_data=f"cour_pay_cash_{order_id}")],
         [InlineKeyboardButton(text="💳 Доставлено (Карта/Click)", callback_data=f"cour_pay_card_{order_id}")]
     ]
-    await callback.message.answer(f"📦 Выберите новый статус для заказа **№{order_id}**:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="Markdown")
+    await send_clean_message(bot, callback.message.chat.id, f"📦 Выберите новый статус для заказа **№{order_id}**:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="Markdown")
 
 
 # --- AIOHTTP REST API HANDLERS FOR WEBAPP ---

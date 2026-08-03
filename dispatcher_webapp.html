@@ -511,11 +511,13 @@
 
     function getApiUrl(path) {
       let base = window.serverApiUrl || '';
-      if (!base) {
+      if (!base || base.includes('streamlit.app') || base.includes(':8501') || base.includes('mode=')) {
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
           base = 'http://' + window.location.hostname + ':8080';
+        } else if (window.location.port === '8501') {
+          base = 'http://' + window.location.hostname + ':8080';
         } else {
-          base = '';
+          base = window.location.origin;
         }
       }
       return base ? (base.replace(/\/$/, '') + path) : path;
@@ -564,8 +566,8 @@
       const full = `Самарканд ${district || ''} ${address || ''}`.trim();
       const enc = encodeURIComponent(full);
       return {
-        navi: `yandexnavi://build_route_on_map?lat_to=&lon_to=&text=${enc}`,
-        ymaps: `https://yandex.ru/maps/?text=${enc}`,
+        navi: `yandexnavi://map?text=${enc}`,
+        ymaps: `https://yandex.ru/maps/?text=${enc}&rtt=auto`,
         isExact: false
       };
     }
@@ -632,7 +634,7 @@
 
     async function reassignCourier(orderId, newCourier) {
       try {
-        const res = await fetch('/api/orders/update_status', {
+        const res = await fetch(getApiUrl('/api/orders/update_status'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ orderId, courier: newCourier })

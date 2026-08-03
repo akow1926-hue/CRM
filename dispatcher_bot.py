@@ -163,6 +163,49 @@ def set_notify_courier_hook(fn):
     global notify_courier_func
     notify_courier_func = fn
 
+async def clean_previous_messages(bot: Bot, chat_id: int | str, delete_incoming_id: int = None):
+    """Стирает старые сообщения бота в чате для поддержания чистоты и аккуратности"""
+    chat_id_str = str(chat_id)
+    sessions = load_json_file(SESSIONS_FILE, {})
+    sess = sessions.get(chat_id_str, {})
+    old_msg_ids = sess.get("last_msg_ids", [])
+
+    if delete_incoming_id:
+        try:
+            await bot.delete_message(chat_id, delete_incoming_id)
+        except Exception:
+            pass
+
+    for mid in list(old_msg_ids):
+        try:
+            await bot.delete_message(chat_id, mid)
+        except Exception:
+            pass
+
+    sess["last_msg_ids"] = []
+    sessions[chat_id_str] = sess
+    save_json_file(SESSIONS_FILE, sessions)
+
+def register_sent_message_id(chat_id: int | str, msg_id: int):
+    chat_id_str = str(chat_id)
+    sessions = load_json_file(SESSIONS_FILE, {})
+    sess = sessions.get(chat_id_str, {})
+    old = sess.get("last_msg_ids", [])
+    if not isinstance(old, list):
+        old = []
+    if msg_id not in old:
+        old.append(msg_id)
+    sess["last_msg_ids"] = old[-20:]
+    sessions[chat_id_str] = sess
+    save_json_file(SESSIONS_FILE, sessions)
+
+async def send_clean_message(bot: Bot, chat_id: int | str, text: str, reply_markup=None, parse_mode="Markdown", delete_incoming_id: int = None, keep_old: bool = False) -> Message:
+    if not keep_old:
+        await clean_previous_messages(bot, chat_id, delete_incoming_id=delete_incoming_id)
+    sent = await bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode=parse_mode)
+    register_sent_message_id(chat_id, sent.message_id)
+    return sent
+
 router = Router()
 
 @router.message(CommandStart())
@@ -201,17 +244,17 @@ async def cmd_start(message: Message, bot: Bot):
             f"👤 **Вы авторизованы как:** `{username}` ({role})\n\n"
             f"🌐 **Панель CRM Диспетчера:** {disp_url}"
         )
-        await message.answer(welcome_text, reply_markup=get_dispatcher_main_keyboard(), parse_mode="Markdown")
+        await send_clean_message(bot, message.chat.id, welcome_text, reply_markup=get_dispatcher_main_keyboard(), delete_incoming_id=message.message_id)
     else:
         auth_msg = (
             "🔒 **Cosmo CRM — Бот Диспетчера**\n\n"
             f"🌐 **Панель CRM Диспетчера:** {disp_url}\n\n"
             "Пожалуйста, авторизуйтесь. Введите `логин пароль` через пробел (например: `bobur bobur`) или нажмите **🔑 Войти по логину и паролю**."
         )
-        await message.answer(auth_msg, reply_markup=get_dispatcher_login_keyboard(), parse_mode="Markdown")
+        await send_clean_message(bot, message.chat.id, auth_msg, reply_markup=get_dispatcher_login_keyboard(), delete_incoming_id=message.message_id)
 
 @router.message(Command("logout"))
-async def cmd_logout(message: Message):
+async def cmd_logout(message: Message, bot: Bot):
     chat_id = str(message.chat.id)
     sessions = load_json_file(SESSIONS_FILE, {})
     if chat_id in sessions:
@@ -227,7 +270,7 @@ async def cmd_logout(message: Message):
             cfg["dispatcher_chats"] = d_chats
             save_json_file(CONFIG_FILE, cfg)
 
-    await message.answer("🚪 **Вы вышли из системы Диспетчера.**\n\n🔑 Введите `логин пароль` через пробел или нажмите **Войти по логину и паролю** для нового входа:", reply_markup=get_dispatcher_login_keyboard(), parse_mode="Markdown")
+    await send_clean_message(bot, message.chat.id, "🚪 **Вы вышли из системы Диспетчера.**\n\n🔑 Введите `логин пароль` через пробел или нажмите **Войти по логину и паролю** для нового входа:", reply_markup=get_dispatcher_login_keyboard(), delete_incoming_id=message.message_id)
 
 @router.message(Command("login"))
 async def cmd_login(message: Message, bot: Bot):
@@ -307,7 +350,7 @@ def is_dispatcher_event(message: Message) -> bool:
     return False
 
 @router.message(F.text, is_dispatcher_event)
-async def handle_dispatcher_messages(message: Message):
+async def handle_dispatcher_messages(message: Message, bot: Bot):
     text = message.text.strip()
     chat_id = str(message.chat.id)
     sessions = load_json_file(SESSIONS_FILE, {})
@@ -322,7 +365,7 @@ async def handle_dispatcher_messages(message: Message):
             sess["state"] = "awaiting_login"
             sessions[chat_id] = sess
             save_json_file(SESSIONS_FILE, sessions)
-            await message.answer("👤 Введите ваш **логин** Диспетчера / Админа:")
+            await send_clean_message(bot, message.chat.id, "👤 Введите ваш **логин** Диспетчера / Админа:", delete_incoming_id=message.message_id)
             return
 
         if state == "awaiting_login":
@@ -330,7 +373,7 @@ async def handle_dispatcher_messages(message: Message):
             sess["state"] = "awaiting_password"
             sessions[chat_id] = sess
             save_json_file(SESSIONS_FILE, sessions)
-            await message.answer("🔑 Введите ваш **пароль**:")
+            await send_clean_message(bot, message.chat.id, "🔑 Введите ваш **пароль**:", delete_incoming_id=message.message_id)
             return
 
         if state == "awaiting_password":
@@ -352,15 +395,17 @@ async def handle_dispatcher_messages(message: Message):
                 cfg["dispatcher_chats"] = disp_chats
                 save_json_file(CONFIG_FILE, cfg)
 
-                await message.answer(
+                await send_clean_message(
+                    bot,
+                    message.chat.id,
                     f"✅ **Успешная авторизация!**\nПриветствуем, `{auth_data['username']}`!\n\n🌐 **CRM WebApp:** {disp_url}",
                     reply_markup=get_dispatcher_main_keyboard(),
-                    parse_mode="Markdown"
+                    delete_incoming_id=message.message_id
                 )
             else:
                 sessions[chat_id] = sess
                 save_json_file(SESSIONS_FILE, sessions)
-                await message.answer("❌ Неверный логин или пароль Диспетчера!", reply_markup=get_dispatcher_login_keyboard())
+                await send_clean_message(bot, message.chat.id, "❌ Неверный логин или пароль Диспетчера!", reply_markup=get_dispatcher_login_keyboard(), delete_incoming_id=message.message_id)
             return
 
         words = text.split()
@@ -378,18 +423,20 @@ async def handle_dispatcher_messages(message: Message):
                 cfg["dispatcher_chats"] = disp_chats
                 save_json_file(CONFIG_FILE, cfg)
 
-                await message.answer(
-                    f"✅ **Успешный вход!**\nПользователь: `{auth_data['username']}`\n\n🌐 **CRM WebApp:** {disp_url}",
+                await send_clean_message(
+                    bot,
+                    message.chat.id,
+                    f"✅ **Успешный вход!**\nПользователь: `{auth_data['username']}`!\n\n🌐 **CRM WebApp:** {disp_url}",
                     reply_markup=get_dispatcher_main_keyboard(),
-                    parse_mode="Markdown"
+                    delete_incoming_id=message.message_id
                 )
                 return
 
-        await message.answer("🔒 Войдите под аккаунтом Диспетчера. Введите `логин пароль`.", reply_markup=get_dispatcher_login_keyboard())
+        await send_clean_message(bot, message.chat.id, "🔒 Войдите под аккаунтом Диспетчера. Введите `логин пароль`.", reply_markup=get_dispatcher_login_keyboard(), delete_incoming_id=message.message_id)
         return
 
     if text in ["🚪 Выйти из аккаунта (/logout)", "/logout", "Выйти"]:
-        await cmd_logout(message)
+        await cmd_logout(message, bot)
         return
 
     if text in ["📊 Статистика", "Статистика"]:
@@ -409,7 +456,7 @@ async def handle_dispatcher_messages(message: Message):
             f"✅ **Выполнено:** `{done_cnt}`\n\n"
             f"💰 **Общий доход (выполненные):** `{total_income:,} сум`"
         )
-        await message.answer(stat_msg, parse_mode="Markdown")
+        await send_clean_message(bot, message.chat.id, stat_msg, delete_incoming_id=message.message_id)
         return
 
     if text == "📋 Список заказов":
@@ -417,14 +464,14 @@ async def handle_dispatcher_messages(message: Message):
             [InlineKeyboardButton(text="📥 На заборе", callback_data="disp_list_pickup"), InlineKeyboardButton(text="🧺 В цеху", callback_data="disp_list_shop")],
             [InlineKeyboardButton(text="📦 Готовые", callback_data="disp_list_ready"), InlineKeyboardButton(text="✅ Выполненные", callback_data="disp_list_done")]
         ]
-        await message.answer("📋 **Выберите категорию заказов:**", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+        await send_clean_message(bot, message.chat.id, "📋 **Выберите категорию заказов:**", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), delete_incoming_id=message.message_id)
         return
 
     if text == "➕ Новый заказ":
         sess["state"] = "disp_create_step1"
         sessions[chat_id] = sess
         save_json_file(SESSIONS_FILE, sessions)
-        await message.answer("➕ **Оформление нового заказа (1/4):**\nВведите **Имя клиента**:")
+        await send_clean_message(bot, message.chat.id, "➕ **Оформление нового заказа (1/4):**\nВведите **Имя клиента**:", delete_incoming_id=message.message_id)
         return
 
     if state == "disp_create_step1":
@@ -432,7 +479,7 @@ async def handle_dispatcher_messages(message: Message):
         sess["state"] = "disp_create_step2"
         sessions[chat_id] = sess
         save_json_file(SESSIONS_FILE, sessions)
-        await message.answer("Шаг 2/4: Введите **Телефон клиента** (например `901234567`):")
+        await send_clean_message(bot, message.chat.id, "Шаг 2/4: Введите **Телефон клиента** (например `901234567`):", delete_incoming_id=message.message_id)
         return
 
     if state == "disp_create_step2":
@@ -440,7 +487,7 @@ async def handle_dispatcher_messages(message: Message):
         sess["state"] = "disp_create_step3"
         sessions[chat_id] = sess
         save_json_file(SESSIONS_FILE, sessions)
-        await message.answer("Шаг 3/4: Введите **Район и Адрес**:")
+        await send_clean_message(bot, message.chat.id, "Шаг 3/4: Введите **Район и Адрес**:", delete_incoming_id=message.message_id)
         return
 
     if state == "disp_create_step3":
@@ -456,14 +503,14 @@ async def handle_dispatcher_messages(message: Message):
         for c in couriers:
             buttons.append([InlineKeyboardButton(text=f"🚚 Назначить лично {c}", callback_data=f"disp_sel_cour_{c}")])
 
-        await message.answer("Шаг 4/4: **Выберите курьера** для назначения на заказ:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+        await send_clean_message(bot, message.chat.id, "Шаг 4/4: **Выберите курьера** для назначения на заказ:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), delete_incoming_id=message.message_id)
         return
 
     if text == "🚚 Назначить курьера":
         sess["state"] = "disp_assign_step1"
         sessions[chat_id] = sess
         save_json_file(SESSIONS_FILE, sessions)
-        await message.answer("🚚 Введите **№ заказа** для назначения курьера (например `5218`):")
+        await send_clean_message(bot, message.chat.id, "🚚 Введите **№ заказа** для назначения курьера (например `5218`):", delete_incoming_id=message.message_id)
         return
 
     if state == "disp_assign_step1":
@@ -478,14 +525,14 @@ async def handle_dispatcher_messages(message: Message):
         for c in couriers:
             buttons.append([InlineKeyboardButton(text=f"🚚 Назначить на {c}", callback_data=f"disp_set_cour_{oid}_{c}")])
 
-        await message.answer(f"🚚 Выберите курьера для заказа №{oid}:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+        await send_clean_message(bot, message.chat.id, f"🚚 Выберите курьера для заказа №{oid}:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), delete_incoming_id=message.message_id)
         return
 
     if text == "🔍 Поиск заказа":
         sess["state"] = "disp_search"
         sessions[chat_id] = sess
         save_json_file(SESSIONS_FILE, sessions)
-        await message.answer("🔍 Введите **номер заказа**, **телефон** или **имя клиента**:")
+        await send_clean_message(bot, message.chat.id, "🔍 Введите **номер заказа**, **телефон** или **имя клиента**:", delete_incoming_id=message.message_id)
         return
 
     if state == "disp_search":
@@ -498,9 +545,10 @@ async def handle_dispatcher_messages(message: Message):
         found = [o for o in orders if q in str(o.get("ID", "")).lower() or q in str(o.get("Телефон", "")).lower() or q in str(o.get("Клиент", "")).lower()]
 
         if not found:
-            await message.answer(f"❌ Заказ '{text}' не найден в системе.")
+            await send_clean_message(bot, message.chat.id, f"❌ Заказ '{text}' не найден в системе.", delete_incoming_id=message.message_id)
             return
 
+        await clean_previous_messages(bot, message.chat.id, delete_incoming_id=message.message_id)
         for o in found[:5]:
             oid = orders_db.normalize_id(o.get("ID"))
             card = (
@@ -516,7 +564,8 @@ async def handle_dispatcher_messages(message: Message):
                 [InlineKeyboardButton(text="🚚 Назначить курьера", callback_data=f"disp_reassign_{oid}")],
                 [InlineKeyboardButton(text="📦 Сменить статус", callback_data=f"disp_st_menu_{oid}")]
             ]
-            await message.answer(card, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="Markdown")
+            c_msg = await bot.send_message(message.chat.id, card, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="Markdown")
+            register_sent_message_id(message.chat.id, c_msg.message_id)
         return
 
     if text == "💬 Написать курьеру":
@@ -526,7 +575,7 @@ async def handle_dispatcher_messages(message: Message):
             buttons.append([InlineKeyboardButton(text=f"✉️ Написать {c}", callback_data=f"disp_msg_cour_{c}")])
         buttons.append([InlineKeyboardButton(text="📢 Рассылка всем курьерам", callback_data="disp_msg_cour_all")])
 
-        await message.answer("💬 Кому хотите отправить сообщение?", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+        await send_clean_message(bot, message.chat.id, "💬 Кому хотите отправить сообщение?", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), delete_incoming_id=message.message_id)
         return
 
     if state == "disp_sending_msg":
@@ -537,15 +586,15 @@ async def handle_dispatcher_messages(message: Message):
 
         if notify_courier_func:
             asyncio.create_task(notify_courier_func(f"💬 **Сообщение от Диспетчера ({username}):**\n\n{text}", target_courier=target_cour))
-        await message.answer(f"✅ Сообщение отправлено курьеру: **{target_cour}**!")
+        await send_clean_message(bot, message.chat.id, f"✅ Сообщение отправлено курьеру: **{target_cour}**!", delete_incoming_id=message.message_id)
         return
 
-    await message.answer(f"👇 Главное меню Диспетчера:\n\n🌐 **CRM WebApp:** {DISPATCHER_WEBAPP_URL}", reply_markup=get_dispatcher_main_keyboard())
+    await send_clean_message(bot, message.chat.id, f"👇 Главное меню Диспетчера:\n\n🌐 **CRM WebApp:** {DISPATCHER_WEBAPP_URL}", reply_markup=get_dispatcher_main_keyboard(), delete_incoming_id=message.message_id)
 
 # --- CALLBACK HANDLERS FOR DISPATCHER ---
 
 @router.callback_query(F.data.startswith("disp_list_"))
-async def cb_disp_list(callback: CallbackQuery):
+async def cb_disp_list(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     cat = callback.data.replace("disp_list_", "")
     orders = orders_db.get_orders()
@@ -564,17 +613,17 @@ async def cb_disp_list(callback: CallbackQuery):
         title = "✅ **Выполненные заказы:**"
 
     if not filtered:
-        await callback.message.answer(f"{title}\n\n📭 Нет заказов в этой категории.")
+        await send_clean_message(bot, callback.message.chat.id, f"{title}\n\n📭 Нет заказов в этой категории.", reply_markup=get_dispatcher_main_keyboard())
         return
 
     msg = f"{title}\n\n"
     for o in filtered[:10]:
         msg += f"🔹 **Заказ №{orders_db.normalize_id(o.get('ID'))}** | {o.get('Клиент')} ({o.get('Телефон')})\n🏠 {o.get('Адрес')}\n🚚 Курьер: {o.get('Курьер')} | Статус: **{o.get('Статус')}**\n\n"
 
-    await callback.message.answer(msg, parse_mode="Markdown")
+    await send_clean_message(bot, callback.message.chat.id, msg, reply_markup=get_dispatcher_main_keyboard(), parse_mode="Markdown")
 
 @router.callback_query(F.data.startswith("disp_sel_cour_"))
-async def cb_disp_sel_cour(callback: CallbackQuery):
+async def cb_disp_sel_cour(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     cour_name = callback.data.replace("disp_sel_cour_", "").strip()
     chat_id = str(callback.message.chat.id)
@@ -618,7 +667,7 @@ async def cb_disp_sel_cour(callback: CallbackQuery):
     sessions[chat_id] = sess
     save_json_file(SESSIONS_FILE, sessions)
 
-    await callback.message.answer(f"🎉 **Заказ №{new_id} успешно оформлен!**\n👤 Клиент: {client}\n📞 Тел: {phone}\n🏠 Адрес: {addr}\n🚚 Курьер: `{assigned_courier}`", reply_markup=get_dispatcher_main_keyboard(), parse_mode="Markdown")
+    await send_clean_message(bot, callback.message.chat.id, f"🎉 **Заказ №{new_id} успешно оформлен!**\n👤 Клиент: {client}\n📞 Тел: {phone}\n🏠 Адрес: {addr}\n🚚 Курьер: `{assigned_courier}`", reply_markup=get_dispatcher_main_keyboard(), parse_mode="Markdown")
 
     if notify_courier_func:
         if cour_name == "all":
@@ -630,7 +679,7 @@ async def cb_disp_sel_cour(callback: CallbackQuery):
             asyncio.create_task(notify_courier_func(f"📥 **Вам назначен новый заказ №{new_id}!**\n👤 Клиент: {client}\n📞 Тел: {phone}\n🏠 Адрес: {addr}", target_courier=cour_name))
 
 @router.callback_query(F.data.startswith("disp_st_menu_"))
-async def cb_disp_st_menu(callback: CallbackQuery):
+async def cb_disp_st_menu(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     oid = orders_db.normalize_id(callback.data.replace("disp_st_menu_", "").strip())
     buttons = [
@@ -639,10 +688,10 @@ async def cb_disp_st_menu(callback: CallbackQuery):
         [InlineKeyboardButton(text="📦 Готов к доставке", callback_data=f"disp_set_st_{oid}_ready")],
         [InlineKeyboardButton(text="✅ Выполнен", callback_data=f"disp_set_st_{oid}_done")]
     ]
-    await callback.message.answer(f"📦 Выберите новый статус для заказа **№{oid}**:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="Markdown")
+    await send_clean_message(bot, callback.message.chat.id, f"📦 Выберите новый статус для заказа **№{oid}**:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="Markdown")
 
 @router.callback_query(F.data.startswith("disp_set_st_"))
-async def cb_disp_set_st(callback: CallbackQuery):
+async def cb_disp_set_st(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     parts = callback.data.split("_")
     if len(parts) < 5:
@@ -668,13 +717,13 @@ async def cb_disp_set_st(callback: CallbackQuery):
             break
 
     save_json_file(BACKUP_FILE, orders)
-    await callback.message.answer(f"✅ **Заказ №{oid} обновлен!** Новый статус: **{new_status}**", parse_mode="Markdown")
+    await send_clean_message(bot, callback.message.chat.id, f"✅ **Заказ №{oid} обновлен!** Новый статус: **{new_status}**", reply_markup=get_dispatcher_main_keyboard(), parse_mode="Markdown")
 
     if notify_courier_func:
         asyncio.create_task(notify_courier_func(f"📲 **Диспетчер изменил статус заказа №{oid} на: {new_status}**", target_courier=cour_name))
 
 @router.callback_query(F.data.startswith("disp_set_cour_"))
-async def cb_disp_set_cour(callback: CallbackQuery):
+async def cb_disp_set_cour(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     parts = callback.data.split("_")
     if len(parts) < 5:
@@ -694,13 +743,13 @@ async def cb_disp_set_cour(callback: CallbackQuery):
             break
 
     save_json_file(BACKUP_FILE, orders)
-    await callback.message.answer(f"✅ **Заказ №{oid} назначен на курьера {cour_name}!**", parse_mode="Markdown")
+    await send_clean_message(bot, callback.message.chat.id, f"✅ **Заказ №{oid} назначен на курьера {cour_name}!**", reply_markup=get_dispatcher_main_keyboard(), parse_mode="Markdown")
 
     if notify_courier_func:
         asyncio.create_task(notify_courier_func(f"🚚 **Вам переназначен заказ №{oid}!**", target_courier=cour_name))
 
 @router.callback_query(F.data.startswith("disp_reassign_"))
-async def cb_disp_reassign(callback: CallbackQuery):
+async def cb_disp_reassign(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     oid = callback.data.replace("disp_reassign_", "").strip()
     couriers = get_couriers_list()
@@ -708,10 +757,10 @@ async def cb_disp_reassign(callback: CallbackQuery):
     for c in couriers:
         buttons.append([InlineKeyboardButton(text=f"🚚 Назначить на {c}", callback_data=f"disp_set_cour_{oid}_{c}")])
 
-    await callback.message.answer(f"🚚 Выберите нового курьера для заказа №{oid}:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+    await send_clean_message(bot, callback.message.chat.id, f"🚚 Выберите нового курьера для заказа №{oid}:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
 
 @router.callback_query(F.data.startswith("disp_msg_cour_"))
-async def cb_disp_msg_cour(callback: CallbackQuery):
+async def cb_disp_msg_cour(callback: CallbackQuery, bot: Bot):
     await callback.answer()
     cour_target = callback.data.replace("disp_msg_cour_", "").strip()
     chat_id = str(callback.message.chat.id)
@@ -722,7 +771,7 @@ async def cb_disp_msg_cour(callback: CallbackQuery):
     sessions[chat_id] = sess
     save_json_file(SESSIONS_FILE, sessions)
 
-    await callback.message.answer(f"💬 Введите **текст сообщения** для `{cour_target}`:")
+    await send_clean_message(bot, callback.message.chat.id, f"💬 Введите **текст сообщения** для `{cour_target}`:")
 
 
 async def handle_dispatcher_webapp_index(request):
