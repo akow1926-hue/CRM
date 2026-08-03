@@ -1903,6 +1903,25 @@ elif role in ["Administrator", "Admin", "Администратор"]:
                     st.rerun()
 
             st.markdown("---")
+            st.markdown("### ⚡ Автоматический Cloudflare Туннель (HTTPS для Telegram)")
+            st.info("💡 Если CRM запущен локально на вашем компьютере, нажмите эту кнопку для автоматического создания HTTPS туннеля через `cloudflared.exe`.")
+
+            c_tun1, c_tun2 = st.columns(2)
+            with c_tun1:
+                if st.button("⚡ Запустить Cloudflare Туннель (run_tunnels.py)", key="btn_run_tunnels", use_container_width=True):
+                    import subprocess
+                    try:
+                        subprocess.Popen([sys.executable, "run_tunnels.py"], cwd=os.getcwd())
+                        st.success("🎉 Cloudflare Туннель запущен! Живые HTTPS-ссылки автоматически привяжутся к ботам.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Ошибка запуска туннеля: {e}")
+
+            with c_tun2:
+                if st.button("🔄 Проверить текущие активные ссылки", key="btn_refresh_urls", use_container_width=True):
+                    st.rerun()
+
+            st.markdown("---")
             st.markdown("### 🤖 Запуск двух Ботов Telegram (Курьер + Диспетчер)")
             st.info("Скрипт `run_bots.py` запускает Бот Курьера и Бот Диспетчера одновременно с веб-сервером WebApp.")
             
