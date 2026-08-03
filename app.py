@@ -567,7 +567,7 @@ def get_tg_config():
     }
 
 
-def save_tg_config(courier_bot_token=None, dispatcher_bot_token=None, chat_id=None, courier_chats=None, dispatcher_chats=None, **kwargs):
+def save_tg_config(courier_bot_token=None, dispatcher_bot_token=None, chat_id=None, courier_chats=None, dispatcher_chats=None, courier_webapp_url=None, dispatcher_webapp_url=None, **kwargs):
     try:
         existing = get_tg_config()
 
@@ -591,7 +591,9 @@ def save_tg_config(courier_bot_token=None, dispatcher_bot_token=None, chat_id=No
             "bot_token": c_token or d_token or existing.get("bot_token", ""),
             "chat_id": c_id,
             "courier_chats": c_chats,
-            "dispatcher_chats": d_chats
+            "dispatcher_chats": d_chats,
+            "courier_webapp_url": str(courier_webapp_url).strip() if courier_webapp_url is not None else existing.get("courier_webapp_url", ""),
+            "dispatcher_webapp_url": str(dispatcher_webapp_url).strip() if dispatcher_webapp_url is not None else existing.get("dispatcher_webapp_url", "")
         }
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -1804,6 +1806,22 @@ elif role in ["Administrator", "Admin", "Администратор"]:
             
             st.caption("💡 Если токен Диспетчера не указан, единый бот будет обрабатывать роли Диспетчера и Курьера автоматически.")
             
+            st.markdown("#### 🌐 Ссылки на WebApp интерфейсы для Ботов Telegram:")
+            w1, w2 = st.columns(2)
+            cour_w_url_input = w1.text_input(
+                "🌐 Ссылка на WebApp Курьера:",
+                value=tg_cfg.get("courier_webapp_url", ""),
+                placeholder="Например: https://crm-cosmo.streamlit.app/webapp",
+                key="admin_tg_cour_w_url"
+            )
+            disp_w_url_input = w2.text_input(
+                "🌐 Ссылка на WebApp Диспетчера:",
+                value=tg_cfg.get("dispatcher_webapp_url", ""),
+                placeholder="Например: https://crm-cosmo.streamlit.app",
+                key="admin_tg_disp_w_url"
+            )
+            st.caption("💡 Укажите рабочую HTTPS ссылку на сайт CRM для открывания WebApp прямо из Telegram.")
+
             main_chat_input = st.text_input("📢 Основной Chat ID (Группа / Чаты Диспетчеров):", value=tg_cfg.get("chat_id", ""), placeholder="-1001234567890 или 12345678", key="admin_tg_main_chat")
             
             st.markdown("#### 👥 Персональные Chat ID курьеров (для уведомлений о новых заказах):")
@@ -1819,9 +1837,16 @@ elif role in ["Administrator", "Admin", "Администратор"]:
                 if cid_val.strip():
                     courier_chats_input[cname] = cid_val.strip()
             
-            if st.button("🚀 Сохранить настройки Telegram Ботов", type="primary", use_container_width=True, key="save_tg_btn"):
-                if save_tg_config(courier_token_input, disp_token_input, main_chat_input, courier_chats_input):
-                    st.success("✅ Настройки ботов Telegram успешно сохранены!")
+            if st.button("🚀 Сохранить настройки Telegram Ботов и WebApp ссылок", type="primary", use_container_width=True, key="save_tg_btn"):
+                if save_tg_config(
+                    courier_bot_token=courier_token_input,
+                    dispatcher_bot_token=disp_token_input,
+                    chat_id=main_chat_input,
+                    courier_chats=courier_chats_input,
+                    courier_webapp_url=cour_w_url_input,
+                    dispatcher_webapp_url=disp_w_url_input
+                ):
+                    st.success("✅ Настройки ботов и ссылки WebApp успешно сохранены!")
                     st.rerun()
 
             st.markdown("---")
