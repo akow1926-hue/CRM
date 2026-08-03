@@ -46,10 +46,18 @@ def load_json_file(filename: str, default: dict | list) -> dict | list:
     return default
 
 def get_courier_webapp_url() -> str:
+    cfg = load_json_file(CONFIG_FILE, {})
+    if isinstance(cfg, dict) and cfg.get("courier_webapp_url"):
+        url = str(cfg.get("courier_webapp_url")).strip()
+        if url:
+            if "mode=" not in url:
+                url = url.rstrip("/") + ("/?mode=courier" if not url.endswith("/webapp") else "")
+            return url
+
     render_url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("WEBAPP_URL") or os.environ.get("COURIER_WEBAPP_URL")
     if render_url:
         url = render_url.rstrip("/")
-        return url if url.endswith("/webapp") else url + "/webapp"
+        return url + "/?mode=courier"
 
     try:
         import streamlit as st
@@ -57,17 +65,11 @@ def get_courier_webapp_url() -> str:
             sec_url = st.secrets.get("courier_webapp_url") or st.secrets.get("WEBAPP_URL") or st.secrets.get("telegram", {}).get("courier_webapp_url")
             if sec_url:
                 url = str(sec_url).rstrip("/")
-                return url if url.endswith("/webapp") else url + "/webapp"
+                return url + "/?mode=courier"
     except Exception:
         pass
 
-    cfg = load_json_file(CONFIG_FILE, {})
-    if isinstance(cfg, dict) and cfg.get("courier_webapp_url"):
-        url = str(cfg.get("courier_webapp_url")).strip()
-        if url:
-            return url
-
-    return "https://crm-cosmo.streamlit.app/webapp"
+    return "https://crm-cosmo.streamlit.app/?mode=courier"
 
 COURIER_WEBAPP_URL = get_courier_webapp_url()
 

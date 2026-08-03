@@ -567,7 +567,29 @@
         document.getElementById('tabDelivery').style.display = 'block';
         event.target.classList.add('active');
       } else if (tabName === 'new') {
-        document.getElementById('tabNew')."    function getNavUrls(loc, address, district) {
+        document.getElementById('tabNew').style.display = 'block';
+        if (event && event.target) event.target.classList.add('active');
+      } else if (tabName === 'calc') {
+        document.getElementById('tabCalc').style.display = 'block';
+        if (event && event.target) event.target.classList.add('active');
+      }
+    }
+
+    async function loadOrders() {
+      try {
+        const res = await fetch('/api/orders');
+        if (res.ok) {
+          ordersData = await res.json();
+        } else if (window.initialOrders) {
+          ordersData = window.initialOrders;
+        }
+      } catch (e) {
+        ordersData = window.initialOrders || [];
+      }
+      renderOrders();
+    }
+
+    function getNavUrls(loc, address, district) {
       let lat = null, lng = null;
       if (loc && typeof loc === 'string') {
         let matches = loc.match(/([0-9]+\.[0-9]+)/g);
@@ -697,18 +719,6 @@
             </div>
           </div>
         `;}).join('');
-      }
-    }"${o.Адрес || '-'}</div>
-            <div style="font-size: 15px; font-weight: 800; color: #facc15; margin-bottom: 10px;">💰 К оплате: ${(o.Сумма || 0).toLocaleString()} сум</div>
-            <div class="card-actions">
-              <a href="${getYandexNavUrl(o.Адрес, o.Район)}" target="_blank" class="btn-nav">📍 Открыть в Навигаторе</a>
-              <div class="action-row">
-                <button onclick="completePayment('${o.ID}', 'Наличные')" class="btn-action">💵 Наличные</button>
-                <button onclick="completePayment('${o.ID}', 'Карта/Click')" class="btn-action" style="background: rgba(59, 130, 246, 0.2); border-color: #3b82f6; color: #60a5fa;">💳 Карта</button>
-              </div>
-            </div>
-          </div>
-        `).join('');
       }
     }
 
