@@ -814,3 +814,27 @@ async def handle_api_measure(request):
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500)
 
+async def handle_api_update_location(request):
+    try:
+        data = await request.json()
+        order_id = str(data.get("orderId", ""))
+        lat = data.get("lat")
+        lng = data.get("lng")
+        loc_str = f"{lat}, {lng}" if (lat and lng) else str(data.get("location", "")).strip()
+
+        orders = load_json_file(BACKUP_FILE, [])
+        found = False
+        for o in orders:
+            if str(o.get("ID")) == order_id:
+                o["Локация"] = loc_str
+                found = True
+                break
+
+        if found:
+            save_json_file(BACKUP_FILE, orders)
+            if notify_dispatcher_func:
+                asyncio.create_task(notify_dispatcher_func(f"📍 **GPS локация заказа №{order_id} обновлена из WebApp!** ({loc_str})"))
+            return web.json_response({"ok": True, "location": loc_str})
+        return web.json_response({"ok": False, "error": f"Заказ №{order_id} не найден"}, status=404)
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500)
