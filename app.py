@@ -429,7 +429,8 @@ def connect_gsheet():
     # 3. Открытие таблицы
     cfg = get_gsheet_config()
     secret_url = safe_get_secret("GSHEET_URL", "").strip()
-    gsheet_url = cfg.get("gsheet_url", "").strip() or secret_url
+    DEFAULT_GSHEET_URL = "https://docs.google.com/spreadsheets/d/1zYbTgS1aQc-1aeP0EeAo-KeohbTAyGYumJLQQxmBZRk/edit"
+    gsheet_url = cfg.get("gsheet_url", "").strip() or secret_url or DEFAULT_GSHEET_URL
 
     sheet_name = "Мойка Ковров CRM"
     try:

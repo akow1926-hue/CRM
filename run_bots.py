@@ -23,13 +23,29 @@ load_dotenv()
 CONFIG_FILE = "telegram_config.json"
 
 def load_config():
+    cfg = {}
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                cfg = json.load(f)
         except Exception as e:
             print(f"[Config Error] {e}")
-    return {}
+
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets"):
+            tg_sec = st.secrets.get("telegram", st.secrets)
+            for k in ["courier_bot_token", "dispatcher_bot_token", "bot_token", "chat_id"]:
+                if not cfg.get(k) and k in tg_sec:
+                    cfg[k] = str(tg_sec[k])
+            if not cfg.get("courier_chats") and "courier_chats" in tg_sec:
+                cfg["courier_chats"] = dict(tg_sec["courier_chats"])
+            if not cfg.get("dispatcher_chats") and "dispatcher_chats" in tg_sec:
+                cfg["dispatcher_chats"] = dict(tg_sec["dispatcher_chats"])
+    except Exception:
+        pass
+
+    return cfg
 
 async def start_web_server():
     try:
