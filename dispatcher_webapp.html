@@ -612,18 +612,25 @@
     }
 
     async function reassignCourier(orderId, newCourier) {
-      ordersData.forEach(o => {
-        if (String(o.ID) === String(orderId)) o.Курьер = newCourier;
-      });
-      renderOrders();
       try {
-        await fetch('/api/orders/update_status', {
+        const res = await fetch('/api/orders/update_status', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ orderId, courier: newCourier })
         });
-      } catch (e) {}
-      alert(`🚚 Заказ №${orderId} переназначен курьеру ${newCourier}!`);
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          alert('⚠️ Ошибка переназначения курьера: ' + (data.error || 'Ошибка сервера'));
+          return;
+        }
+        ordersData.forEach(o => {
+          if (String(o.ID) === String(orderId)) o.Курьер = newCourier;
+        });
+        renderOrders();
+        alert(`🚚 Заказ №${orderId} переназначен курьеру ${newCourier}!`);
+      } catch (e) {
+        alert('⚠️ Ошибка связи с сервером: ' + e.message);
+      }
     }
 
     async function handleCreateOrder(e) {
@@ -646,16 +653,19 @@
           })
         });
         const data = await res.json();
+        if (!res.ok || !data.ok) {
+          alert('⚠️ Ошибка создания заказа: ' + (data.error || 'Ошибка сервера'));
+          return;
+        }
         alert(`🎉 Заказ №${data.orderId || ''} принят и передан курьеру ${courier}!`);
         document.getElementById('newClient').value = '';
         document.getElementById('newPhone').value = '';
         document.getElementById('newAddress').value = '';
         document.getElementById('newComment').value = '';
-        loadOrders();
+        await loadOrders();
         switchTab('orders');
       } catch (err) {
-        alert('🎉 Заказ успешно создан!');
-        switchTab('orders');
+        alert('⚠️ Ошибка связи с сервером: ' + err.message);
       }
     }
 
@@ -675,13 +685,20 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text, courier: targetCourier, sender: currentUser?.username || 'Диспетчер' })
         });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          alert('⚠️ Ошибка отправки сообщения: ' + (data.error || 'Ошибка сервера'));
+          return;
+        }
         alert('🚀 Сообщение успешно отправлено курьеру в Telegram!');
         document.getElementById('msgText').value = '';
       } catch (err) {
-        alert('🚀 Сообщение отправлено!');
-        document.getElementById('msgText').value = '';
+        alert('⚠️ Ошибка связи с сервером: ' + err.message);
       }
     }
+
+    // Auto-polling for order updates every 10 seconds
+    setInterval(loadOrders, 10000);
   </script>
 </body>
 </html>

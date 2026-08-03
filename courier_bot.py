@@ -700,7 +700,13 @@ async def cb_start_calc(callback: CallbackQuery):
 from aiohttp import web
 
 async def handle_webapp_index(request):
-    return web.FileResponse("courier_webapp.html")
+    mode = request.query.get("mode", "").lower()
+    if mode == "dispatcher" or "dispatcher" in request.path:
+        if os.path.exists("dispatcher_webapp.html"):
+            return web.FileResponse("dispatcher_webapp.html")
+    if os.path.exists("courier_webapp.html"):
+        return web.FileResponse("courier_webapp.html")
+    return web.Response(text="<h1>WebApp file not found</h1>", content_type="text/html", status=404)
 
 async def handle_api_login(request):
     try:
@@ -709,6 +715,11 @@ async def handle_api_login(request):
         password = str(data.get("password", "")).strip()
 
         auth = authenticate_courier(login, password)
+        if not auth:
+            # Try dispatcher authentication if courier fails
+            from dispatcher_bot import authenticate_dispatcher
+            auth = authenticate_dispatcher(login, password)
+
         if auth:
             return web.json_response({"ok": True, "user": auth})
         return web.json_response({"ok": False, "error": "Неверный логин или пароль"}, status=400)

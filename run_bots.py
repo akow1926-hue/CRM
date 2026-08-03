@@ -52,6 +52,7 @@ async def start_web_server():
         app = web.Application()
         app.router.add_get("/", courier_bot.handle_webapp_index)
         app.router.add_get("/webapp", courier_bot.handle_webapp_index)
+        app.router.add_get("/dispatcher", courier_bot.handle_webapp_index)
         app.router.add_post("/api/login", courier_bot.handle_api_login)
         app.router.add_get("/api/orders", courier_bot.handle_api_orders)
         app.router.add_post("/api/orders/update_status", courier_bot.handle_api_update_status)

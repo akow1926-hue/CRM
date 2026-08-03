@@ -271,7 +271,40 @@ async def cmd_login(message: Message, bot: Bot):
     else:
         await message.answer("❌ Ошибка входа: у вас нет прав Диспетчера или неверный логин/пароль!")
 
-@router.message(F.text)
+def is_dispatcher_event(message: Message) -> bool:
+    text = (message.text or "").strip()
+    chat_id = str(message.chat.id)
+    sessions = load_json_file(SESSIONS_FILE, {})
+    sess = sessions.get(chat_id, {})
+    username = sess.get("disp_username") or (sess.get("username") if is_dispatcher_role(sess.get("role", "")) else None)
+    role = sess.get("disp_role") or (sess.get("role") if is_dispatcher_role(sess.get("role", "")) else None)
+    state = str(sess.get("state", ""))
+
+    if username and is_dispatcher_role(role):
+        return True
+    if state.startswith("disp_") or state in ["awaiting_login", "awaiting_password"]:
+        return True
+
+    disp_buttons = [
+        "🖥️ Открыть CRM Диспетчера", "➕ Новый заказ", "📋 Список заказов",
+        "🚚 Назначить курьера", "🔍 Поиск заказа", "📊 Статистика",
+        "💬 Написать курьеру"
+    ]
+    if text in disp_buttons:
+        return True
+
+    if sess.get("cour_username") and not sess.get("disp_username"):
+        return False
+
+    words = text.split()
+    if len(words) == 2 and not text.startswith("/"):
+        if authenticate_dispatcher(words[0], words[1]):
+            return True
+        return False
+
+    return False
+
+@router.message(F.text, is_dispatcher_event)
 async def handle_dispatcher_messages(message: Message):
     text = message.text.strip()
     chat_id = str(message.chat.id)
