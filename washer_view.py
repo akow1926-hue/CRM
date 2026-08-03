@@ -41,8 +41,16 @@ def render_washer_view(df, t, washer_name, update_order_func, send_tg_func):
         st.info("В цеху пока нет заказов.")
         return
 
-    # Фильтруем заказы со статусом 'В цеху'
-    wash_mask = df["Статус"].astype(str).str.strip().isin(["В цеху", "Мойка", "В цехе"])
+    # Фильтруем заказы со статусом 'В цеху', 'Мойка', 'В обработке' и т.д.
+    shop_keywords = ["цех", "цеху", "цехе", "мойк", "стирк", "сушк", "обработк", "принят в цех"]
+    
+    def is_in_shop_status(val):
+        s = str(val).strip().lower()
+        if any(w in s for w in ["готов", "выполн", "ожид"]):
+            return False
+        return any(k in s for k in shop_keywords)
+
+    wash_mask = df["Статус"].apply(is_in_shop_status)
     wash_df = df[wash_mask].copy()
 
     in_shop_cnt = len(wash_df)
