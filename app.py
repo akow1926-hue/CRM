@@ -106,8 +106,15 @@ ui_theme.inject_theme()
 def start_background_bots():
     import threading
     import asyncio
+    import importlib
     try:
+        import courier_bot
+        import dispatcher_bot
         import run_bots
+        importlib.reload(courier_bot)
+        importlib.reload(dispatcher_bot)
+        importlib.reload(run_bots)
+
         def run_bots_thread():
             try:
                 loop = asyncio.new_event_loop()
@@ -118,7 +125,7 @@ def start_background_bots():
 
         t = threading.Thread(target=run_bots_thread, daemon=True)
         t.start()
-        print("🤖 [Background Bots] Telegram боты запущены в фоновом потоке!")
+        print("🤖 [Background Bots] Telegram боты запущены в фоновом потоке с обновленными модулями!")
         return t
     except Exception as e:
         print(f"[Background Bot Launch Failed] {e}")
