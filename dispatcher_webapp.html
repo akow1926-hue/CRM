@@ -501,18 +501,36 @@
       if (evt && evt.target) evt.target.classList.add('active');
     }
 
-    async function loadOrders() {
-      try {
-        const res = await fetch('/api/orders');
-        if (res.ok) {
-          ordersData = await res.json();
-        } else if (window.initialOrders) {
-          ordersData = window.initialOrders;
+    function getApiUrl(path) {
+      let base = window.serverApiUrl || '';
+      if (!base) {
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          base = 'http://' + window.location.hostname + ':8080';
+        } else {
+          base = '';
         }
-      } catch (e) {
-        ordersData = window.initialOrders || [];
       }
-      renderOrders();
+      return base ? (base.replace(/\/$/, '') + path) : path;
+    }
+
+    async function loadOrders() {
+      const cached = localStorage.getItem('cosmo_disp_orders');
+      if (cached) {
+        try { ordersData = JSON.parse(cached); } catch (e) {}
+      } else if (window.initialOrders && Array.isArray(window.initialOrders)) {
+        ordersData = window.initialOrders;
+      }
+
+      try {
+        const res = await fetch(getApiUrl('/api/orders'));
+        if (res.ok) {
+          const remoteData = await res.json();
+          if (Array.isArray(remoteData) && remoteData.length > 0) {
+            ordersData = remoteData;
+            localStorage.setItem('cosmo_disp_orders', JSON.stringify(ordersData));
+          }
+        }
+      } catch (e) {}
     }
 
     function getNavUrls(loc, address, district) {
@@ -638,7 +656,7 @@
       document.getElementById('newAddress').value = '';
       document.getElementById('newComment').value = '';
 
-      fetch('/api/orders/create', {
+      fetch(getApiUrl('/api/orders/create'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -662,7 +680,7 @@
       alert('🚀 Сообщение успешно отправлено курьеру в Telegram!');
       document.getElementById('msgText').value = '';
 
-      fetch('/api/notify_couriers', {
+      fetch(getApiUrl('/api/notify_couriers'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, courier: targetCourier, sender: currentUser?.username || 'Диспетчер' })

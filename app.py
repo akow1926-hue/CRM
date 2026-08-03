@@ -39,6 +39,15 @@ if mode in ["courier", "webapp", "mobile"]:
             iframe { width: 100vw !important; height: 100vh !important; min-height: 100vh !important; border: none !important; position: fixed !important; top: 0 !important; left: 0 !important; z-index: 999999 !important; }
         </style>
     """, unsafe_allow_html=True)
+    cfg_api_url = ""
+    if os.path.exists("telegram_config.json"):
+        try:
+            with open("telegram_config.json", "r", encoding="utf-8") as f:
+                cfg_data = json.load(f)
+                cfg_api_url = cfg_data.get("courier_webapp_url", "").replace("/webapp", "").rstrip("/")
+        except Exception:
+            pass
+
     try:
         with open("backup_orders.json", "r", encoding="utf-8") as f:
             orders_data = f.read()
@@ -47,7 +56,7 @@ if mode in ["courier", "webapp", "mobile"]:
     try:
         with open("courier_webapp.html", "r", encoding="utf-8") as f:
             html_code = f.read()
-        injection = f"<script>window.initialOrders = {orders_data};</script>"
+        injection = f"<script>window.initialOrders = {orders_data}; window.serverApiUrl = '{cfg_api_url}';</script>"
         html_code = html_code.replace("</head>", f"{injection}\n</head>")
         components.html(html_code, height=950, scrolling=True)
     except Exception as e:
@@ -63,6 +72,14 @@ elif mode in ["dispatcher", "disp"]:
             iframe { width: 100vw !important; height: 100vh !important; min-height: 100vh !important; border: none !important; position: fixed !important; top: 0 !important; left: 0 !important; z-index: 999999 !important; }
         </style>
     """, unsafe_allow_html=True)
+    cfg_api_url = ""
+    if os.path.exists("telegram_config.json"):
+        try:
+            with open("telegram_config.json", "r", encoding="utf-8") as f:
+                cfg_data = json.load(f)
+                cfg_api_url = cfg_data.get("dispatcher_webapp_url", "").replace("/dispatcher", "").rstrip("/")
+        except Exception:
+            pass
     try:
         with open("backup_orders.json", "r", encoding="utf-8") as f:
             orders_data = f.read()
@@ -71,7 +88,7 @@ elif mode in ["dispatcher", "disp"]:
     try:
         with open("dispatcher_webapp.html", "r", encoding="utf-8") as f:
             html_code = f.read()
-        injection = f"<script>window.initialOrders = {orders_data};</script>"
+        injection = f"<script>window.initialOrders = {orders_data}; window.serverApiUrl = '{cfg_api_url}';</script>"
         html_code = html_code.replace("</head>", f"{injection}\n</head>")
         components.html(html_code, height=950, scrolling=True)
     except Exception as e:

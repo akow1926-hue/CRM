@@ -529,18 +529,40 @@
       if (evt && evt.target) evt.target.classList.add('active');
     }
 
-    async function loadOrders() {
-      try {
-        const res = await fetch('/api/orders');
-        if (res.ok) {
-          ordersData = await res.json();
-        } else if (window.initialOrders) {
-          ordersData = window.initialOrders;
+    function getApiUrl(path) {
+      let base = window.serverApiUrl || '';
+      if (!base) {
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          base = 'http://' + window.location.hostname + ':8080';
+        } else {
+          base = '';
         }
-      } catch (e) {
-        ordersData = window.initialOrders || [];
+      }
+      return base ? (base.replace(/\/$/, '') + path) : path;
+    }
+
+    async function loadOrders() {
+      const cached = localStorage.getItem('cosmo_orders_data');
+      if (cached) {
+        try { ordersData = JSON.parse(cached); } catch (e) {}
+      } else if (window.initialOrders && Array.isArray(window.initialOrders)) {
+        ordersData = window.initialOrders;
       }
       renderOrders();
+
+      try {
+        const res = await fetch(getApiUrl('/api/orders'));
+        if (res.ok) {
+          const remoteData = await res.json();
+          if (Array.isArray(remoteData) && remoteData.length > 0) {
+            ordersData = remoteData;
+            localStorage.setItem('cosmo_orders_data', JSON.stringify(ordersData));
+            renderOrders();
+          }
+        }
+      } catch (e) {
+        // Retain initial / cached orders
+      }
     }
 
     function getNavUrls(loc, address, district) {
@@ -583,17 +605,15 @@
               o.Локация = locStr;
             }
           });
+          localStorage.setItem('cosmo_orders_data', JSON.stringify(ordersData));
           renderOrders();
+          alert(`📍 GPS координаты (${locStr}) успешно привязаны к Заказу №${orderId}!`);
 
-          fetch('/api/orders/update_location', {
+          fetch(getApiUrl('/api/orders/update_location'), {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ orderId: orderId, lat: lat, lng: lng })
-          }).then(r => r.json()).then(data => {
-            alert('✅ GPS геопозиция (' + locStr + ') успешно сохранена!');
-          }).catch(err => {
-            alert('✅ GPS (' + locStr + ') сохранена локально!');
-          });
+          }).catch(err => {});
         }, function(err) {
           alert('⚠️ Ошибка GPS: ' + err.message);
         }, { enableHighAccuracy: true });
@@ -704,7 +724,7 @@
       renderOrders();
       alert(`✅ Заказ №${orderId} переведен в статус: ${newStatus}`);
 
-      fetch('/api/orders/update_status', {
+      fetch(getApiUrl('/api/orders/update_status'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId, status: newStatus, courier: currentUser?.username })
@@ -722,7 +742,7 @@
       renderOrders();
       alert(`🎉 Заказ №${orderId} выполнен! Оплата принята (${payType}).`);
 
-      fetch('/api/orders/update_status', {
+      fetch(getApiUrl('/api/orders/update_status'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId, status: 'Выполнен', payType, courier: currentUser?.username })
@@ -744,7 +764,7 @@
       document.getElementById('resTotal').innerText = total.toLocaleString();
     }
 
-    function saveCalcResult() {
+    async function saveCalcResult() {
       const orderId = document.getElementById('calcOrderId').value;
       const w = parseFloat(document.getElementById('calcW').value) || 0;
       const l = parseFloat(document.getElementById('calcL').value) || 0;
@@ -757,30 +777,23 @@
         return;
       }
 
-      try {
-        const res = await fetch('/api/orders/measure', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId, width: w, length: l, price: p })
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          alert('⚠️ Ошибка сохранения замера: ' + (data.error || 'Ошибка сервера'));
-          return;
+      ordersData.forEach(o => {
+        if (String(o.ID) === String(orderId)) {
+          o['Площадь'] = String(area);
+          o['Сумма'] = String(total);
+          o['Размеры'] = `Ковёр: ${w}x${l}м (${area} кв.м)`;
         }
-        ordersData.forEach(o => {
-          if (String(o.ID) === String(orderId)) {
-            o['Площадь'] = String(area);
-            o['Сумма'] = String(total);
-            o['Размеры'] = `Ковёр: ${w}x${l}м (${area} кв.м)`;
-          }
-        });
-        renderOrders();
-        alert(`✅ Замер для Заказа №${orderId} сохранен (${area} кв.м, ${total.toLocaleString()} сум)!`);
-        switchTab('pickup');
-      } catch (e) {
-        alert('⚠️ Ошибка связи с сервером: ' + e.message);
-      }
+      });
+      localStorage.setItem('cosmo_orders_data', JSON.stringify(ordersData));
+      renderOrders();
+      alert(`✅ Замер для Заказа №${orderId} сохранен (${area} кв.м, ${total.toLocaleString()} сум)!`);
+      switchTab('pickup');
+
+      fetch(getApiUrl('/api/orders/measure'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, width: w, length: l, price: p })
+      }).catch(e => {});
     }
 
     function handleCreateOrder(e) {
@@ -814,7 +827,7 @@
       document.getElementById('newItems').value = '';
       switchTab('pickup');
 
-      fetch('/api/orders/create', {
+      fetch(getApiUrl('/api/orders/create'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ client, phone, district, address, items, courier: currentUser?.username || 'Курьер' })
