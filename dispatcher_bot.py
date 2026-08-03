@@ -46,13 +46,26 @@ def load_json_file(filename: str, default: dict | list) -> dict | list:
     return default
 
 def get_dispatcher_webapp_url() -> str:
-    render_url = os.environ.get("RENDER_EXTERNAL_URL")
+    render_url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("DISPATCHER_WEBAPP_URL")
     if render_url:
         return render_url.rstrip("/")
+
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets"):
+            sec_url = st.secrets.get("dispatcher_webapp_url") or st.secrets.get("DISPATCHER_WEBAPP_URL") or st.secrets.get("telegram", {}).get("dispatcher_webapp_url")
+            if sec_url:
+                return str(sec_url).rstrip("/")
+    except Exception:
+        pass
+
     cfg = load_json_file(CONFIG_FILE, {})
     if isinstance(cfg, dict) and cfg.get("dispatcher_webapp_url"):
-        return cfg.get("dispatcher_webapp_url")
-    return os.environ.get("DISPATCHER_WEBAPP_URL", "https://all-camels-dispatcher.loca.lt")
+        url = str(cfg.get("dispatcher_webapp_url")).strip()
+        if url:
+            return url
+
+    return "https://crm-cosmo.streamlit.app"
 
 DISPATCHER_WEBAPP_URL = get_dispatcher_webapp_url()
 
