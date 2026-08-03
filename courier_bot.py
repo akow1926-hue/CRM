@@ -154,9 +154,8 @@ def get_courier_main_keyboard() -> ReplyKeyboardMarkup:
         kb.append([KeyboardButton(text="📱 Открыть WebApp Курьера", web_app=WebAppInfo(url=url))])
     
     kb.append([KeyboardButton(text="📥 Забор ковров"), KeyboardButton(text="🚚 Доставка ковров")])
-    kb.append([KeyboardButton(text="➕ Новый заказ"), KeyboardButton(text="📏 Замерить ковер")])
-    kb.append([KeyboardButton(text="📋 Мои заказы"), KeyboardButton(text="🔍 Поиск заказа")])
-    kb.append([KeyboardButton(text="🚪 Выйти из аккаунта (/logout)")])
+    kb.append([KeyboardButton(text="➕ Новый заказ"), KeyboardButton(text="📋 Мои заказы")])
+    kb.append([KeyboardButton(text="🔍 Поиск заказа"), KeyboardButton(text="🚪 Выйти из аккаунта (/logout)")])
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
 def parse_coords(location_str: str, district: str = "") -> tuple | None:
@@ -198,8 +197,7 @@ def get_order_inline_actions(order_id: str | int, status: str, address: str, dis
             InlineKeyboardButton(text="📍 Зафиксировать GPS", callback_data=f"cour_loc_{norm_id}")
         ])
         buttons.append([
-            InlineKeyboardButton(text="🧺 Указать детали/кол-во", callback_data=f"cour_items_{norm_id}"),
-            InlineKeyboardButton(text="📏 Замерить", callback_data=f"cour_calc_{norm_id}")
+            InlineKeyboardButton(text="🧺 Указать детали/кол-во", callback_data=f"cour_items_{norm_id}")
         ])
     elif "готов" in st_clean or "достав" in st_clean:
         buttons.append([
@@ -212,8 +210,7 @@ def get_order_inline_actions(order_id: str | int, status: str, address: str, dis
         ])
     else:
         buttons.append([
-            InlineKeyboardButton(text="📦 Изменить статус", callback_data=f"cour_edit_st_{norm_id}"),
-            InlineKeyboardButton(text="📏 Замерить", callback_data=f"cour_calc_{norm_id}")
+            InlineKeyboardButton(text="📦 Изменить статус", callback_data=f"cour_edit_st_{norm_id}")
         ])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -482,20 +479,35 @@ async def handle_courier_messages(message: Message, bot: Bot):
             return
 
         await clean_previous_messages(bot, message.chat.id, delete_incoming_id=message.message_id)
-        h_msg = await bot.send_message(message.chat.id, f"📥 **Заявки на забор ({len(pickup_orders)} шт.):**", parse_mode="Markdown")
+        h_msg = await bot.send_message(message.chat.id, f"📥 <b>Заявки на забор ({len(pickup_orders)} шт.):</b>", parse_mode="HTML")
         register_sent_message_id(message.chat.id, h_msg.message_id)
 
-        for o in pickup_orders[:8]:
+        for o in pickup_orders[:10]:
             o_id = orders_db.normalize_id(o.get("ID"))
+            c_name = html.escape(str(o.get('Клиент', '-')))
+            p_phone = format_phone(str(o.get('Телефон', '-')))
+            c_dist = html.escape(str(o.get('Район', 'Самарканд')))
+            c_addr = html.escape(str(o.get('Адрес', '-')))
+            c_items = html.escape(str(o.get('Размеры', '-')))
+
             card = (
-                f"📥 **ЗАБОР №{o_id}**\n"
-                f"👤 **Клиент:** {o.get('Клиент')}\n"
-                f"📞 **Тел:** `{format_phone(str(o.get('Телефон')))}`\n"
-                f"🏠 **Адрес:** {o.get('Район')}, {o.get('Адрес')}\n"
-                f"🧺 **Детали:** {o.get('Размеры')}"
+                f"📥 <b>ЗАБОР №{o_id}</b>\n\n"
+                f"👤 <b>Клиент:</b> {c_name}\n"
+                f"📞 <b>Тел:</b> <code>{p_phone}</code>\n"
+                f"🏠 <b>Адрес:</b> {c_dist}, {c_addr}\n"
+                f"🧺 <b>Детали:</b> {c_items}"
             )
-            c_msg = await bot.send_message(message.chat.id, card, reply_markup=get_order_inline_actions(o_id, o.get("Статус"), o.get("Адрес", ""), o.get("Район", ""), o.get("Локация", "")), parse_mode="Markdown")
-            register_sent_message_id(message.chat.id, c_msg.message_id)
+            actions_kb = get_order_inline_actions(o_id, o.get("Статус", "Забор"), o.get("Адрес", ""), o.get("Район", ""), o.get("Локация", ""))
+            try:
+                c_msg = await bot.send_message(message.chat.id, card, reply_markup=actions_kb, parse_mode="HTML")
+                register_sent_message_id(message.chat.id, c_msg.message_id)
+            except Exception as ex:
+                print(f"[Pickup Card Error] {ex}")
+                try:
+                    c_msg = await bot.send_message(message.chat.id, card, reply_markup=actions_kb)
+                    register_sent_message_id(message.chat.id, c_msg.message_id)
+                except Exception:
+                    pass
         return
 
     if text in ["🚚 Доставка ковров", "Доставка"]:
@@ -506,20 +518,41 @@ async def handle_courier_messages(message: Message, bot: Bot):
             return
 
         await clean_previous_messages(bot, message.chat.id, delete_incoming_id=message.message_id)
-        h_msg = await bot.send_message(message.chat.id, f"🚚 **Заказы на доставку ({len(delivery_orders)} шт.):**", parse_mode="Markdown")
+        h_msg = await bot.send_message(message.chat.id, f"🚚 <b>Заказы на доставку ({len(delivery_orders)} шт.):</b>", parse_mode="HTML")
         register_sent_message_id(message.chat.id, h_msg.message_id)
 
-        for o in delivery_orders[:8]:
+        for o in delivery_orders[:10]:
             o_id = orders_db.normalize_id(o.get("ID"))
+            c_name = html.escape(str(o.get('Клиент', '-')))
+            p_phone = format_phone(str(o.get('Телефон', '-')))
+            c_dist = html.escape(str(o.get('Район', 'Самарканд')))
+            c_addr = html.escape(str(o.get('Адрес', '-')))
+            c_items = html.escape(str(o.get('Размеры', '-')))
+            c_sum = str(o.get('Сумма', '0'))
+
             card = (
-                f"🚚 **ДОСТАВКА №{o_id}**\n"
-                f"👤 **Клиент:** {o.get('Клиент')}\n"
-                f"📞 **Тел:** `{format_phone(str(o.get('Телефон')))}`\n"
-                f"🏠 **Адрес:** {o.get('Район')}, {o.get('Адрес')}\n"
-                f"💰 **К оплате:** `{o.get('Сумма')}` сум"
+                f"🚚 <b>ДОСТАВКА №{o_id}</b>\n\n"
+                f"👤 <b>Клиент:</b> {c_name}\n"
+                f"📞 <b>Тел:</b> <code>{p_phone}</code>\n"
+                f"🏠 <b>Адрес:</b> {c_dist}, {c_addr}\n"
+                f"🧺 <b>Содержимое:</b> {c_items}\n"
+                f"💰 <b>К оплате:</b> <code>{c_sum} сум</code>"
             )
-            c_msg = await bot.send_message(message.chat.id, card, reply_markup=get_order_inline_actions(o_id, o.get("Статус"), o.get("Адрес", ""), o.get("Район", ""), o.get("Локация", "")), parse_mode="Markdown")
-            register_sent_message_id(message.chat.id, c_msg.message_id)
+            actions_kb = get_order_inline_actions(o_id, o.get("Статус", "Готов"), o.get("Адрес", ""), o.get("Район", ""), o.get("Локация", ""))
+            try:
+                c_msg = await bot.send_message(message.chat.id, card, reply_markup=actions_kb, parse_mode="HTML")
+                register_sent_message_id(message.chat.id, c_msg.message_id)
+            except Exception as ex:
+                print(f"[Delivery Card Error] {ex}")
+                try:
+                    c_msg = await bot.send_message(message.chat.id, card, reply_markup=actions_kb)
+                    register_sent_message_id(message.chat.id, c_msg.message_id)
+                except Exception:
+                    pass
+        return
+
+    if text in ["📏 Замерить ковер", "Замерить"]:
+        await send_clean_message(bot, message.chat.id, "📏 **Замер ковров выполняется мастером цеха в системе CRM.**", delete_incoming_id=message.message_id)
         return
 
     if text == "📋 Мои заказы":

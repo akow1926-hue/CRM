@@ -548,7 +548,7 @@
         const res = await fetch(getApiUrl('/api/orders?_t=' + Date.now()));
         if (res.ok) {
           const remoteData = await res.json();
-          if (Array.isArray(remoteData)) {
+          if (Array.isArray(remoteData) && remoteData.length > 0) {
             ordersData = remoteData;
             localStorage.setItem('cosmo_orders_data', JSON.stringify(ordersData));
             renderOrders();
@@ -559,11 +559,14 @@
         console.warn('API fetch warning:', e);
       }
 
-      const cached = localStorage.getItem('cosmo_orders_data');
-      if (cached) {
-        try { ordersData = JSON.parse(cached); } catch (e) {}
-      } else if (window.initialOrders && Array.isArray(window.initialOrders)) {
+      if (window.initialOrders && Array.isArray(window.initialOrders) && window.initialOrders.length > 0) {
         ordersData = window.initialOrders;
+        localStorage.setItem('cosmo_orders_data', JSON.stringify(ordersData));
+      } else {
+        const cached = localStorage.getItem('cosmo_orders_data');
+        if (cached) {
+          try { ordersData = JSON.parse(cached); } catch (e) {}
+        }
       }
       renderOrders();
     }
@@ -672,8 +675,7 @@
               </div>
               <button onclick="sendGPSForOrder('${o.ID}')" class="btn-action" style="width:100%; margin-bottom:8px; background:rgba(16, 185, 129, 0.2); border-color:#10b981; color:#10b981;">📍 Передать мои GPS координаты</button>
               <div class="action-row">
-                <button onclick="updateStatus('${o.ID}', 'В цеху')" class="btn-action">🚗 Забрал (В цех)</button>
-                <button onclick="openCalcFor('${o.ID}')" class="btn-action" style="background: rgba(250, 204, 21, 0.2); border-color: #facc15; color: #facc15;">📏 Замерить</button>
+                <button onclick="updateStatus('${o.ID}', 'В цеху')" class="btn-action" style="width:100%;">🚗 Забрал (В цех)</button>
               </div>
             </div>
           </div>
