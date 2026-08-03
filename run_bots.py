@@ -130,8 +130,6 @@ async def main():
                         await target_bot.send_message(chat_id=c_id, text=text, parse_mode="Markdown", reply_markup=reply_markup)
                     except Exception as e:
                         print(f"[Notify Courier Error] {e}")
-                    except Exception as e:
-                        print(f"[Notify Courier Error] {e}")
 
     courier_bot.set_notify_dispatcher_hook(notify_dispatchers)
     dispatcher_bot.set_notify_courier_hook(notify_courier)

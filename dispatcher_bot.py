@@ -448,9 +448,11 @@ async def handle_dispatcher_messages(message: Message):
         save_json_file(SESSIONS_FILE, sessions)
 
         couriers = get_couriers_list()
-        buttons = []
+        buttons = [
+            [InlineKeyboardButton(text="📢 Отправить ВСЕМ курьерам (Кто первый заберёт)", callback_data="disp_sel_cour_all")]
+        ]
         for c in couriers:
-            buttons.append([InlineKeyboardButton(text=f"🚚 {c}", callback_data=f"disp_sel_cour_{c}")])
+            buttons.append([InlineKeyboardButton(text=f"🚚 Назначить лично {c}", callback_data=f"disp_sel_cour_{c}")])
 
         await message.answer("Шаг 4/4: **Выберите курьера** для назначения на заказ:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
         return
@@ -583,6 +585,7 @@ async def cb_disp_sel_cour(callback: CallbackQuery):
 
     new_id = get_next_order_id()
     now_str = datetime.now().strftime("%d.%m.%Y, %H:%M:%S")
+    assigned_courier = "Не назначен" if cour_name == "all" else cour_name
 
     new_order = {
         "ID": str(new_id),
@@ -594,7 +597,7 @@ async def cb_disp_sel_cour(callback: CallbackQuery):
         "Площадь": "0",
         "Сумма": "0",
         "Статус": "Ожидает забора",
-        "Курьер": cour_name,
+        "Курьер": assigned_courier,
         "Диспетчер": username,
         "Район": "Самарканд",
         "Язык": "Русский язык",
@@ -612,10 +615,60 @@ async def cb_disp_sel_cour(callback: CallbackQuery):
     sessions[chat_id] = sess
     save_json_file(SESSIONS_FILE, sessions)
 
-    await callback.message.answer(f"🎉 **Заказ №{new_id} успешно оформлен!**\n👤 Клиент: {client}\n📞 Тел: {phone}\n🏠 Адрес: {addr}\n🚚 Назначен курьер: `{cour_name}`", reply_markup=get_dispatcher_main_keyboard(), parse_mode="Markdown")
+    await callback.message.answer(f"🎉 **Заказ №{new_id} успешно оформлен!**\n👤 Клиент: {client}\n📞 Тел: {phone}\n🏠 Адрес: {addr}\n🚚 Курьер: `{assigned_courier}`", reply_markup=get_dispatcher_main_keyboard(), parse_mode="Markdown")
 
     if notify_courier_func:
-        asyncio.create_task(notify_courier_func(f"📥 **Вам назначен новый заказ №{new_id}!**\n👤 Клиент: {client}\n📞 Тел: {phone}\n🏠 Адрес: {addr}", target_courier=cour_name))
+        if cour_name == "all":
+            claim_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text=f"📥 Принять заказ №{new_id}", callback_data=f"cour_claim_{new_id}")]
+            ])
+            asyncio.create_task(notify_courier_func(f"📥 **Новый заказ №{new_id}!Кто первый заберёт?**\n👤 Клиент: {client}\n📞 Тел: {phone}\n🏠 Адрес: {addr}", target_courier="all", reply_markup=claim_kb))
+        else:
+            asyncio.create_task(notify_courier_func(f"📥 **Вам назначен новый заказ №{new_id}!**\n👤 Клиент: {client}\n📞 Тел: {phone}\n🏠 Адрес: {addr}", target_courier=cour_name))
+
+@router.callback_query(F.data.startswith("disp_st_menu_"))
+async def cb_disp_st_menu(callback: CallbackQuery):
+    await callback.answer()
+    oid = callback.data.replace("disp_st_menu_", "").strip()
+    buttons = [
+        [InlineKeyboardButton(text="📥 Ожидает забора", callback_data=f"disp_set_st_{oid}_pickup")],
+        [InlineKeyboardButton(text="🧺 В цеху", callback_data=f"disp_set_st_{oid}_shop")],
+        [InlineKeyboardButton(text="📦 Готов к доставке", callback_data=f"disp_set_st_{oid}_ready")],
+        [InlineKeyboardButton(text="✅ Выполнен", callback_data=f"disp_set_st_{oid}_done")]
+    ]
+    await callback.message.answer(f"📦 Выберите новый статус для заказа **№{oid}**:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="Markdown")
+
+@router.callback_query(F.data.startswith("disp_set_st_"))
+async def cb_disp_set_st(callback: CallbackQuery):
+    await callback.answer()
+    parts = callback.data.split("_")
+    if len(parts) < 5:
+        return
+
+    oid = parts[3]
+    st_code = parts[4]
+
+    st_map = {
+        "pickup": "Ожидает забора",
+        "shop": "В цеху",
+        "ready": "Готов к доставке",
+        "done": "Выполнен"
+    }
+    new_status = st_map.get(st_code, "В обработке")
+
+    orders = load_json_file(BACKUP_FILE, [])
+    cour_name = "Не назначен"
+    for o in orders:
+        if str(o.get("ID")) == str(oid):
+            o["Статус"] = new_status
+            cour_name = str(o.get("Курьер", "all"))
+            break
+
+    save_json_file(BACKUP_FILE, orders)
+    await callback.message.answer(f"✅ **Заказ №{oid} обновлен!** Новый статус: **{new_status}**", parse_mode="Markdown")
+
+    if notify_courier_func:
+        asyncio.create_task(notify_courier_func(f"📲 **Диспетчер изменил статус заказа №{oid} на: {new_status}**", target_courier=cour_name))
 
 @router.callback_query(F.data.startswith("disp_set_cour_"))
 async def cb_disp_set_cour(callback: CallbackQuery):
@@ -667,6 +720,7 @@ async def cb_disp_msg_cour(callback: CallbackQuery):
     save_json_file(SESSIONS_FILE, sessions)
 
     await callback.message.answer(f"💬 Введите **текст сообщения** для `{cour_target}`:")
+
 
 async def handle_dispatcher_webapp_index(request):
     try:

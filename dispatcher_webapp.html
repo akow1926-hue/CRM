@@ -353,9 +353,10 @@
     <button onclick="logout()" class="btn-logout">🚪 Выйти</button>
   </div>
 
-  <!-- 2 SIMPLE TABS ONLY -->
+  <!-- 3 TABS -->
   <div class="tabs-nav">
     <button class="tab-btn active" onclick="switchTab('new', event)">📥 Принять заказ</button>
+    <button class="tab-btn" onclick="switchTab('orders', event)">📋 Заказы</button>
     <button class="tab-btn" onclick="switchTab('msg', event)">💬 Написать курьерам</button>
   </div>
 
@@ -413,6 +414,14 @@
           <button type="submit" class="btn-primary">🚀 Принять заказ</button>
         </form>
       </div>
+    </div>
+
+    <!-- TAB 2: ВСЕ ЗАКАЗЫ И ПОИСК -->
+    <div id="tabOrders" class="tab-content" style="display:none;">
+      <div class="form-group" style="margin-bottom: 14px;">
+        <input type="text" id="searchQuery" class="form-input" placeholder="🔍 Поиск по ID, клиенту, телефону, адресу..." oninput="renderOrders()">
+      </div>
+      <div id="ordersList"></div>
     </div>
 
     <!-- TAB 3: НАПИСАТЬ КУРЬЕРАМ -->
@@ -491,6 +500,10 @@
       document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
 
       if (tabName === 'msg') document.getElementById('tabMsg').style.display = 'block';
+      else if (tabName === 'orders') {
+        document.getElementById('tabOrders').style.display = 'block';
+        renderOrders();
+      }
       else document.getElementById('tabNew').style.display = 'block';
 
       if (evt && evt.target) evt.target.classList.add('active');

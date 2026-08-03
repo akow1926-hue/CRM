@@ -743,8 +743,48 @@ async def cb_start_calc(callback: CallbackQuery):
 
     await callback.message.answer(f"📏 Замер для №{order_id}: Введите Ширину и Длину через пробел (например: `2.5 3.0`):")
 
+@router.callback_query(F.data.startswith("cour_loc_"))
+async def cb_request_loc(callback: CallbackQuery):
+    await callback.answer()
+    order_id = callback.data.replace("cour_loc_", "").strip()
+    chat_id = str(callback.message.chat.id)
+    sessions = load_json_file(SESSIONS_FILE, {})
+    sess = sessions.get(chat_id, {})
+    sess["pending_loc_order"] = order_id
+    sessions[chat_id] = sess
+    save_json_file(SESSIONS_FILE, sessions)
+
+    loc_kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=f"📍 Поделиться геопозицией Заказа №{order_id}", request_location=True)],
+            [KeyboardButton(text="❌ Отмена")]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
+
+    await callback.message.answer(
+        f"📍 **Фиксация GPS координаты для Заказа №{order_id}:**\n\n"
+        f"Пожалуйста, нажмите яркую кнопку ниже **«📍 Поделиться геопозицией Заказа №{order_id}»** или отправьте локацию в чат (📎 Скрепка -> Локация).\n\n"
+        f"Бот автоматически привяжет точные GPS координаты клиента к карточке заказа в CRM!",
+        reply_markup=loc_kb,
+        parse_mode="Markdown"
+    )
+
+@router.callback_query(F.data.startswith("cour_edit_st_"))
+async def cb_edit_st_menu(callback: CallbackQuery):
+    await callback.answer()
+    order_id = callback.data.replace("cour_edit_st_", "").strip()
+    buttons = [
+        [InlineKeyboardButton(text="🚗 Забрать в цех", callback_data=f"cour_st_shop_{order_id}")],
+        [InlineKeyboardButton(text="💵 Доставлено (Наличные)", callback_data=f"cour_pay_cash_{order_id}")],
+        [InlineKeyboardButton(text="💳 Доставлено (Карта/Click)", callback_data=f"cour_pay_card_{order_id}")]
+    ]
+    await callback.message.answer(f"📦 Выберите новый статус для заказа **№{order_id}**:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="Markdown")
+
 
 # --- AIOHTTP REST API HANDLERS FOR WEBAPP ---
+
 from aiohttp import web
 
 async def handle_webapp_index(request):
@@ -943,6 +983,16 @@ async def handle_api_update_location(request):
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500)
 
+@router.message(F.text == "❌ Отмена")
+async def cancel_location_request(message: Message):
+    chat_id = str(message.chat.id)
+    sessions = load_json_file(SESSIONS_FILE, {})
+    sess = sessions.get(chat_id, {})
+    sess.pop("pending_loc_order", None)
+    sessions[chat_id] = sess
+    save_json_file(SESSIONS_FILE, sessions)
+    await message.answer("❌ Фиксация GPS отменена.", reply_markup=get_courier_main_keyboard())
+
 @router.message(F.location)
 async def handle_user_location(message: Message, bot: Bot):
     chat_id = str(message.chat.id)
@@ -983,15 +1033,18 @@ async def handle_user_location(message: Message, bot: Bot):
         save_json_file(SESSIONS_FILE, sessions)
 
         reply_txt = (
-            f"✅ **GPS Геолокация получена и сохранена!**\n\n"
+            f"🎉 **GPS Геолокация получена и успешно привязана к заказу!**\n\n"
             f"📦 **Заказ №:** `{o_id}`\n"
-            f"📍 **Координаты:** `{loc_str}`\n"
-            f"👤 **Клиент:** {active_order.get('Клиент', '-')}\n\n"
-            f"🧭 [Открыть на Яндекс.Картах](https://yandex.ru/maps/?rtext=~{lat},{lng}&rtt=auto)"
+            f"👤 **Клиент:** {active_order.get('Клиент', '-')}\n"
+            f"🏠 **Адрес:** {active_order.get('Район', '')}, {active_order.get('Адрес', '')}\n"
+            f"📍 **Координаты:** `{loc_str}`\n\n"
+            f"🧭 [Яндекс.Навигатор](yandexnavi://build_route_on_map?lat_to={lat}&lon_to={lng}) | "
+            f"🗺️ [Яндекс.Карты](https://yandex.ru/maps/?rtext=~{lat},{lng}&rtt=auto) | "
+            f"📍 [Google Maps](https://www.google.com/maps/dir/?api=1&destination={lat},{lng})"
         )
-        await message.answer(reply_txt, parse_mode="Markdown")
+        await message.answer(reply_txt, reply_markup=get_courier_main_keyboard(), parse_mode="Markdown")
 
         if notify_dispatcher_func:
-            asyncio.create_task(notify_dispatcher_func(f"📍 **Курьер {username} передал GPS клиента для Заказа №{o_id}!** ({loc_str})"))
+            asyncio.create_task(notify_dispatcher_func(f"📍 **Курьер {username} зафиксировал GPS клиента для Заказа №{o_id}!** ({loc_str})"))
     else:
-        await message.answer(f"📍 **Ваши координаты получены:** `{loc_str}`\n⚠️ Нет активного заказа для привязки.", parse_mode="Markdown")
+        await message.answer(f"📍 **Ваши координаты получены:** `{loc_str}`\n⚠️ Нет активного заказа для привязки.", reply_markup=get_courier_main_keyboard(), parse_mode="Markdown")
