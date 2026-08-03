@@ -18,10 +18,12 @@ from aiogram.types import (
     WebAppInfo,
     MenuButtonWebApp,
     Message,
-    CallbackQuery
+    CallbackQuery,
+    BufferedInputFile
 )
 
 import orders_db
+import receipt_generator
 
 # utf-8 for Windows console
 if hasattr(sys.stdout, 'reconfigure'):
@@ -201,6 +203,10 @@ def get_order_inline_actions(order_id: str | int, status: str, address: str, dis
         ])
     elif "готов" in st_clean or "достав" in st_clean:
         buttons.append([
+            InlineKeyboardButton(text="🧭 Маршрут до клиента", callback_data=f"cour_route_{norm_id}"),
+            InlineKeyboardButton(text="🧾 Выдать чек", callback_data=f"cour_receipt_{norm_id}")
+        ])
+        buttons.append([
             InlineKeyboardButton(text="💵 Доставлено (Наличные)", callback_data=f"cour_pay_cash_{norm_id}"),
             InlineKeyboardButton(text="💳 Доставлено (Карта/Click)", callback_data=f"cour_pay_card_{norm_id}")
         ])
@@ -218,6 +224,40 @@ notify_dispatcher_func = None
 def set_notify_dispatcher_hook(fn):
     global notify_dispatcher_func
     notify_dispatcher_func = fn
+
+async def clean_previous_messages(bot: Bot, chat_id: int | str, delete_incoming_id: int = None):
+    """Стирает старые сообщения бота в чате для поддержания чистоты и аккуратности"""
+    chat_id_str = str(chat_id)
+    sessions = load_json_file(SESSIONS_FILE, {})
+    sess = sessions.get(chat_id_str, {})
+    old_msg_ids = sess.get("last_msg_ids", [])
+
+    if delete_incoming_id:
+        try:
+            await bot.delete_message(chat_id, delete_incoming_id)
+        except Exception:
+            pass
+
+    for mid in old_msg_ids:
+        try:
+            await bot.delete_message(chat_id, mid)
+        except Exception:
+            pass
+
+    sess["last_msg_ids"] = []
+    sessions[chat_id_str] = sess
+    save_json_file(SESSIONS_FILE, sessions)
+
+def register_sent_message_id(chat_id: int | str, msg_id: int):
+    chat_id_str = str(chat_id)
+    sessions = load_json_file(SESSIONS_FILE, {})
+    sess = sessions.get(chat_id_str, {})
+    old = sess.get("last_msg_ids", [])
+    if msg_id not in old:
+        old.append(msg_id)
+    sess["last_msg_ids"] = old[-5:]
+    sessions[chat_id_str] = sess
+    save_json_file(SESSIONS_FILE, sessions)
 
 router = Router()
 
@@ -744,6 +784,90 @@ async def cb_pay_done(callback: CallbackQuery):
 
     if notify_dispatcher_func:
         asyncio.create_task(notify_dispatcher_func(f"💵 **Курьер {username} доставил заказ №{order_id}!**\nСумма: {sum_val} сум ({pay_type_name})"))
+
+@router.callback_query(F.data.startswith("cour_route_"))
+async def cb_cour_route(callback: CallbackQuery):
+    await callback.answer()
+    order_id = orders_db.normalize_id(callback.data.replace("cour_route_", "").strip())
+    orders = orders_db.get_orders()
+    target_order = None
+    for o in orders:
+        if orders_db.normalize_id(o.get("ID")) == order_id:
+            target_order = o
+            break
+
+    if not target_order:
+        await callback.message.answer("❌ Заказ не найден!")
+        return
+
+    loc = target_order.get("Локация", "")
+    address = target_order.get("Адрес", "")
+    district = target_order.get("Район", "")
+
+    parsed = parse_coords(loc, district)
+    if parsed:
+        lat, lng, _ = parsed
+        navi_url = f"yandexnavi://build_route_on_map?lat_to={lat}&lon_to={lng}"
+        ymaps_url = f"https://yandex.ru/maps/?rtext=~{lat},{lng}&rtt=auto"
+        gmaps_url = f"https://www.google.com/maps/dir/?api=1&destination={lat},{lng}"
+        
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🧭 Открыть в Яндекс.Навигаторе", url=navi_url)],
+            [InlineKeyboardButton(text="🗺️ Открыть в Яндекс.Картах", url=ymaps_url)],
+            [InlineKeyboardButton(text="📍 Открыть в Google Maps", url=gmaps_url)]
+        ])
+        msg_text = (
+            f"🧭 **Маршрут доставки до клиента (Заказ №{order_id}):**\n\n"
+            f"👤 **Клиент:** {target_order.get('Клиент')}\n"
+            f"📞 **Тел:** `{target_order.get('Телефон')}`\n"
+            f"🏠 **Адрес:** {district}, {address}\n"
+            f"📍 **GPS Координаты:** `{lat}, {lng}`\n\n"
+            f"Нажмите кнопку ниже для авто-прокладки маршрута в навигаторе 👇"
+        )
+    else:
+        full_addr = f"Самарканд {district} {address}".strip()
+        encoded = urllib.parse.quote(full_addr)
+        ymaps_url = f"https://yandex.ru/maps/?text={encoded}"
+        
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🗺️ Поиск адреса в Яндекс.Картах", url=ymaps_url)]
+        ])
+        msg_text = (
+            f"🗺️ **Поиск адреса клиента (Заказ №{order_id}):**\n\n"
+            f"👤 **Клиент:** {target_order.get('Клиент')}\n"
+            f"📞 **Тел:** `{target_order.get('Телефон')}`\n"
+            f"🏠 **Адрес:** {district}, {address}\n\n"
+            f"💡 Точные GPS координаты не зафиксированы. Используйте кнопку ниже для поиска адреса в Картах 👇"
+        )
+
+    await callback.message.answer(msg_text, reply_markup=kb, parse_mode="Markdown")
+
+@router.callback_query(F.data.startswith("cour_receipt_"))
+async def cb_cour_receipt(callback: CallbackQuery):
+    await callback.answer()
+    order_id = orders_db.normalize_id(callback.data.replace("cour_receipt_", "").strip())
+    orders = orders_db.get_orders()
+    target_order = None
+    for o in orders:
+        if orders_db.normalize_id(o.get("ID")) == order_id:
+            target_order = o
+            break
+
+    if not target_order:
+        await callback.message.answer("❌ Заказ не найден!")
+        return
+
+    receipt_text = receipt_generator.generate_receipt_text(target_order)
+    receipt_html = receipt_generator.generate_receipt_html(target_order)
+    
+    receipt_bytes = receipt_html.encode('utf-8')
+    input_file = BufferedInputFile(receipt_bytes, filename=f"Receipt_Order_{order_id}.html")
+
+    await callback.message.answer_document(
+        document=input_file,
+        caption=receipt_text,
+        parse_mode="Markdown"
+    )
 
 @router.callback_query(F.data.startswith("cour_calc_"))
 async def cb_start_calc(callback: CallbackQuery):
