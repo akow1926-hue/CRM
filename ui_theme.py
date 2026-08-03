@@ -1,6 +1,8 @@
 import os
 import base64
+import io
 import streamlit as st
+from PIL import Image
 
 def get_dark_theme_css():
     # Premium Indigo-Slate & Warm Amber Gold Palette Tokens (Compact Sizing)
@@ -540,33 +542,17 @@ def get_dark_theme_css():
 def inject_theme():
     st.session_state["dark_mode"] = True
     st.markdown(get_dark_theme_css(), unsafe_allow_html=True)
-    st.markdown("""
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <meta name="mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-        <meta name="theme-color" content="#0b1120">
-        <link rel="manifest" href="/manifest.json">
-        <link rel="apple-touch-icon" href="/cosmo_logo.jpg">
-        <script>
-        if ('serviceWorker' in navigator) {
-          window.addEventListener('load', function() {
-            navigator.serviceWorker.register('/sw.js').then(function(reg) {
-              console.log('PWA SW Registered!', reg.scope);
-            }).catch(function(err) {
-              console.log('PWA SW Fail:', err);
-            });
-          });
-        }
-        </script>
-    """, unsafe_allow_html=True)
 
+@st.cache_data
 def get_logo_base64():
     if os.path.exists("cosmo_logo.jpg"):
         try:
-            with open("cosmo_logo.jpg", "rb") as f:
-                return base64.b64encode(f.read()).decode("utf-8")
-        except Exception:
+            img = Image.open("cosmo_logo.jpg")
+            img.thumbnail((72, 72))
+            buf = io.BytesIO()
+            img.convert("RGB").save(buf, format="JPEG", quality=85)
+            return base64.b64encode(buf.getvalue()).decode("utf-8")
+        except Exception as e:
             pass
     return ""
 
