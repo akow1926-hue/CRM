@@ -138,12 +138,41 @@ def get_courier_main_keyboard() -> ReplyKeyboardMarkup:
     kb.append([KeyboardButton(text="🚪 Выйти из аккаунта (/logout)")])
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
+def parse_coords(location_str: str, district: str = "") -> tuple | None:
+    if location_str and isinstance(location_str, str):
+        numbers = re.findall(r"[0-9]+\.[0-9]+", location_str)
+        if len(numbers) >= 2:
+            n1, n2 = float(numbers[0]), float(numbers[1])
+            if 30.0 <= n1 <= 45.0 and 60.0 <= n2 <= 75.0:
+                return n1, n2, True
+            elif 60.0 <= n1 <= 75.0 and 30.0 <= n2 <= 45.0:
+                return n2, n1, True
+    return None
+
 def get_order_inline_actions(order_id: str | int, status: str, address: str, district: str, location_str: str = "") -> InlineKeyboardMarkup:
-    nav_url = get_yandex_nav_url(address, district, location_str)
     st_clean = str(status).lower()
     buttons = []
 
-    buttons.append([InlineKeyboardButton(text="📍 Открыть в Навигаторе", url=nav_url)])
+    parsed = parse_coords(location_str, district)
+    if parsed:
+        lat, lng, _ = parsed
+        navi_url = f"yandexnavi://build_route_on_map?lat_to={lat}&lon_to={lng}"
+        ymaps_url = f"https://yandex.ru/maps/?rtext=~{lat},{lng}&rtt=auto"
+        gmaps_url = f"https://www.google.com/maps/dir/?api=1&destination={lat},{lng}"
+        buttons.append([
+            InlineKeyboardButton(text="🧭 Я.Навигатор", url=navi_url),
+            InlineKeyboardButton(text="🗺️ Я.Карты", url=ymaps_url),
+            InlineKeyboardButton(text="📍 Google Maps", url=gmaps_url)
+        ])
+    else:
+        full_addr = f"Самарканд {district} {address}".strip()
+        encoded = urllib.parse.quote(full_addr)
+        ymaps_url = f"https://yandex.ru/maps/?text={encoded}"
+        buttons.append([InlineKeyboardButton(text="🗺️ Открыть адрес в Я.Картах", url=ymaps_url)])
+
+    buttons.append([
+        InlineKeyboardButton(text="📍 Зафиксировать GPS геопозицию", callback_data=f"cour_loc_{order_id}")
+    ])
 
     if "забор" in st_clean or "ожид" in st_clean or "нов" in st_clean:
         buttons.append([
