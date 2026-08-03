@@ -751,11 +751,25 @@ async def handle_api_create_order(request):
         client = data.get("client", "Клиент")
         phone = data.get("phone", "")
         address = data.get("address", "")
-        items = data.get("items", "")
-        courier = data.get("courier", "Курьер")
+        district = data.get("district", "Самарканд")
+        items = data.get("items", "Забор ковров")
+        courier = data.get("courier", "Не назначен")
+        dispatcher = data.get("dispatcher", "Диспетчер")
+        language = data.get("language", "Русский язык")
+        priority = data.get("priority", "Обычный")
+        pickup_time = data.get("pickupTime", "В любое время")
+        extra_note = data.get("extraNote", "")
+        delivery_date = data.get("deliveryDate", "")
+        delivery_time = data.get("deliveryTime", "")
 
         new_id = get_next_order_id()
         now_str = datetime.now().strftime("%d.%m.%Y, %H:%M:%S")
+
+        full_details = f"Забор: {pickup_time} | {items}"
+        if "СРОЧН" in str(priority).upper():
+            full_details = f"🔥 СРОЧНО ({delivery_date} {delivery_time})! {full_details}"
+        if extra_note:
+            full_details += f" | Ориентир: {extra_note}"
 
         new_order = {
             "ID": str(new_id),
@@ -763,17 +777,17 @@ async def handle_api_create_order(request):
             "Клиент": client,
             "Телефон": phone,
             "Адрес": address,
-            "Размеры": items,
+            "Размеры": full_details,
             "Площадь": "0",
             "Сумма": "0",
             "Статус": "Ожидает забора",
             "Курьер": courier,
-            "Диспетчер": f"Курьер {courier}",
-            "Район": "Самарканд",
-            "Язык": "Русский язык",
+            "Диспетчер": dispatcher,
+            "Район": district,
+            "Язык": language,
             "Локация": "",
             "Оплачено": "0",
-            "Тип оплаты": "Наличные",
+            "Тип оплаты": "-",
             "Причина": "Создано через WebApp"
         }
 
@@ -782,9 +796,26 @@ async def handle_api_create_order(request):
         save_json_file(BACKUP_FILE, orders)
 
         if notify_dispatcher_func:
-            asyncio.create_task(notify_dispatcher_func(f"📲 **Новый заказ №{new_id} из WebApp!**\nКлиент: {client}\nТел: {phone}\nАдрес: {address}"))
+            urgent_tag = "🚨 **СРОЧНЫЙ ЗАКАЗ!** " if "СРОЧН" in str(priority).upper() else "🆕 "
+            msg_text = f"{urgent_tag}**Новый заказ №{new_id}!**\n👤 **Клиент:** {client} ({phone})\n🏠 **Адрес:** {district}, {address}\n🚗 **Курьер:** {courier}\n⏰ **Время забора:** {pickup_time}"
+            if extra_note:
+                msg_text += f"\n📍 **Ориентир:** {extra_note}"
+            asyncio.create_task(notify_dispatcher_func(msg_text))
 
         return web.json_response({"ok": True, "orderId": new_id})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+async def handle_api_notify_couriers(request):
+    try:
+        data = await request.json()
+        text = data.get("text", "").strip()
+        sender = data.get("sender", "Диспетчер")
+        if notify_dispatcher_func and text:
+            msg = f"📢 **Уведомление от Диспетчера ({sender}):**\n\n{text}"
+            asyncio.create_task(notify_dispatcher_func(msg))
+            return web.json_response({"ok": True})
+        return web.json_response({"ok": False, "error": "Пустое сообщение"}, status=400)
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500)
 

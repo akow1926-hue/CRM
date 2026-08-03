@@ -58,6 +58,7 @@ async def start_web_server():
         app.router.add_post("/api/orders/update_location", courier_bot.handle_api_update_location)
         app.router.add_post("/api/orders/create", courier_bot.handle_api_create_order)
         app.router.add_post("/api/orders/measure", courier_bot.handle_api_measure)
+        app.router.add_post("/api/notify_couriers", courier_bot.handle_api_notify_couriers)
 
         runner = web.AppRunner(app)
         await runner.setup()

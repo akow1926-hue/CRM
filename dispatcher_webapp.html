@@ -88,7 +88,7 @@
     }
 
     .form-group {
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       text-align: left;
     }
 
@@ -102,20 +102,20 @@
       letter-spacing: 0.5px;
     }
 
-    .form-input, .form-select {
+    .form-input, .form-select, .form-textarea {
       width: 100%;
       background: rgba(30, 41, 59, 0.7);
       border: 1.5px solid rgba(148, 163, 184, 0.2);
       border-radius: 12px;
-      padding: 14px 16px;
+      padding: 12px 14px;
       color: #ffffff;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 600;
       outline: none;
       transition: all 0.2s;
     }
 
-    .form-input:focus, .form-select:focus {
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
       border-color: var(--accent-yellow);
       box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.2);
     }
@@ -126,12 +126,12 @@
       color: #070c18;
       border: none;
       border-radius: 14px;
-      padding: 15px;
-      font-size: 16px;
+      padding: 14px;
+      font-size: 15px;
       font-weight: 800;
       cursor: pointer;
       box-shadow: 0 8px 20px rgba(250, 204, 21, 0.3);
-      transition: transform 0.1s, box-shadow 0.2s;
+      transition: transform 0.1s;
       margin-top: 8px;
     }
 
@@ -141,7 +141,7 @@
 
     /* HEADER */
     .app-header {
-      padding: 16px 20px;
+      padding: 14px 18px;
       background: rgba(15, 23, 42, 0.9);
       border-bottom: 1px solid var(--card-border);
       backdrop-filter: blur(10px);
@@ -160,8 +160,8 @@
     }
 
     .user-avatar {
-      width: 38px;
-      height: 38px;
+      width: 36px;
+      height: 36px;
       border-radius: 12px;
       background: linear-gradient(135deg, var(--accent-yellow) 0%, var(--accent-blue) 100%);
       display: flex;
@@ -169,11 +169,11 @@
       justify-content: center;
       font-weight: 900;
       color: #070c18;
-      font-size: 16px;
+      font-size: 15px;
     }
 
     .user-info h3 {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 800;
     }
 
@@ -187,11 +187,39 @@
       background: rgba(239, 68, 68, 0.15);
       border: 1px solid rgba(239, 68, 68, 0.4);
       color: #fca5a5;
-      padding: 6px 12px;
+      padding: 5px 10px;
       border-radius: 10px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       cursor: pointer;
+    }
+
+    /* METRICS BAR */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      padding: 10px 14px 0 14px;
+    }
+
+    .metric-box {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 8px 4px;
+      text-align: center;
+    }
+
+    .metric-num {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--accent-yellow);
+    }
+
+    .metric-title {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-weight: 700;
     }
 
     /* TABS */
@@ -199,7 +227,7 @@
       display: flex;
       background: rgba(15, 23, 42, 0.6);
       padding: 4px;
-      margin: 14px 16px 8px 16px;
+      margin: 10px 14px 6px 14px;
       border-radius: 14px;
       border: 1px solid rgba(59, 130, 246, 0.2);
       gap: 2px;
@@ -208,13 +236,13 @@
 
     .tab-btn {
       flex: 1;
-      min-width: 60px;
-      padding: 10px 4px;
+      min-width: 55px;
+      padding: 8px 2px;
       background: transparent;
       border: none;
       border-radius: 10px;
       color: var(--text-muted);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       cursor: pointer;
       transition: all 0.2s;
@@ -228,9 +256,9 @@
       box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
     }
 
-    /* MAIN CONTAINER */
+    /* CONTENT AREA */
     .content-area {
-      padding: 12px 16px;
+      padding: 10px 14px;
       flex: 1;
     }
 
@@ -239,10 +267,15 @@
       border: 1px solid var(--card-border);
       border-left: 4px solid var(--accent-yellow);
       border-radius: 18px;
-      padding: 16px;
-      margin-bottom: 14px;
+      padding: 14px;
+      margin-bottom: 12px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
       backdrop-filter: blur(8px);
+    }
+
+    .order-card.urgent {
+      border-left-color: var(--danger);
+      border-right: 1px solid rgba(239, 68, 68, 0.3);
     }
 
     .order-header {
@@ -271,7 +304,7 @@
     }
 
     .client-name {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 800;
       margin-bottom: 4px;
     }
@@ -282,13 +315,13 @@
       font-weight: 700;
       text-decoration: none;
       display: inline-block;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .order-addr {
       font-size: 13px;
       color: #cbd5e1;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       line-height: 1.4;
     }
 
@@ -296,49 +329,58 @@
       background: rgba(30, 41, 59, 0.5);
       border: 1px solid rgba(255, 255, 255, 0.05);
       border-radius: 10px;
-      padding: 8px 12px;
-      font-size: 13px;
+      padding: 8px 10px;
+      font-size: 12px;
       color: #94a3b8;
-      margin-bottom: 12px;
-    }
-
-    .card-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      margin-bottom: 10px;
     }
 
     .btn-nav {
       background: rgba(59, 130, 246, 0.15);
       border: 1px solid rgba(59, 130, 246, 0.4);
       color: #93c5fd;
-      border-radius: 10px;
-      padding: 8px;
-      font-size: 12px;
+      border-radius: 8px;
+      padding: 6px;
+      font-size: 11px;
       font-weight: 700;
       text-decoration: none;
       text-align: center;
       display: block;
-      transition: background 0.2s;
     }
 
     .btn-action {
       background: rgba(16, 185, 129, 0.15);
       border: 1px solid rgba(16, 185, 129, 0.4);
       color: #6ee7b7;
-      border-radius: 10px;
-      padding: 10px;
-      font-size: 12px;
+      border-radius: 8px;
+      padding: 8px 4px;
+      font-size: 11px;
       font-weight: 700;
       cursor: pointer;
-      transition: all 0.2s;
+      text-align: center;
     }
 
     .empty-msg {
       text-align: center;
-      padding: 40px 20px;
+      padding: 30px 20px;
       color: var(--text-muted);
-      font-size: 14px;
+      font-size: 13px;
+    }
+
+    .radio-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .radio-lbl {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      color: white;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -348,17 +390,17 @@
   <div id="authOverlay" class="auth-overlay">
     <div class="auth-card">
       <div class="auth-title">Cosmo CRM 🎧</div>
-      <div class="auth-subtitle">Вход для Диспетчера</div>
+      <div class="auth-subtitle">Панель Диспетчера</div>
       <form onsubmit="handleLogin(event)">
         <div class="form-group">
-          <label class="form-label">Логин</label>
+          <label class="form-label">Логин Диспетчера</label>
           <input type="text" id="loginUser" class="form-input" placeholder="например: admin" required>
         </div>
         <div class="form-group">
           <label class="form-label">Пароль</label>
           <input type="password" id="loginPass" class="form-input" placeholder="••••••••" required>
         </div>
-        <button type="submit" class="btn-primary">🔑 Войти в систему</button>
+        <button type="submit" class="btn-primary">🔑 Войти в CRM</button>
       </form>
     </div>
   </div>
@@ -375,12 +417,34 @@
     <button onclick="logout()" class="btn-logout">🚪 Выйти</button>
   </div>
 
+  <!-- METRICS ROW -->
+  <div class="metrics-row">
+    <div class="metric-box">
+      <div id="cntPickup" class="metric-num">0</div>
+      <div class="metric-title">📥 Забор</div>
+    </div>
+    <div class="metric-box">
+      <div id="cntShop" class="metric-num">0</div>
+      <div class="metric-title">🧺 В цеху</div>
+    </div>
+    <div class="metric-box">
+      <div id="cntDelivery" class="metric-num">0</div>
+      <div class="metric-title">📦 Готовы</div>
+    </div>
+    <div class="metric-box">
+      <div id="cntUrgent" class="metric-num" style="color: var(--danger);">0</div>
+      <div class="metric-title">🔥 Срочные</div>
+    </div>
+  </div>
+
   <!-- TABS -->
   <div class="tabs-nav">
     <button class="tab-btn active" onclick="switchTab('new')">➕ Новый</button>
     <button class="tab-btn" onclick="switchTab('pickup')">📥 Забор</button>
     <button class="tab-btn" onclick="switchTab('shop')">🧺 В цеху</button>
     <button class="tab-btn" onclick="switchTab('delivery')">📦 Готовы</button>
+    <button class="tab-btn" onclick="switchTab('urgent')">🔥 Срочные</button>
+    <button class="tab-btn" onclick="switchTab('msg')">💬 Чат</button>
     <button class="tab-btn" onclick="switchTab('all')">📋 Все</button>
   </div>
 
@@ -389,12 +453,13 @@
 
     <!-- TAB 1: NEW ORDER -->
     <div id="tabNew" class="tab-content">
-      <div class="order-card" style="border-left-color: var(--accent-yellow);">
-        <h3 style="font-size: 16px; font-weight: 800; color: var(--accent-yellow); margin-bottom: 14px;">➕ Оформить новый заказ</h3>
+      <div class="order-card">
+        <h3 style="font-size: 15px; font-weight: 800; color: var(--accent-yellow); margin-bottom: 12px;">➕ Оформить новый заказ (Диспетчер)</h3>
         <form onsubmit="handleCreateOrder(event)">
+          
           <div class="form-group">
             <label class="form-label">👤 ФИО Клиента *</label>
-            <input type="text" id="newClient" class="form-input" placeholder="Иван Иванов" required>
+            <input type="text" id="newClient" class="form-input" placeholder="Алишер Назаров" required>
           </div>
 
           <div class="form-group">
@@ -402,7 +467,7 @@
             <input type="tel" id="newPhone" class="form-input" placeholder="901234567" max_chars="9" required>
           </div>
 
-          <div style="display: flex; gap: 10px;">
+          <div style="display: flex; gap: 8px;">
             <div class="form-group" style="flex: 1;">
               <label class="form-label">🏠 Район *</label>
               <select id="newDistrict" class="form-select">
@@ -417,15 +482,24 @@
             </div>
 
             <div class="form-group" style="flex: 1;">
-              <label class="form-label">🚚 Курьер *</label>
-              <select id="newCourier" class="form-select">
-                <option value="Алишер Каримов">Алишер Каримов</option>
-                <option value="Бобур Ибрагимов">Бобур Ибрагимов</option>
-                <option value="Сардор Турсунов">Сардор Турсунов</option>
-                <option value="Firuz">Firuz</option>
-                <option value="Nazarov01">Nazarov01</option>
+              <label class="form-label">🗣️ Язык *</label>
+              <select id="newLang" class="form-select">
+                <option value="O'zbek tili">O'zbek tili</option>
+                <option value="Русский язык" selected>Русский язык</option>
+                <option value="Тоҷикӣ">Тоҷикӣ</option>
               </select>
             </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">🚚 Назначить курьера *</label>
+            <select id="newCourier" class="form-select">
+              <option value="Алишер Каримов">Алишер Каримов</option>
+              <option value="Бобур Ибрагимов">Бобур Ибрагимов</option>
+              <option value="Сардор Турсунов">Сардор Турсунов</option>
+              <option value="Firuz">Firuz</option>
+              <option value="Nazarov01">Nazarov01</option>
+            </select>
           </div>
 
           <div class="form-group">
@@ -434,11 +508,37 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">🧺 Состав заказа / Ковры</label>
-            <input type="text" id="newItems" class="form-input" placeholder="Забор 3 ковров">
+            <label class="form-label">⏰ Удобное время забора</label>
+            <select id="newPickupTime" class="form-select">
+              <option value="В любое время">В любое время</option>
+              <option value="Утро (09:00 - 12:00)">Утро (09:00 - 12:00)</option>
+              <option value="День (12:00 - 17:00)">День (12:00 - 17:00)</option>
+              <option value="Вечер (17:00 - 21:00)">Вечер (17:00 - 21:00)</option>
+            </select>
           </div>
 
-          <button type="submit" class="btn-primary">🚀 Оформить и отправить курьеру</button>
+          <div class="form-group">
+            <label class="form-label">⚡ Приоритет заказа</label>
+            <div class="radio-group">
+              <label class="radio-lbl"><input type="radio" name="priority" value="Обычный" checked onchange="toggleUrgentBlock(false)"> Обычный</label>
+              <label class="radio-lbl" style="color: var(--danger);"><input type="radio" name="priority" value="🔥 СРОЧНЫЙ" onchange="toggleUrgentBlock(true)"> 🔥 СРОЧНЫЙ</label>
+            </div>
+          </div>
+
+          <div id="urgentBlock" style="display:none; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 10px; margin-bottom: 12px;">
+            <div style="font-size:12px; font-weight:700; color:#fca5a5; margin-bottom:6px;">⚠️ Укажите дату и время доставки:</div>
+            <div style="display:flex; gap:8px;">
+              <input type="date" id="deliveryDate" class="form-input" style="flex:1;">
+              <input type="time" id="deliveryTime" class="form-input" style="flex:1;">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">📍 Ориентир / Примечание</label>
+            <input type="text" id="newNote" class="form-input" placeholder="Например: рядом с поликлиникой №2">
+          </div>
+
+          <button type="submit" class="btn-primary">🚀 Оформить и передать курьеру</button>
         </form>
       </div>
     </div>
@@ -458,7 +558,37 @@
       <div id="deliveryList"></div>
     </div>
 
-    <!-- TAB 5: ALL + SEARCH -->
+    <!-- TAB 5: URGENT -->
+    <div id="tabUrgent" class="tab-content" style="display:none;">
+      <div id="urgentList"></div>
+    </div>
+
+    <!-- TAB 6: TELEGRAM BROADCAST TO COURIERS -->
+    <div id="tabMsg" class="tab-content" style="display:none;">
+      <div class="order-card">
+        <h3 style="font-size: 15px; font-weight: 800; color: var(--accent-yellow); margin-bottom: 12px;">💬 Отправить сообщение курьерам в Telegram</h3>
+        <form onsubmit="handleSendBroadcast(event)">
+          <div class="form-group">
+            <label class="form-label">🚚 Выберите курьера</label>
+            <select id="msgCourierTarget" class="form-select">
+              <option value="all">📢 ВСЕМ КУРЬЕРАМ (Рассылка)</option>
+              <option value="Алишер Каримов">Алишер Каримов</option>
+              <option value="Бобур Ибрагимов">Бобур Ибрагимов</option>
+              <option value="Сардор Турсунов">Сардор Турсунов</option>
+              <option value="Firuz">Firuz</option>
+              <option value="Nazarov01">Nazarov01</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">💬 Текст сообщения *</label>
+            <textarea id="msgText" class="form-textarea" rows="3" placeholder="Например: В районе Сиёб появился срочный забор ковров!" required></textarea>
+          </div>
+          <button type="submit" class="btn-primary" style="background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); color: white;">📢 Отправить рассылку в Telegram</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- TAB 7: ALL + SEARCH -->
     <div id="tabAll" class="tab-content" style="display:none;">
       <div style="margin-bottom: 12px;">
         <input type="text" id="searchQuery" class="form-input" placeholder="🔍 Поиск по имени, номеру или ID..." oninput="renderOrders()">
@@ -477,6 +607,7 @@
 
     let currentUser = null;
     let ordersData = [];
+    const courierOptions = ["Алишер Каримов", "Бобур Ибрагимов", "Сардор Турсунов", "Firuz", "Nazarov01"];
 
     window.onload = function() {
       const saved = localStorage.getItem('cosmo_disp_user');
@@ -514,6 +645,10 @@
       document.getElementById('authOverlay').style.display = 'flex';
     }
 
+    function toggleUrgentBlock(isUrgent) {
+      document.getElementById('urgentBlock').style.display = isUrgent ? 'block' : 'none';
+    }
+
     function switchTab(tabName) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
@@ -522,6 +657,8 @@
       else if (tabName === 'pickup') document.getElementById('tabPickup').style.display = 'block';
       else if (tabName === 'shop') document.getElementById('tabShop').style.display = 'block';
       else if (tabName === 'delivery') document.getElementById('tabDelivery').style.display = 'block';
+      else if (tabName === 'urgent') document.getElementById('tabUrgent').style.display = 'block';
+      else if (tabName === 'msg') document.getElementById('tabMsg').style.display = 'block';
       else if (tabName === 'all') document.getElementById('tabAll').style.display = 'block';
 
       if (event && event.target) event.target.classList.add('active');
@@ -575,33 +712,52 @@
       const pickupOrders = ordersData.filter(o => (o.Статус || '').toLowerCase().includes('забор') || (o.Статус || '').toLowerCase().includes('ожид'));
       const shopOrders = ordersData.filter(o => (o.Статус || '').toLowerCase().includes('цех') || (o.Статус || '').toLowerCase().includes('мойк'));
       const deliveryOrders = ordersData.filter(o => (o.Статус || '').toLowerCase().includes('готов') || (o.Статус || '').toLowerCase().includes('достав'));
+      const urgentOrders = ordersData.filter(o => (o.Размеры || '').toString().toLowerCase().includes('срочно') || (o.Размеры || '').toString().toLowerCase().includes('tezkor'));
+
+      document.getElementById('cntPickup').innerText = pickupOrders.length;
+      document.getElementById('cntShop').innerText = shopOrders.length;
+      document.getElementById('cntDelivery').innerText = deliveryOrders.length;
+      document.getElementById('cntUrgent').innerText = urgentOrders.length;
 
       const renderList = (list) => {
         if (!list || list.length === 0) return '<div class="empty-msg">📭 Нет заказов в этом статусе</div>';
         return list.map(o => {
           const nav = getNavUrls(o.Локация, o.Адрес, o.Район);
+          const isUrgent = (o.Размеры || '').toString().toLowerCase().includes('срочно');
+
+          const courierSelect = courierOptions.map(c => 
+            `<option value="${c}" ${(o.Курьер || '').includes(c) ? 'selected' : ''}>${c}</option>`
+          ).join('');
+
           return `
-          <div class="order-card">
+          <div class="order-card ${isUrgent ? 'urgent' : ''}">
             <div class="order-header">
-              <span class="order-badge">📦 № ${o.ID}</span>
+              <span class="order-badge">📦 № ${o.ID} ${isUrgent ? '🔥 СРОЧНО' : ''}</span>
               <span class="order-status">${o.Статус || 'Забор'}</span>
             </div>
             <div class="client-name">👤 ${o.Клиент || 'Клиент'}</div>
             <a href="tel:${o.Телефон}" class="client-phone">📞 ${o.Телефон || '-'}</a>
             <div class="order-addr">🏠 <b>${o.Район || 'Самарканд'}</b>, ${o.Адрес || '-'}</div>
             <div class="order-details">
-              🧺 ${o.Размеры || 'Заказ'} | 🚚 <b>${o.Курьер || 'Не назначен'}</b>
-              ${nav.isExact ? '<span style="color:#10b981; font-weight:bold;"> 📍 (GPS)</span>' : ''}
+              🧺 ${o.Размеры || 'Заказ'} ${nav.isExact ? '<span style="color:#10b981; font-weight:bold;"> 📍 (GPS)</span>' : ''}
+              <div style="margin-top:6px; display:flex; align-items:center; gap:6px;">
+                <span style="color:var(--accent-yellow); font-weight:700;">🚚 Сменить курьера:</span>
+                <select class="form-select" style="padding:4px 8px; font-size:12px; flex:1;" onchange="reassignCourier('${o.ID}', this.value)">
+                  ${courierSelect}
+                </select>
+              </div>
             </div>
             <div class="card-actions">
               <div style="display:flex; gap:6px; margin-bottom:6px;">
                 <a href="${nav.navi}" class="btn-nav" style="flex:1;">🧭 Навигатор</a>
                 <a href="${nav.ymaps}" target="_blank" class="btn-nav" style="flex:1; background:rgba(59, 130, 246, 0.2);">🗺️ Я.Карты</a>
+                <a href="${nav.gmaps}" target="_blank" class="btn-nav" style="flex:1; background:rgba(16, 185, 129, 0.2); color:#6ee7b7;">📍 Google</a>
               </div>
-              <div style="display:flex; gap:6px;">
+              <div style="display:flex; gap:4px;">
                 <button onclick="changeStatus('${o.ID}', 'Ожидает забора')" class="btn-action" style="flex:1; background:rgba(250,204,21,0.15); border-color:#facc15; color:#facc15;">📥 Забор</button>
                 <button onclick="changeStatus('${o.ID}', 'В цеху')" class="btn-action" style="flex:1; background:rgba(239,68,68,0.15); border-color:#ef4444; color:#fca5a5;">🧺 В цех</button>
                 <button onclick="changeStatus('${o.ID}', 'Готов')" class="btn-action" style="flex:1; background:rgba(59,130,246,0.15); border-color:#3b82f6; color:#93c5fd;">📦 Готов</button>
+                <button onclick="changeStatus('${o.ID}', 'Выполнен')" class="btn-action" style="flex:1; background:rgba(16,185,129,0.15); border-color:#10b981; color:#6ee7b7;">✅ Сдан</button>
               </div>
             </div>
           </div>
@@ -612,6 +768,7 @@
       document.getElementById('pickupList').innerHTML = renderList(pickupOrders);
       document.getElementById('shopList').innerHTML = renderList(shopOrders);
       document.getElementById('deliveryList').innerHTML = renderList(deliveryOrders);
+      document.getElementById('urgentList').innerHTML = renderList(urgentOrders);
 
       let filteredAll = ordersData;
       if (q) {
@@ -632,7 +789,21 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ orderId, status: newStatus, courier: currentUser?.username })
         });
-        alert(`✅ Заказ №${orderId} обновлен! Статус: ${newStatus}`);
+        alert(`✅ Заказ №${orderId} переведен в статус: ${newStatus}`);
+        loadOrders();
+      } catch (e) {
+        alert('⚠️ Ошибка сети: ' + e);
+      }
+    }
+
+    async function reassignCourier(orderId, newCourier) {
+      try {
+        await fetch('/api/orders/update_status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId, courier: newCourier })
+        });
+        alert(`🚚 Заказ №${orderId} переназначен курьеру ${newCourier}!`);
         loadOrders();
       } catch (e) {
         alert('⚠️ Ошибка сети: ' + e);
@@ -647,12 +818,25 @@
       const courier = document.getElementById('newCourier').value;
       const address = document.getElementById('newAddress').value.trim();
       const items = document.getElementById('newItems').value.trim() || 'Забор ковров';
+      const language = document.getElementById('newLang').value;
+      const pickupTime = document.getElementById('newPickupTime').value;
+      const extraNote = document.getElementById('newNote').value.trim();
+
+      const priorityEl = document.querySelector('input[name="priority"]:checked');
+      const priority = priorityEl ? priorityEl.value : 'Обычный';
+
+      const deliveryDate = document.getElementById('deliveryDate').value;
+      const deliveryTime = document.getElementById('deliveryTime').value;
 
       try {
         const res = await fetch('/api/orders/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ client, phone, district, courier, address, items })
+          body: JSON.stringify({
+            client, phone, district, courier, address, items,
+            language, priority, pickupTime, extraNote, deliveryDate, deliveryTime,
+            dispatcher: currentUser?.username || 'Диспетчер'
+          })
         });
         const data = await res.json();
         if (data.ok) {
@@ -661,6 +845,7 @@
           document.getElementById('newPhone').value = '';
           document.getElementById('newAddress').value = '';
           document.getElementById('newItems').value = '';
+          document.getElementById('newNote').value = '';
           loadOrders();
           switchTab('pickup');
         } else {
@@ -668,6 +853,34 @@
         }
       } catch (err) {
         alert('⚠️ Ошибка соединения с сервером');
+      }
+    }
+
+    async function handleSendBroadcast(e) {
+      e.preventDefault();
+      const targetCourier = document.getElementById('msgCourierTarget').value;
+      const text = document.getElementById('msgText').value.trim();
+
+      if (!text) {
+        alert('⚠️ Введите текст сообщения!');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/notify_couriers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, courier: targetCourier, sender: currentUser?.username || 'Диспетчер' })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          alert('🚀 Уведомление успешно отправлено курьерам в Telegram!');
+          document.getElementById('msgText').value = '';
+        } else {
+          alert('⚠️ Ошибка отправки: ' + (data.error || ''));
+        }
+      } catch (err) {
+        alert('⚠️ Ошибка сети: ' + err);
       }
     }
   </script>
