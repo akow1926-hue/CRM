@@ -399,11 +399,8 @@
           <div class="form-group">
             <label class="form-label">🚚 Назначить курьера *</label>
             <select id="newCourier" class="form-select">
-              <option value="Алишер Каримов">Алишер Каримов</option>
-              <option value="Бобур Ибрагимов">Бобур Ибрагимов</option>
-              <option value="Сардор Турсунов">Сардор Турсунов</option>
-              <option value="Firuz">Firuz</option>
-              <option value="Nazarov01">Nazarov01</option>
+              <option value="akobir">akobir</option>
+              <option value="firuz">firuz</option>
             </select>
           </div>
 
@@ -426,11 +423,8 @@
             <label class="form-label">🚚 Выберите курьера</label>
             <select id="msgCourierTarget" class="form-select">
               <option value="all">📢 ВСЕМ КУРЬЕРАМ (Рассылка)</option>
-              <option value="Алишер Каримов">Алишер Каримов</option>
-              <option value="Бобур Ибрагимов">Бобур Ибрагимов</option>
-              <option value="Сардор Турсунов">Сардор Турсунов</option>
-              <option value="Firuz">Firuz</option>
-              <option value="Nazarov01">Nazarov01</option>
+              <option value="akobir">akobir</option>
+              <option value="firuz">firuz</option>
             </select>
           </div>
           <div class="form-group">
@@ -453,7 +447,7 @@
 
     let currentUser = null;
     let ordersData = [];
-    const courierOptions = ["Алишер Каримов", "Бобур Ибрагимов", "Сардор Турсунов", "Firuz", "Nazarov01"];
+    const courierOptions = ["akobir", "firuz"];
 
     window.onload = function() {
       const saved = localStorage.getItem('cosmo_disp_user');
