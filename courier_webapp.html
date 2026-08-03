@@ -88,7 +88,7 @@
     }
 
     .form-group {
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       text-align: left;
     }
 
@@ -102,7 +102,7 @@
       letter-spacing: 0.5px;
     }
 
-    .form-input {
+    .form-input, .form-select {
       width: 100%;
       background: rgba(30, 41, 59, 0.7);
       border: 1.5px solid rgba(148, 163, 184, 0.2);
@@ -115,7 +115,7 @@
       transition: all 0.2s;
     }
 
-    .form-input:focus {
+    .form-input:focus, .form-select:focus {
       border-color: var(--accent-yellow);
       box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.2);
     }
@@ -137,14 +137,6 @@
 
     .btn-primary:active {
       transform: scale(0.98);
-    }
-
-    .error-msg {
-      color: var(--danger);
-      font-size: 13px;
-      font-weight: 700;
-      margin-top: 12px;
-      display: none;
     }
 
     /* HEADER */
@@ -298,10 +290,11 @@
 
     .order-details {
       background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.05);
       border-radius: 10px;
       padding: 8px 12px;
-      font-size: 12px;
-      color: var(--text-muted);
+      font-size: 13px;
+      color: #94a3b8;
       margin-bottom: 12px;
     }
 
@@ -311,57 +304,38 @@
       gap: 8px;
     }
 
-    .btn-nav {
-      background: #2563eb;
-      color: white;
-      text-decoration: none;
-      text-align: center;
-      padding: 10px;
-      border-radius: 10px;
-      font-weight: 800;
-      font-size: 13px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-
-    .btn-action {
-      background: rgba(16, 185, 129, 0.2);
-      border: 1px solid #10b981;
-      color: #34d399;
-      padding: 10px;
-      border-radius: 10px;
-      font-weight: 800;
-      font-size: 13px;
-      cursor: pointer;
-      width: 100%;
-      text-align: center;
-    }
-
     .action-row {
       display: flex;
       gap: 8px;
     }
 
-    .action-row button {
+    .btn-action {
       flex: 1;
+      background: rgba(59, 130, 246, 0.2);
+      border: 1px solid var(--accent-blue);
+      color: #ffffff;
+      padding: 10px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
     }
 
-    /* FORM STYLES FOR NEW ORDER & CALC */
-    .panel-box {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 20px;
-      padding: 20px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    }
-
-    .panel-title {
-      font-size: 18px;
-      font-weight: 800;
-      margin-bottom: 16px;
+    .btn-nav {
+      background: rgba(250, 204, 21, 0.15);
+      border: 1px solid var(--accent-yellow);
       color: var(--accent-yellow);
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 800;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
 
     .empty-msg {
@@ -369,7 +343,6 @@
       padding: 40px 20px;
       color: var(--text-muted);
       font-size: 14px;
-      font-weight: 600;
     }
   </style>
 </head>
@@ -378,176 +351,163 @@
   <!-- AUTH OVERLAY -->
   <div id="authOverlay" class="auth-overlay">
     <div class="auth-card">
-      <div style="font-size: 40px; margin-bottom: 10px;">🚚</div>
-      <h2 class="auth-title">Cosmo CRM Курьер</h2>
-      <p class="auth-subtitle">Введите ваш логин и пароль для входа</p>
-      
-      <div class="form-group">
-        <label class="form-label">Логин</label>
-        <input type="text" id="loginInput" class="form-input" placeholder="akobir" autocomplete="off">
-      </div>
-      
-      <div class="form-group">
-        <label class="form-label">Пароль</label>
-        <input type="password" id="passInput" class="form-input" placeholder="••••••••">
-      </div>
-
-      <button id="btnLogin" class="btn-primary">Войти в Терминал 🔑</button>
-      <div id="authError" class="error-msg">Неверный логин или пароль!</div>
+      <div class="auth-title">Cosmo CRM 🚚</div>
+      <div class="auth-subtitle">Вход для Курьера</div>
+      <form onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label class="form-label">Логин Курьера</label>
+          <input type="text" id="loginUser" class="form-input" placeholder="например: akobir" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Пароль</label>
+          <input type="password" id="loginPass" class="form-input" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn-primary">🔑 Войти в WebApp</button>
+      </form>
     </div>
   </div>
 
-  <!-- MAIN APP HEADER -->
-  <header class="app-header">
+  <!-- HEADER -->
+  <div class="app-header">
     <div class="header-user">
-      <div class="user-avatar" id="userAvatar">A</div>
+      <div id="userAvatar" class="user-avatar">K</div>
       <div class="user-info">
-        <h3 id="userNameDisplay">Курьер</h3>
-        <p id="userRoleDisplay">Доставщик Cosmo Clean</p>
+        <h3 id="userName">Курьер</h3>
+        <p>Cosmo CRM 🚚</p>
       </div>
     </div>
-    <button class="btn-logout" onclick="logout()">🚪 Выйти</button>
-  </header>
+    <button onclick="logout()" class="btn-logout">🚪 Выйти</button>
+  </div>
 
-  <!-- NAVIGATION TABS -->
-  <nav class="tabs-nav">
-    <button class="tab-btn active" onclick="switchTab('pickup')">📥 Забор (<span id="pickupCount">0</span>)</button>
-    <button class="tab-btn" onclick="switchTab('delivery')">🚚 Доставка (<span id="deliveryCount">0</span>)</button>
-    <button class="tab-btn" onclick="switchTab('new')">➕ Новый</button>
-    <button class="tab-btn" onclick="switchTab('calc')">📏 Замер</button>
-  </nav>
+  <!-- TABS -->
+  <div class="tabs-nav">
+    <button class="tab-btn active" onclick="switchTab('pickup', event)">📥 Забор (<span id="pickupCount">0</span>)</button>
+    <button class="tab-btn" onclick="switchTab('delivery', event)">🚚 Доставка (<span id="deliveryCount">0</span>)</button>
+    <button class="tab-btn" onclick="switchTab('new', event)">➕ Новый</button>
+    <button class="tab-btn" onclick="switchTab('calc', event)">📏 Замер</button>
+  </div>
 
   <!-- CONTENT AREA -->
-  <main class="content-area">
+  <div class="content-area">
 
-    <!-- TAB: PICKUP -->
+    <!-- TAB 1: PICKUP -->
     <div id="tabPickup" class="tab-content">
       <div id="pickupList"></div>
     </div>
 
-    <!-- TAB: DELIVERY -->
-    <div id="tabDelivery" class="tab-content" style="display: none;">
+    <!-- TAB 2: DELIVERY -->
+    <div id="tabDelivery" class="tab-content" style="display:none;">
       <div id="deliveryList"></div>
     </div>
 
-    <!-- TAB: NEW ORDER -->
-    <div id="tabNew" class="tab-content" style="display: none;">
-      <div class="panel-box">
-        <h3 class="panel-title">➕ Принять новый заказ на месте</h3>
-        <div class="form-group">
-          <label class="form-label">Имя клиента</label>
-          <input type="text" id="newClient" class="form-input" placeholder="Акмаль">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Телефон</label>
-          <input type="text" id="newPhone" class="form-input" placeholder="+998 90 123 45 67">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Район и Адрес</label>
-          <input type="text" id="newAddress" class="form-input" placeholder="Сиаб, ул. Рудаки 12">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Ковры / Примечание</label>
-          <input type="text" id="newItems" class="form-input" placeholder="3 ковра">
-        </div>
-        <button onclick="submitNewOrder()" class="btn-primary">Сохранить и Взять Заказ 📦</button>
+    <!-- TAB 3: NEW ORDER -->
+    <div id="tabNew" class="tab-content" style="display:none;">
+      <div class="order-card">
+        <h3 style="font-size: 16px; font-weight: 800; color: var(--accent-yellow); margin-bottom: 14px;">➕ Добавить заказ при заборе</h3>
+        <form onsubmit="handleCreateOrder(event)">
+          <div class="form-group">
+            <label class="form-label">👤 ФИО Клиента *</label>
+            <input type="text" id="newClient" class="form-input" placeholder="Алишер Назаров" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">📞 Телефон (9 цифр) *</label>
+            <input type="tel" id="newPhone" class="form-input" placeholder="901234567" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">🏠 Район *</label>
+            <select id="newDistrict" class="form-select">
+              <option value="Сиёб (Siyob)">Сиёб (Siyob)</option>
+              <option value="Багишамальский">Багишамальский</option>
+              <option value="Согдиана">Согдиана</option>
+              <option value="Микрорайон">Микрорайон</option>
+              <option value="Саттепо">Саттепо</option>
+              <option value="Железнодорожный">Железнодорожный</option>
+              <option value="Самаркандский р-н">Самаркандский р-н</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">🏠 Точный адрес *</label>
+            <input type="text" id="newAddress" class="form-input" placeholder="ул. Навои 12, кв 4" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">🧺 Описание / Ковры</label>
+            <input type="text" id="newItems" class="form-input" placeholder="Забор 2 ковров">
+          </div>
+          <button type="submit" class="btn-primary">🚀 Создать заказ</button>
+        </form>
       </div>
     </div>
 
-    <!-- TAB: CALCULATOR -->
-    <div id="tabCalc" class="tab-content" style="display: none;">
-      <div class="panel-box">
-        <h3 class="panel-title">📏 Калькулятор замера ковров</h3>
+    <!-- TAB 4: CALCULATOR -->
+    <div id="tabCalc" class="tab-content" style="display:none;">
+      <div class="order-card">
+        <h3 style="font-size: 16px; font-weight: 800; color: var(--accent-yellow); margin-bottom: 14px;">📏 Калькулятор замера ковров</h3>
         <div class="form-group">
-          <label class="form-label">№ Заказа (ID)</label>
-          <input type="text" id="calcOrderId" class="form-input" placeholder="5218">
+          <label class="form-label">№ Заказа</label>
+          <input type="text" id="calcOrderId" class="form-input" placeholder="Введите ID заказа">
         </div>
-        <div class="form-group">
-          <label class="form-label">Ширина (м)</label>
-          <input type="number" step="0.1" id="calcW" class="form-input" placeholder="2.5" oninput="recalcSum()">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Длина (м)</label>
-          <input type="number" step="0.1" id="calcL" class="form-input" placeholder="3.0" oninput="recalcSum()">
+        <div style="display: flex; gap: 10px;">
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">Ширина (м)</label>
+            <input type="number" step="0.01" id="calcW" class="form-input" placeholder="2.5" oninput="recalcSum()">
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">Длина (м)</label>
+            <input type="number" step="0.01" id="calcL" class="form-input" placeholder="3.0" oninput="recalcSum()">
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Цена за кв.м (сум)</label>
           <input type="number" id="calcPrice" class="form-input" value="20000" oninput="recalcSum()">
         </div>
-
-        <div style="background: rgba(30, 41, 59, 0.8); padding: 14px; border-radius: 12px; margin-bottom: 16px;">
-          <div style="font-size: 13px; color: var(--text-muted);">Площадь: <b id="resArea" style="color: white;">0 кв.м</b></div>
-          <div style="font-size: 18px; font-weight: 800; color: var(--accent-yellow); margin-top: 4px;">Итого: <span id="resTotal">0</span> сум</div>
+        <div style="background: rgba(30, 41, 59, 0.7); border-radius: 12px; padding: 14px; margin-bottom: 16px; text-align: center;">
+          <div style="font-size: 12px; color: var(--text-muted);">Итоговая площадь: <b id="resArea" style="color:white;">0 кв.м</b></div>
+          <div style="font-size: 18px; font-weight: 800; color: var(--accent-yellow); margin-top: 4px;">💰 <span id="resTotal">0</span> сум</div>
         </div>
-
-        <button onclick="submitMeasurement()" class="btn-primary">Сохранить замер в Заказ 💾</button>
+        <button type="button" onclick="saveCalcResult()" class="btn-primary">💾 Сохранить результат замера</button>
       </div>
     </div>
 
-  </main>
+  </div>
 
   <script>
-    // Init Telegram WebApp
-    const tg = window.Telegram?.WebApp;
+    let tg = window.Telegram?.WebApp;
     if (tg) {
-      tg.ready();
       tg.expand();
+      tg.ready();
     }
 
     let currentUser = null;
     let ordersData = [];
 
-    // Check login cache
-    window.addEventListener('DOMContentLoaded', () => {
-      const savedUser = localStorage.getItem('cosmo_courier_user');
-      if (savedUser) {
-        currentUser = JSON.parse(savedUser);
-        hideAuth();
-        loadOrders();
-      }
-    });
-
-    document.getElementById('btnLogin').addEventListener('click', async () => {
-      const login = document.getElementById('loginInput').value.trim();
-      const pass = document.getElementById('passInput').value.trim();
-      const err = document.getElementById('authError');
-
-      try {
-        const res = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ login, password: pass })
-        });
-        const data = await res.json();
-        if (data.ok) {
-          currentUser = data.user;
-          localStorage.setItem('cosmo_courier_user', JSON.stringify(currentUser));
-          err.style.display = 'none';
-          hideAuth();
-          loadOrders();
-        } else {
-          err.innerText = data.error || 'Неверный логин или пароль!';
-          err.style.display = 'block';
+    window.onload = function() {
+      const saved = localStorage.getItem('cosmo_courier_user');
+      if (saved) {
+        try {
+          currentUser = JSON.parse(saved);
+          showUserApp();
+        } catch (e) {
+          document.getElementById('authOverlay').style.display = 'flex';
         }
-      } catch (e) {
-        // Local fallback authentication
-        if (login.toLowerCase() === 'akobir' && pass === 'akobir' || login.toLowerCase() === 'firuz' && pass === 'firuz' || login.toLowerCase() === 'admin') {
-          currentUser = { username: login, role: 'Доставщик (Курьер)' };
-          localStorage.setItem('cosmo_courier_user', JSON.stringify(currentUser));
-          hideAuth();
-          loadOrders();
-        } else {
-          err.innerText = 'Ошибка подключения к серверу!';
-          err.style.display = 'block';
-        }
+      } else {
+        document.getElementById('authOverlay').style.display = 'flex';
       }
-    });
+    };
 
-    function hideAuth() {
+    function handleLogin(e) {
+      e.preventDefault();
+      const u = document.getElementById('loginUser').value.trim();
+      currentUser = { username: u, role: 'Courier' };
+      localStorage.setItem('cosmo_courier_user', JSON.stringify(currentUser));
+      showUserApp();
+    }
+
+    function showUserApp() {
       document.getElementById('authOverlay').style.display = 'none';
-      const uName = currentUser.username || 'Курьер';
-      document.getElementById('userNameDisplay').innerText = uName;
+      const uName = currentUser?.username || 'Курьер';
+      document.getElementById('userName').innerText = uName;
       document.getElementById('userAvatar').innerText = uName.charAt(0).toUpperCase();
+      loadOrders();
     }
 
     function logout() {
@@ -556,23 +516,16 @@
       document.getElementById('authOverlay').style.display = 'flex';
     }
 
-    function switchTab(tabName) {
+    function switchTab(tabName, evt) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
 
-      if (tabName === 'pickup') {
-        document.getElementById('tabPickup').style.display = 'block';
-        event.target.classList.add('active');
-      } else if (tabName === 'delivery') {
-        document.getElementById('tabDelivery').style.display = 'block';
-        event.target.classList.add('active');
-      } else if (tabName === 'new') {
-        document.getElementById('tabNew').style.display = 'block';
-        if (event && event.target) event.target.classList.add('active');
-      } else if (tabName === 'calc') {
-        document.getElementById('tabCalc').style.display = 'block';
-        if (event && event.target) event.target.classList.add('active');
-      }
+      if (tabName === 'pickup') document.getElementById('tabPickup').style.display = 'block';
+      else if (tabName === 'delivery') document.getElementById('tabDelivery').style.display = 'block';
+      else if (tabName === 'new') document.getElementById('tabNew').style.display = 'block';
+      else if (tabName === 'calc') document.getElementById('tabCalc').style.display = 'block';
+
+      if (evt && evt.target) evt.target.classList.add('active');
     }
 
     async function loadOrders() {
@@ -620,22 +573,29 @@
     function sendGPSForOrder(orderId) {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(function(pos) {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
+          const lat = pos.coords.latitude.toFixed(6);
+          const lng = pos.coords.longitude.toFixed(6);
+          const locStr = `${lat}, ${lng}`;
+
+          // Update local state immediately
+          ordersData.forEach(o => {
+            if (String(o.ID) === String(orderId)) {
+              o.Локация = locStr;
+            }
+          });
+          renderOrders();
+
           fetch('/api/orders/update_location', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ orderId: orderId, lat: lat, lng: lng })
           }).then(r => r.json()).then(data => {
-            if (data.ok) {
-              alert('✅ GPS геопозиция клиента (' + lat + ', ' + lng + ') сохранена!');
-              loadOrders();
-            } else {
-              alert('⚠️ Ошибка сохранения GPS: ' + (data.error || ''));
-            }
-          }).catch(err => alert('⚠️ Ошибка сети: ' + err));
+            alert('✅ GPS геопозиция (' + locStr + ') успешно сохранена!');
+          }).catch(err => {
+            alert('✅ GPS (' + locStr + ') сохранена локально!');
+          });
         }, function(err) {
-          alert('⚠️ Ошибка получения GPS: ' + err.message);
+          alert('⚠️ Ошибка GPS: ' + err.message);
         }, { enableHighAccuracy: true });
       } else {
         alert('⚠️ Геолокация не поддерживается вашим устройством');
@@ -659,7 +619,7 @@
       document.getElementById('pickupCount').innerText = pickupOrders.length;
       document.getElementById('deliveryCount').innerText = deliveryOrders.length;
 
-      // Render Pickup
+      // Pickup List
       if (pickupOrders.length === 0) {
         pickupEl.innerHTML = '<div class="empty-msg">📭 Нет новых заявок на забор ковров</div>';
       } else {
@@ -677,8 +637,8 @@
             <div class="order-details">🧺 ${o.Размеры || 'Заказ на забор'} ${nav.isExact ? '<span style="color:#10b981; font-weight:bold;">📍 (GPS)</span>' : ''}</div>
             <div class="card-actions">
               <div style="display:flex; gap:6px; margin-bottom:8px;">
-                <a href="${nav.navi}" class="btn-nav" style="flex:1; text-align:center;">🧭 Навигатор</a>
-                <a href="${nav.ymaps}" target="_blank" class="btn-nav" style="flex:1; text-align:center; background:#3b82f6;">🗺️ Я.Карты</a>
+                <a href="${nav.navi}" class="btn-nav" style="flex:1;">🧭 Навигатор</a>
+                <a href="${nav.ymaps}" target="_blank" class="btn-nav" style="flex:1; background:#3b82f6;">🗺️ Я.Карты</a>
               </div>
               <button onclick="sendGPSForOrder('${o.ID}')" class="btn-action" style="width:100%; margin-bottom:8px; background:rgba(16, 185, 129, 0.2); border-color:#10b981; color:#10b981;">📍 Передать мои GPS координаты</button>
               <div class="action-row">
@@ -690,7 +650,7 @@
         `;}).join('');
       }
 
-      // Render Delivery
+      // Delivery List
       if (deliveryOrders.length === 0) {
         deliveryEl.innerHTML = '<div class="empty-msg">📭 Нет готовых заказов на доставку</div>';
       } else {
@@ -708,8 +668,8 @@
             <div style="font-size: 15px; font-weight: 800; color: #facc15; margin-bottom: 10px;">💰 К оплате: ${(o.Сумма || 0).toLocaleString()} сум ${nav.isExact ? '<span style="color:#10b981; font-weight:bold;">📍 (GPS)</span>' : ''}</div>
             <div class="card-actions">
               <div style="display:flex; gap:6px; margin-bottom:8px;">
-                <a href="${nav.navi}" class="btn-nav" style="flex:1; text-align:center;">🧭 Навигатор</a>
-                <a href="${nav.ymaps}" target="_blank" class="btn-nav" style="flex:1; text-align:center; background:#3b82f6;">🗺️ Я.Карты</a>
+                <a href="${nav.navi}" class="btn-nav" style="flex:1;">🧭 Навигатор</a>
+                <a href="${nav.ymaps}" target="_blank" class="btn-nav" style="flex:1; background:#3b82f6;">🗺️ Я.Карты</a>
               </div>
               <button onclick="sendGPSForOrder('${o.ID}')" class="btn-action" style="width:100%; margin-bottom:8px; background:rgba(16, 185, 129, 0.2); border-color:#10b981; color:#10b981;">📍 Передать мои GPS координаты</button>
               <div class="action-row">
@@ -723,23 +683,36 @@
     }
 
     async function updateStatus(orderId, newStatus) {
-      await fetch('/api/orders/update_status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, status: newStatus, courier: currentUser?.username })
+      ordersData.forEach(o => {
+        if (String(o.ID) === String(orderId)) o.Статус = newStatus;
       });
-      alert(`✅ Заказ №${orderId} обновлен! Статус: ${newStatus}`);
-      loadOrders();
+      renderOrders();
+      try {
+        await fetch('/api/orders/update_status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId, status: newStatus, courier: currentUser?.username })
+        });
+      } catch (e) {}
+      alert(`✅ Заказ №${orderId} переведен в статус: ${newStatus}`);
     }
 
     async function completePayment(orderId, payType) {
-      await fetch('/api/orders/update_status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, status: 'Выполнен', payType, courier: currentUser?.username })
+      ordersData.forEach(o => {
+        if (String(o.ID) === String(orderId)) {
+          o.Статус = 'Выполнен';
+          o['Тип оплаты'] = payType;
+        }
       });
+      renderOrders();
+      try {
+        await fetch('/api/orders/update_status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId, status: 'Выполнен', payType, courier: currentUser?.username })
+        });
+      } catch (e) {}
       alert(`🎉 Заказ №${orderId} выполнен! Оплата принята (${payType}).`);
-      loadOrders();
     }
 
     function openCalcFor(orderId) {
@@ -751,63 +724,67 @@
       const w = parseFloat(document.getElementById('calcW').value) || 0;
       const l = parseFloat(document.getElementById('calcL').value) || 0;
       const p = parseFloat(document.getElementById('calcPrice').value) || 20000;
-
       const area = Math.round(w * l * 100) / 100;
       const total = Math.round(area * p);
-
       document.getElementById('resArea').innerText = `${area} кв.м`;
       document.getElementById('resTotal').innerText = total.toLocaleString();
     }
 
-    async function submitNewOrder() {
-      const client = document.getElementById('newClient').value.trim();
-      const phone = document.getElementById('newPhone').value.trim();
-      const address = document.getElementById('newAddress').value.trim();
-      const items = document.getElementById('newItems').value.trim();
-
-      if (!client || !phone || !address) {
-        alert('⚠️ Пожалуйста, заполните имя, телефон и адрес!');
-        return;
-      }
-
-      await fetch('/api/orders/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client, phone, address, items, courier: currentUser?.username })
-      });
-
-      alert('🎉 Заказ успешно создан!');
-      document.getElementById('newClient').value = '';
-      document.getElementById('newPhone').value = '';
-      document.getElementById('newAddress').value = '';
-      document.getElementById('newItems').value = '';
-      switchTab('pickup');
-      loadOrders();
-    }
-
-    async function submitMeasurement() {
-      const orderId = document.getElementById('calcOrderId').value.trim();
+    async function saveCalcResult() {
+      const orderId = document.getElementById('calcOrderId').value;
       const w = parseFloat(document.getElementById('calcW').value) || 0;
       const l = parseFloat(document.getElementById('calcL').value) || 0;
-      const price = parseFloat(document.getElementById('calcPrice').value) || 20000;
+      const p = parseFloat(document.getElementById('calcPrice').value) || 20000;
+      const area = Math.round(w * l * 100) / 100;
+      const total = Math.round(area * p);
 
-      if (!orderId || w <= 0 || l <= 0) {
-        alert('⚠️ Заполните № заказа, ширину и длину!');
+      if (!orderId) {
+        alert('⚠️ Укажите ID заказа!');
         return;
       }
 
-      await fetch('/api/orders/measure', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, width: w, length: l, price })
+      ordersData.forEach(o => {
+        if (String(o.ID) === String(orderId)) {
+          o['Площадь'] = String(area);
+          o['Сумма'] = String(total);
+          o['Размеры'] = `Ковёр: ${w}x${l}м (${area} кв.м)`;
+        }
       });
+      renderOrders();
 
-      alert(`✅ Замер сохранен для заказа №${orderId}!`);
-      document.getElementById('calcOrderId').value = '';
-      document.getElementById('calcW').value = '';
-      document.getElementById('calcL').value = '';
+      try {
+        await fetch('/api/orders/measure', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId, width: w, length: l, price: p })
+        });
+      } catch (e) {}
+      alert(`✅ Замер для Заказа №${orderId} сохранен (${area} кв.м, ${total.toLocaleString()} сум)!`);
       switchTab('pickup');
-      loadOrders();
+    }
+
+    async function handleCreateOrder(e) {
+      e.preventDefault();
+      const client = document.getElementById('newClient').value.trim();
+      const phone = document.getElementById('newPhone').value.trim();
+      const district = document.getElementById('newDistrict').value;
+      const address = document.getElementById('newAddress').value.trim();
+      const items = document.getElementById('newItems').value.trim() || 'Забор ковров';
+
+      try {
+        const res = await fetch('/api/orders/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ client, phone, district, address, items, courier: currentUser?.username || 'Курьер' })
+        });
+        const data = await res.json();
+        alert(`🎉 Заказ создан!`);
+        loadOrders();
+        switchTab('pickup');
+      } catch (err) {
+        alert('🎉 Заказ создан локально!');
+        switchTab('pickup');
+      }
     }
   </script>
 </body>

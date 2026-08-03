@@ -149,6 +149,7 @@ def get_courier_main_keyboard() -> ReplyKeyboardMarkup:
     if url.startswith("https://"):
         kb.append([KeyboardButton(text="📱 Открыть WebApp Курьера", web_app=WebAppInfo(url=url))])
     
+    kb.append([KeyboardButton(text="📍 Отправить текущую геопозицию", request_location=True)])
     kb.append([KeyboardButton(text="📥 Забор ковров"), KeyboardButton(text="🚚 Доставка ковров")])
     kb.append([KeyboardButton(text="➕ Новый заказ"), KeyboardButton(text="📏 Замерить ковер")])
     kb.append([KeyboardButton(text="📋 Мои заказы"), KeyboardButton(text="🔍 Поиск заказа")])
@@ -871,3 +872,56 @@ async def handle_api_update_location(request):
         return web.json_response({"ok": False, "error": f"Заказ №{order_id} не найден"}, status=404)
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+@router.message(F.location)
+async def handle_user_location(message: Message, bot: Bot):
+    chat_id = str(message.chat.id)
+    lat = message.location.latitude
+    lng = message.location.longitude
+    loc_str = f"{lat}, {lng}"
+
+    sessions = load_json_file(SESSIONS_FILE, {})
+    sess = sessions.get(chat_id, {})
+    username = sess.get("cour_username") or sess.get("username", "")
+
+    orders = load_json_file(BACKUP_FILE, [])
+    active_order = None
+
+    pending_order_id = sess.get("pending_loc_order")
+    if pending_order_id:
+        for o in orders:
+            if str(o.get("ID")) == str(pending_order_id):
+                active_order = o
+                break
+
+    if not active_order and username:
+        for o in orders:
+            st_clean = str(o.get("Статус", "")).lower()
+            if username.lower() in str(o.get("Курьер", "")).lower() and ("забор" in st_clean or "ожид" in st_clean or "в цех" in st_clean or "готов" in st_clean):
+                active_order = o
+                break
+
+    if not active_order and orders:
+        active_order = orders[0]
+
+    if active_order:
+        o_id = str(active_order.get("ID"))
+        active_order["Локация"] = loc_str
+        save_json_file(BACKUP_FILE, orders)
+        sess.pop("pending_loc_order", None)
+        sessions[chat_id] = sess
+        save_json_file(SESSIONS_FILE, sessions)
+
+        reply_txt = (
+            f"✅ **GPS Геолокация получена и сохранена!**\n\n"
+            f"📦 **Заказ №:** `{o_id}`\n"
+            f"📍 **Координаты:** `{loc_str}`\n"
+            f"👤 **Клиент:** {active_order.get('Клиент', '-')}\n\n"
+            f"🧭 [Открыть на Яндекс.Картах](https://yandex.ru/maps/?rtext=~{lat},{lng}&rtt=auto)"
+        )
+        await message.answer(reply_txt, parse_mode="Markdown")
+
+        if notify_dispatcher_func:
+            asyncio.create_task(notify_dispatcher_func(f"📍 **Курьер {username} передал GPS клиента для Заказа №{o_id}!** ({loc_str})"))
+    else:
+        await message.answer(f"📍 **Ваши координаты получены:** `{loc_str}`\n⚠️ Нет активного заказа для привязки.", parse_mode="Markdown")
