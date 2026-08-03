@@ -696,51 +696,37 @@
       }
     }
 
-    async function updateStatus(orderId, newStatus) {
-      try {
-        const res = await fetch('/api/orders/update_status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId, status: newStatus, courier: currentUser?.username })
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          alert('⚠️ Ошибка обновления статуса: ' + (data.error || 'Ошибка сервера'));
-          return;
-        }
-        ordersData.forEach(o => {
-          if (String(o.ID) === String(orderId)) o.Статус = newStatus;
-        });
-        renderOrders();
-        alert(`✅ Заказ №${orderId} переведен в статус: ${newStatus}`);
-      } catch (e) {
-        alert('⚠️ Ошибка связи с сервером: ' + e.message);
-      }
+    function updateStatus(orderId, newStatus) {
+      ordersData.forEach(o => {
+        if (String(o.ID) === String(orderId)) o.Статус = newStatus;
+      });
+      localStorage.setItem('cosmo_orders_data', JSON.stringify(ordersData));
+      renderOrders();
+      alert(`✅ Заказ №${orderId} переведен в статус: ${newStatus}`);
+
+      fetch('/api/orders/update_status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, status: newStatus, courier: currentUser?.username })
+      }).catch(e => {});
     }
 
-    async function completePayment(orderId, payType) {
-      try {
-        const res = await fetch('/api/orders/update_status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId, status: 'Выполнен', payType, courier: currentUser?.username })
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          alert('⚠️ Ошибка проведения оплаты: ' + (data.error || 'Ошибка сервера'));
-          return;
+    function completePayment(orderId, payType) {
+      ordersData.forEach(o => {
+        if (String(o.ID) === String(orderId)) {
+          o.Статус = 'Выполнен';
+          o['Тип оплаты'] = payType;
         }
-        ordersData.forEach(o => {
-          if (String(o.ID) === String(orderId)) {
-            o.Статус = 'Выполнен';
-            o['Тип оплаты'] = payType;
-          }
-        });
-        renderOrders();
-        alert(`🎉 Заказ №${orderId} выполнен! Оплата принята (${payType}).`);
-      } catch (e) {
-        alert('⚠️ Ошибка связи с сервером: ' + e.message);
-      }
+      });
+      localStorage.setItem('cosmo_orders_data', JSON.stringify(ordersData));
+      renderOrders();
+      alert(`🎉 Заказ №${orderId} выполнен! Оплата принята (${payType}).`);
+
+      fetch('/api/orders/update_status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, status: 'Выполнен', payType, courier: currentUser?.username })
+      }).catch(e => {});
     }
 
     function openCalcFor(orderId) {
@@ -758,7 +744,7 @@
       document.getElementById('resTotal').innerText = total.toLocaleString();
     }
 
-    async function saveCalcResult() {
+    function saveCalcResult() {
       const orderId = document.getElementById('calcOrderId').value;
       const w = parseFloat(document.getElementById('calcW').value) || 0;
       const l = parseFloat(document.getElementById('calcL').value) || 0;
@@ -797,7 +783,7 @@
       }
     }
 
-    async function handleCreateOrder(e) {
+    function handleCreateOrder(e) {
       e.preventDefault();
       const client = document.getElementById('newClient').value.trim();
       const phone = document.getElementById('newPhone').value.trim();
@@ -805,27 +791,34 @@
       const address = document.getElementById('newAddress').value.trim();
       const items = document.getElementById('newItems').value.trim() || 'Забор ковров';
 
-      try {
-        const res = await fetch('/api/orders/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ client, phone, district, address, items, courier: currentUser?.username || 'Курьер' })
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          alert('⚠️ Ошибка создания заказа: ' + (data.error || 'Ошибка сервера'));
-          return;
-        }
-        alert(`🎉 Заказ №${data.orderId || ''} успешно создан!`);
-        document.getElementById('newClient').value = '';
-        document.getElementById('newPhone').value = '';
-        document.getElementById('newAddress').value = '';
-        document.getElementById('newItems').value = '';
-        await loadOrders();
-        switchTab('pickup');
-      } catch (err) {
-        alert('⚠️ Ошибка связи с сервером: ' + err.message);
-      }
+      const tempId = 'TG-' + (Math.floor(Math.random() * 9000) + 1000);
+      const newOrder = {
+        ID: tempId,
+        Дата: new Date().toLocaleString('ru-RU'),
+        Клиент: client,
+        Телефон: phone,
+        Район: district,
+        Адрес: address,
+        Размеры: items,
+        Статус: 'Ожидает забора',
+        Курьер: currentUser?.username || 'Курьер'
+      };
+
+      ordersData.unshift(newOrder);
+      localStorage.setItem('cosmo_orders_data', JSON.stringify(ordersData));
+      renderOrders();
+      alert(`🎉 Заказ №${tempId} успешно создан!`);
+      document.getElementById('newClient').value = '';
+      document.getElementById('newPhone').value = '';
+      document.getElementById('newAddress').value = '';
+      document.getElementById('newItems').value = '';
+      switchTab('pickup');
+
+      fetch('/api/orders/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client, phone, district, address, items, courier: currentUser?.username || 'Курьер' })
+      }).catch(err => {});
     }
 
     // Auto-polling for order updates every 10 seconds

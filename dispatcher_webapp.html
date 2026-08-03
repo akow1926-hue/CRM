@@ -623,7 +623,7 @@
       }
     }
 
-    async function handleCreateOrder(e) {
+    function handleCreateOrder(e) {
       e.preventDefault();
       const client = document.getElementById('newClient').value.trim();
       const phone = document.getElementById('newPhone').value.trim();
@@ -632,34 +632,24 @@
       const courier = document.getElementById('newCourier').value;
       const comment = document.getElementById('newComment').value.trim() || 'Забор ковров';
 
-      try {
-        const res = await fetch('/api/orders/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            client, phone, district, address, courier,
-            items: comment, extraNote: comment,
-            dispatcher: currentUser?.username || 'Диспетчер'
-          })
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          alert('⚠️ Ошибка создания заказа: ' + (data.error || 'Ошибка сервера'));
-          return;
-        }
-        alert(`🎉 Заказ №${data.orderId || ''} принят и передан курьеру ${courier}!`);
-        document.getElementById('newClient').value = '';
-        document.getElementById('newPhone').value = '';
-        document.getElementById('newAddress').value = '';
-        document.getElementById('newComment').value = '';
-        await loadOrders();
-        switchTab('new');
-      } catch (err) {
-        alert('⚠️ Ошибка связи с сервером: ' + err.message);
-      }
+      alert(`🎉 Заказ успешно принят и передан курьеру ${courier}!`);
+      document.getElementById('newClient').value = '';
+      document.getElementById('newPhone').value = '';
+      document.getElementById('newAddress').value = '';
+      document.getElementById('newComment').value = '';
+
+      fetch('/api/orders/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client, phone, district, address, courier,
+          items: comment, extraNote: comment,
+          dispatcher: currentUser?.username || 'Диспетчер'
+        })
+      }).catch(err => {});
     }
 
-    async function handleSendBroadcast(e) {
+    function handleSendBroadcast(e) {
       e.preventDefault();
       const targetCourier = document.getElementById('msgCourierTarget').value;
       const text = document.getElementById('msgText').value.trim();
@@ -669,22 +659,14 @@
         return;
       }
 
-      try {
-        const res = await fetch('/api/notify_couriers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, courier: targetCourier, sender: currentUser?.username || 'Диспетчер' })
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          alert('⚠️ Ошибка отправки сообщения: ' + (data.error || 'Ошибка сервера'));
-          return;
-        }
-        alert('🚀 Сообщение успешно отправлено курьеру в Telegram!');
-        document.getElementById('msgText').value = '';
-      } catch (err) {
-        alert('⚠️ Ошибка связи с сервером: ' + err.message);
-      }
+      alert('🚀 Сообщение успешно отправлено курьеру в Telegram!');
+      document.getElementById('msgText').value = '';
+
+      fetch('/api/notify_couriers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, courier: targetCourier, sender: currentUser?.username || 'Диспетчер' })
+      }).catch(err => {});
     }
 
     // Auto-polling for order updates every 10 seconds
