@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import re
+import html
 import asyncio
 import urllib.parse
 from datetime import datetime
@@ -39,6 +40,17 @@ CONFIG_FILE = "telegram_config.json"
 BACKUP_FILE = "backup_orders.json"
 USERS_BACKUP_FILE = "backup_users.json"
 SESSIONS_FILE = "telegram_sessions.json"
+
+def extract_number(text: str) -> Optional[int]:
+    if not text:
+        return None
+    cleaned = text.replace(" ", "").replace(",", "")
+    nums = [int(n) for n in re.findall(r'\d+', cleaned)]
+    if not nums:
+        return None
+    if len(nums) == 1:
+        return nums[0]
+    return max(nums)
 
 def load_json_file(filename: str, default: dict | list) -> dict | list:
     if os.path.exists(filename):
@@ -153,9 +165,10 @@ def get_courier_main_keyboard() -> ReplyKeyboardMarkup:
     if url.startswith("https://"):
         kb.append([KeyboardButton(text="📱 Открыть WebApp Курьера", web_app=WebAppInfo(url=url))])
     
-    kb.append([KeyboardButton(text="📥 Забор ковров"), KeyboardButton(text="🚚 Доставка ковров")])
-    kb.append([KeyboardButton(text="➕ Новый заказ"), KeyboardButton(text="📋 Мои заказы")])
-    kb.append([KeyboardButton(text="🔍 Поиск заказа"), KeyboardButton(text="🚪 Выйти из аккаунта (/logout)")])
+    kb.append([KeyboardButton(text="📦 Готовые заказы"), KeyboardButton(text="📥 Забор ковров")])
+    kb.append([KeyboardButton(text="🚚 Доставка ковров"), KeyboardButton(text="➕ Новый заказ")])
+    kb.append([KeyboardButton(text="📋 Мои заказы"), KeyboardButton(text="🔍 Поиск заказа")])
+    kb.append([KeyboardButton(text="🚪 Выйти из аккаунта (/logout)")])
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
 def parse_coords(location_str: str, district: str = "") -> tuple | None:
@@ -174,24 +187,24 @@ def get_order_inline_actions(order_id: str | int, status: str, address: str, dis
     buttons = []
     norm_id = orders_db.normalize_id(order_id)
 
-    parsed = parse_coords(location_str, district)
-    if parsed:
-        lat, lng, _ = parsed
-        navi_url = f"yandexnavi://build_route_on_map?lat_to={lat}&lon_to={lng}"
-        ymaps_url = f"https://yandex.ru/maps/?rtext=~{lat},{lng}&rtt=auto"
-        gmaps_url = f"https://www.google.com/maps/dir/?api=1&destination={lat},{lng}"
-        buttons.append([
-            InlineKeyboardButton(text="🧭 Я.Навигатор", url=navi_url),
-            InlineKeyboardButton(text="🗺️ Я.Карты", url=ymaps_url),
-            InlineKeyboardButton(text="📍 Google Maps", url=gmaps_url)
-        ])
-    else:
-        full_addr = f"Самарканд {district} {address}".strip()
-        encoded = urllib.parse.quote(full_addr)
-        ymaps_url = f"https://yandex.ru/maps/?text={encoded}"
-        buttons.append([InlineKeyboardButton(text="🗺️ Открыть адрес в Я.Картах", url=ymaps_url)])
-
     if "забор" in st_clean or "ожид" in st_clean or "нов" in st_clean:
+        parsed = parse_coords(location_str, district)
+        if parsed:
+            lat, lng, _ = parsed
+            navi_url = f"yandexnavi://build_route_on_map?lat_to={lat}&lon_to={lng}"
+            ymaps_url = f"https://yandex.ru/maps/?rtext=~{lat},{lng}&rtt=auto"
+            gmaps_url = f"https://www.google.com/maps/dir/?api=1&destination={lat},{lng}"
+            buttons.append([
+                InlineKeyboardButton(text="🧭 Я.Навигатор", url=navi_url),
+                InlineKeyboardButton(text="🗺️ Я.Карты", url=ymaps_url),
+                InlineKeyboardButton(text="📍 Google Maps", url=gmaps_url)
+            ])
+        else:
+            full_addr = f"Самарканд {district} {address}".strip()
+            encoded = urllib.parse.quote(full_addr)
+            ymaps_url = f"https://yandex.ru/maps/?text={encoded}"
+            buttons.append([InlineKeyboardButton(text="🗺️ Открыть адрес в Я.Картах", url=ymaps_url)])
+
         buttons.append([
             InlineKeyboardButton(text="🚗 Забрать в цех", callback_data=f"cour_st_shop_{norm_id}"),
             InlineKeyboardButton(text="📍 Зафиксировать GPS", callback_data=f"cour_loc_{norm_id}")
@@ -199,18 +212,13 @@ def get_order_inline_actions(order_id: str | int, status: str, address: str, dis
         buttons.append([
             InlineKeyboardButton(text="🧺 Указать детали/кол-во", callback_data=f"cour_items_{norm_id}")
         ])
-    elif "готов" in st_clean or "достав" in st_clean:
-        buttons.append([
-            InlineKeyboardButton(text="🧭 Маршрут до клиента", callback_data=f"cour_route_{norm_id}"),
-            InlineKeyboardButton(text="🧾 Выдать чек", callback_data=f"cour_receipt_{norm_id}")
-        ])
-        buttons.append([
-            InlineKeyboardButton(text="💵 Доставлено (Наличные)", callback_data=f"cour_pay_cash_{norm_id}"),
-            InlineKeyboardButton(text="💳 Доставлено (Карта/Click)", callback_data=f"cour_pay_card_{norm_id}")
-        ])
     else:
         buttons.append([
-            InlineKeyboardButton(text="📦 Изменить статус", callback_data=f"cour_edit_st_{norm_id}")
+            InlineKeyboardButton(text="🧭 Построить маршрут до клиента", callback_data=f"cour_route_{norm_id}")
+        ])
+        buttons.append([
+            InlineKeyboardButton(text="🧾 Выдать чек", callback_data=f"cour_receipt_{norm_id}"),
+            InlineKeyboardButton(text="💵 Оплачено", callback_data=f"cour_pay_start_{norm_id}")
         ])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -463,6 +471,126 @@ async def handle_courier_messages(message: Message, bot: Bot):
         await send_clean_message(bot, message.chat.id, f"🔒 Пожалуйста, войдите в систему курьера. Введите `логин пароль`.", reply_markup=get_courier_login_keyboard(), delete_incoming_id=message.message_id)
         return
 
+    if state == "awaiting_pay_amount":
+        if text == "❌ Отмена оплаты":
+            sess.pop("state", None)
+            sess.pop("pay_oid", None)
+            sess.pop("pay_total_sum", None)
+            sessions[chat_id] = sess
+            save_json_file(SESSIONS_FILE, sessions)
+            await send_clean_message(bot, message.chat.id, "❌ Оплата отменена.", reply_markup=get_courier_main_keyboard(), delete_incoming_id=message.message_id)
+            return
+
+        order_id = sess.get("pay_oid", "")
+        total_sum = sess.get("pay_total_sum", 0)
+        paid_amount = extract_number(text)
+
+        if paid_amount is None:
+            await send_clean_message(bot, message.chat.id, f"⚠️ Пожалуйста, введите оплаченную сумму числом (например: `{total_sum}`).", delete_incoming_id=message.message_id)
+            return
+
+        if paid_amount >= total_sum:
+            orders_db.update_order(order_id, {
+                "Статус": "Выполнен",
+                "Оплачено": str(total_sum),
+                "Тип оплаты": "Наличные/Карта",
+                "Причина": "Оплачено полностью",
+                "Курьер": username
+            })
+
+            sess.pop("state", None)
+            sess.pop("pay_oid", None)
+            sess.pop("pay_total_sum", None)
+            sessions[chat_id] = sess
+            save_json_file(SESSIONS_FILE, sessions)
+
+            await send_clean_message(
+                bot,
+                message.chat.id,
+                f"Заказ успешно оплачен, спасибо за заказ",
+                reply_markup=get_courier_main_keyboard(),
+                delete_incoming_id=message.message_id
+            )
+
+            if notify_dispatcher_func:
+                asyncio.create_task(notify_dispatcher_func(f"💵 **Заказ №{order_id} полностью оплачен ({total_sum:,} сум) и выполнен!** (Курьер: {username})"))
+            return
+        else:
+            debt_amount = total_sum - paid_amount
+            sess["paid_amount"] = paid_amount
+            sess["debt_amount"] = debt_amount
+            sess["state"] = "awaiting_debt_reason"
+            sessions[chat_id] = sess
+            save_json_file(SESSIONS_FILE, sessions)
+
+            debt_kb = ReplyKeyboardMarkup(
+                keyboard=[
+                    [KeyboardButton(text="Доплатит завтра на карту")],
+                    [KeyboardButton(text="Скидка от руководства")],
+                    [KeyboardButton(text="Не хватило наличных")],
+                    [KeyboardButton(text="❌ Отмена оплаты")]
+                ],
+                resize_keyboard=True,
+                one_time_keyboard=True
+            )
+
+            prompt_msg = (
+                f"🔻 **Заказ №{order_id} — Оплата не полностью!**\n\n"
+                f"💰 **Сумма заказа:** `{total_sum:,} сум`\n"
+                f"💵 **Внесено:** `{paid_amount:,} сум`\n"
+                f"🚨 **Остаток (Долг):** `{debt_amount:,} сум`\n\n"
+                f"Укажите **причину долга** (напишите текст или выберите вариант ниже):"
+            )
+            await send_clean_message(bot, message.chat.id, prompt_msg, reply_markup=debt_kb, parse_mode="Markdown", delete_incoming_id=message.message_id)
+            return
+
+    if state == "awaiting_debt_reason":
+        if text == "❌ Отмена оплаты":
+            sess.pop("state", None)
+            sess.pop("pay_oid", None)
+            sess.pop("pay_total_sum", None)
+            sess.pop("paid_amount", None)
+            sess.pop("debt_amount", None)
+            sessions[chat_id] = sess
+            save_json_file(SESSIONS_FILE, sessions)
+            await send_clean_message(bot, message.chat.id, "❌ Оплата отменена.", reply_markup=get_courier_main_keyboard(), delete_incoming_id=message.message_id)
+            return
+
+        order_id = sess.get("pay_oid", "")
+        paid_amount = sess.get("paid_amount", 0)
+        debt_amount = sess.get("debt_amount", 0)
+        total_sum = sess.get("pay_total_sum", 0)
+        debt_reason = text.strip()
+
+        orders_db.update_order(order_id, {
+            "Статус": "Выполнен (Долг)",
+            "Оплачено": str(paid_amount),
+            "Причина": f"Долг: {debt_amount:,} сум. Причина: {debt_reason}",
+            "Курьер": username
+        })
+
+        sess.pop("state", None)
+        sess.pop("pay_oid", None)
+        sess.pop("pay_total_sum", None)
+        sess.pop("paid_amount", None)
+        sess.pop("debt_amount", None)
+        sessions[chat_id] = sess
+        save_json_file(SESSIONS_FILE, sessions)
+
+        save_confirm_msg = (
+            f"✅ **Заказ №{order_id} закрыт и сохранен в CRM!**\n\n"
+            f"💰 **Сумма заказа:** `{total_sum:,} сум`\n"
+            f"💵 **Оплачено:** `{paid_amount:,} сум`\n"
+            f"🔻 **Остаток (Долг):** `{debt_amount:,} сум`\n"
+            f"📝 **Причина долга:** *{debt_reason}*\n\n"
+            f"Все данные зафиксированы в CRM системе."
+        )
+        await send_clean_message(bot, message.chat.id, save_confirm_msg, reply_markup=get_courier_main_keyboard(), parse_mode="Markdown", delete_incoming_id=message.message_id)
+
+        if notify_dispatcher_func:
+            asyncio.create_task(notify_dispatcher_func(f"🚨 **Заказ №{order_id} завершен с ДОЛГОМ!**\nКурьер: {username}\nВнесено: {paid_amount:,} сум | Долг: {debt_amount:,} сум\nПричина: {debt_reason}"))
+        return
+
     if text in ["🚪 Выйти из аккаунта (/logout)", "/logout", "Выйти"]:
         await cmd_logout(message, bot)
         return
@@ -510,7 +638,7 @@ async def handle_courier_messages(message: Message, bot: Bot):
                     pass
         return
 
-    if text in ["🚚 Доставка ковров", "Доставка"]:
+    if text in ["📦 Готовые заказы", "Готовые заказы", "🚚 Доставка ковров", "Доставка", "Готов"]:
         orders = orders_db.get_orders()
         delivery_orders = [o for o in orders if any(w in str(o.get("Статус", "")).lower() for w in ["готов", "достав"])]
         if not delivery_orders:
@@ -518,7 +646,7 @@ async def handle_courier_messages(message: Message, bot: Bot):
             return
 
         await clean_previous_messages(bot, message.chat.id, delete_incoming_id=message.message_id)
-        h_msg = await bot.send_message(message.chat.id, f"🚚 <b>Заказы на доставку ({len(delivery_orders)} шт.):</b>", parse_mode="HTML")
+        h_msg = await bot.send_message(message.chat.id, f"📦 <b>Готовые заказы на доставку ({len(delivery_orders)} шт.):</b>", parse_mode="HTML")
         register_sent_message_id(message.chat.id, h_msg.message_id)
 
         for o in delivery_orders[:10]:
@@ -531,11 +659,11 @@ async def handle_courier_messages(message: Message, bot: Bot):
             c_sum = str(o.get('Сумма', '0'))
 
             card = (
-                f"🚚 <b>ДОСТАВКА №{o_id}</b>\n\n"
+                f"📦 <b>ГОТОВЫЙ ЗАКАЗ №{o_id}</b>\n\n"
                 f"👤 <b>Клиент:</b> {c_name}\n"
                 f"📞 <b>Тел:</b> <code>{p_phone}</code>\n"
                 f"🏠 <b>Адрес:</b> {c_dist}, {c_addr}\n"
-                f"🧺 <b>Содержимое:</b> {c_items}\n"
+                f"🧺 <b>Содержимое / Размеры:</b> {c_items}\n"
                 f"💰 <b>К оплате:</b> <code>{c_sum} сум</code>"
             )
             actions_kb = get_order_inline_actions(o_id, o.get("Статус", "Готов"), o.get("Адрес", ""), o.get("Район", ""), o.get("Локация", ""))
@@ -810,6 +938,55 @@ async def cb_change_status(callback: CallbackQuery, bot: Bot):
 
     if notify_dispatcher_func:
         asyncio.create_task(notify_dispatcher_func(f"🚗 **Курьер {username} забрал заказ №{order_id} (В цеху)!**"))
+
+@router.callback_query(F.data.startswith("cour_pay_start_"))
+async def cb_pay_start(callback: CallbackQuery, bot: Bot):
+    await callback.answer()
+    order_id = orders_db.normalize_id(callback.data.replace("cour_pay_start_", "").strip())
+    chat_id = str(callback.message.chat.id)
+    
+    orders = orders_db.get_orders()
+    target_order = None
+    for o in orders:
+        if orders_db.normalize_id(o.get("ID")) == order_id:
+            target_order = o
+            break
+
+    if not target_order:
+        await callback.message.answer("❌ Заказ не найден!")
+        return
+
+    try:
+        total_sum = int(float(target_order.get("Сумма", 0)))
+    except Exception:
+        total_sum = 0
+
+    sessions = load_json_file(SESSIONS_FILE, {})
+    sess = sessions.get(chat_id, {})
+    sess["pay_oid"] = order_id
+    sess["pay_total_sum"] = total_sum
+    sess["state"] = "awaiting_pay_amount"
+    sessions[chat_id] = sess
+    save_json_file(SESSIONS_FILE, sessions)
+
+    pay_kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=f"💵 Оплачено полностью ({total_sum:,} сум)")],
+            [KeyboardButton(text="❌ Отмена оплаты")]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
+
+    msg_text = (
+        f"💵 **Оплата Заказа №{order_id}**\n\n"
+        f"👤 **Клиент:** {target_order.get('Клиент', '-')}\n"
+        f"📞 **Тел:** `{format_phone(str(target_order.get('Телефон', '-')))}`\n"
+        f"💰 **Итоговая сумма заказа:** `{total_sum:,} сум`\n\n"
+        f"Введите **сколько оплачено** клиентом (в сумах, например `{total_sum}`):"
+    )
+
+    await send_clean_message(bot, callback.message.chat.id, msg_text, reply_markup=pay_kb, parse_mode="Markdown")
 
 @router.callback_query(F.data.startswith("cour_pay_"))
 async def cb_pay_done(callback: CallbackQuery, bot: Bot):

@@ -8,7 +8,7 @@ def generate_receipt_html(row: dict) -> str:
     phone = str(row.get('Телефон', '-'))
     address = f"{row.get('Район', '')}, {row.get('Адрес', '')}".strip(', ')
     items = str(row.get('Размеры', '-'))
-    measurements = str(row.get('Измерения', '-'))
+    area = str(row.get('Площадь', '-'))
     
     try:
         sum_val = int(float(row.get('Сумма', 0)))
@@ -22,6 +22,15 @@ def generate_receipt_html(row: dict) -> str:
         
     ptype = str(row.get('Тип оплаты', 'Наличные'))
     date_val = str(row.get('Дата', datetime.now().strftime("%d.%m.%Y, %H:%M")))
+    reason = str(row.get('Причина', '-'))
+
+    debt_info_html = ""
+    if sum_val > paid_val:
+        debt_val = sum_val - paid_val
+        debt_info_html = f"""
+        <div class="row" style="color: #dc2626; font-weight: bold;"><b>🔻 Остаток долга:</b> <span>{debt_val:,} сум</span></div>
+        <div class="row" style="color: #dc2626;"><b>📝 Причина долга:</b> <span>{reason}</span></div>
+        """
 
     receipt_html = f"""<!DOCTYPE html>
 <html>
@@ -53,18 +62,18 @@ def generate_receipt_html(row: dict) -> str:
         <div class="row"><b>Адрес доставки:</b> <span>{address}</span></div>
         
         <div class="items">
-            <b>🧺 Содержимое заказа:</b><br>{items}
-            {f"<br><b>📏 Размеры:</b> {measurements}" if measurements not in ["-", "nan", "None", ""] else ""}
+            <b>🧺 Размеры и детали:</b><br>{items}<br>
+            <b>📐 Площадь:</b> {area} м²
         </div>
 
         <div class="row"><b>Итоговая сумма:</b> <span>{sum_val:,} сум</span></div>
         <div class="row"><b>Способ оплаты:</b> <span>{ptype}</span></div>
-        
+        {debt_info_html}
         <div class="total">
             Оплачено: {paid_val:,} сум
         </div>
         <div class="footer">
-            Спасибо, что выбрали Cosmo Cleaning! 🧼<br>Служба чистоты и уюта
+            Спасибо за заказ! 🧼<br>Cosmo Cleaning Service
         </div>
     </div>
 </body>
@@ -78,6 +87,7 @@ def generate_receipt_text(row: dict) -> str:
     phone = str(row.get('Телефон', '-'))
     address = f"{row.get('Район', '')}, {row.get('Адрес', '')}".strip(', ')
     items = str(row.get('Размеры', '-'))
+    area = str(row.get('Площадь', '-'))
     
     try:
         sum_val = int(float(row.get('Сумма', 0)))
@@ -90,18 +100,26 @@ def generate_receipt_text(row: dict) -> str:
         paid_val = sum_val
         
     ptype = str(row.get('Тип оплаты', 'Наличные'))
-    date_val = str(row.get('Дата', datetime.now().strftime("%d.%m.%Y")))
+    date_val = str(row.get('Дата', datetime.now().strftime("%d.%m.%Y, %H:%M")))
+    reason = str(row.get('Причина', '-'))
 
-    return (
+    msg = (
         f"🧾 **ЧЕК ОБ ОПЛАТЕ — ЗАКАЗ №{order_id}**\n\n"
         f"✨ **Cosmo Cleaning Service** ✨\n"
         f"📅 **Дата:** {date_val}\n"
         f"👤 **Клиент:** {client}\n"
         f"📞 **Тел:** `{phone}`\n"
         f"🏠 **Адрес:** {address}\n\n"
-        f"🧺 **Содержимое:** {items}\n"
-        f"💰 **Сумма к оплате:** `{sum_val:,} сум`\n"
+        f"🧺 **Размеры / Детали:** {items}\n"
+        f"📐 **Площадь:** {area} м²\n"
+        f"💰 **Итоговая сумма:** `{sum_val:,} сум`\n"
         f"💳 **Способ оплаты:** {ptype}\n"
-        f"✅ **Оплачено:** `{paid_val:,} сум`\n\n"
-        f"🧼 *Спасибо за заказ! Cosmo Cleaning Service*"
+        f"✅ **Оплачено:** `{paid_val:,} сум`\n"
     )
+    if sum_val > paid_val > 0 or "Долг" in reason:
+        debt_val = max(0, sum_val - paid_val)
+        msg += f"🔻 **Остаток долга:** `{debt_val:,} сум`\n"
+        msg += f"📝 **Причина долга:** {reason}\n"
+    msg += "\n🧼 *Спасибо за заказ! Cosmo Cleaning Service*"
+    return msg
+
