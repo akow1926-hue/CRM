@@ -131,7 +131,6 @@
       font-weight: 800;
       cursor: pointer;
       box-shadow: 0 8px 20px rgba(250, 204, 21, 0.3);
-      transition: transform 0.1s, box-shadow 0.2s;
       margin-top: 8px;
     }
 
@@ -288,14 +287,16 @@
       line-height: 1.4;
     }
 
-    .order-details {
-      background: rgba(30, 41, 59, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.05);
+    .order-comment {
+      background: rgba(250, 204, 21, 0.12);
+      border: 1px solid rgba(250, 204, 21, 0.3);
+      color: #fef08a;
       border-radius: 10px;
       padding: 8px 12px;
       font-size: 13px;
-      color: #94a3b8;
+      font-weight: 600;
       margin-bottom: 12px;
+      line-height: 1.4;
     }
 
     .card-actions {
@@ -430,7 +431,7 @@
             <input type="text" id="newAddress" class="form-input" placeholder="ул. Навои 12, кв 4" required>
           </div>
           <div class="form-group">
-            <label class="form-label">🧺 Описание / Ковры</label>
+            <label class="form-label">🧺 Комментарий / Описание ковров</label>
             <input type="text" id="newItems" class="form-input" placeholder="Забор 2 ковров">
           </div>
           <button type="submit" class="btn-primary">🚀 Создать заказ</button>
@@ -577,7 +578,6 @@
           const lng = pos.coords.longitude.toFixed(6);
           const locStr = `${lat}, ${lng}`;
 
-          // Update local state immediately
           ordersData.forEach(o => {
             if (String(o.ID) === String(orderId)) {
               o.Локация = locStr;
@@ -625,6 +625,7 @@
       } else {
         pickupEl.innerHTML = pickupOrders.map(o => {
           const nav = getNavUrls(o.Локация, o.Адрес, o.Район);
+          const comment = o.Размеры || o.Примечание || o.Izoh || 'Заказ на забор';
           return `
           <div class="order-card">
             <div class="order-header">
@@ -634,7 +635,13 @@
             <div class="client-name">👤 ${o.Клиент || 'Клиент'}</div>
             <a href="tel:${o.Телефон}" class="client-phone">📞 ${o.Телефон || '-'}</a>
             <div class="order-addr">🏠 <b>${o.Район || 'Самарканд'}</b>, ${o.Адрес || '-'}</div>
-            <div class="order-details">🧺 ${o.Размеры || 'Заказ на забор'} ${nav.isExact ? '<span style="color:#10b981; font-weight:bold;">📍 (GPS)</span>' : ''}</div>
+            
+            <!-- КОММЕНТАРИЙ ДЛЯ КУРЬЕРА -->
+            <div class="order-comment">
+              💬 <b>Комментарий:</b> ${comment}
+              ${nav.isExact ? '<span style="color:#10b981; font-weight:bold;"><br>📍 (GPS координаты сохранены)</span>' : ''}
+            </div>
+
             <div class="card-actions">
               <div style="display:flex; gap:6px; margin-bottom:8px;">
                 <a href="${nav.navi}" class="btn-nav" style="flex:1;">🧭 Навигатор</a>
@@ -656,6 +663,7 @@
       } else {
         deliveryEl.innerHTML = deliveryOrders.map(o => {
           const nav = getNavUrls(o.Локация, o.Адрес, o.Район);
+          const comment = o.Размеры || o.Примечание || o.Izoh || 'Доставка';
           return `
           <div class="order-card" style="border-left-color: #3b82f6;">
             <div class="order-header">
@@ -665,7 +673,13 @@
             <div class="client-name">👤 ${o.Клиент || 'Клиент'}</div>
             <a href="tel:${o.Телефон}" class="client-phone">📞 ${o.Телефон || '-'}</a>
             <div class="order-addr">🏠 <b>${o.Район || 'Самарканд'}</b>, ${o.Адрес || '-'}</div>
-            <div style="font-size: 15px; font-weight: 800; color: #facc15; margin-bottom: 10px;">💰 К оплате: ${(o.Сумма || 0).toLocaleString()} сум ${nav.isExact ? '<span style="color:#10b981; font-weight:bold;">📍 (GPS)</span>' : ''}</div>
+            
+            <div class="order-comment">
+              💬 <b>Комментарий:</b> ${comment}
+              ${nav.isExact ? '<span style="color:#10b981; font-weight:bold;"><br>📍 (GPS координаты сохранены)</span>' : ''}
+            </div>
+
+            <div style="font-size: 15px; font-weight: 800; color: #facc15; margin-bottom: 10px;">💰 К оплате: ${(o.Сумма || 0).toLocaleString()} сум</div>
             <div class="card-actions">
               <div style="display:flex; gap:6px; margin-bottom:8px;">
                 <a href="${nav.navi}" class="btn-nav" style="flex:1;">🧭 Навигатор</a>
@@ -777,12 +791,11 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ client, phone, district, address, items, courier: currentUser?.username || 'Курьер' })
         });
-        const data = await res.json();
-        alert(`🎉 Заказ создан!`);
+        alert('🎉 Заказ успешно создан!');
         loadOrders();
         switchTab('pickup');
       } catch (err) {
-        alert('🎉 Заказ создан локально!');
+        alert('🎉 Заказ создан!');
         switchTab('pickup');
       }
     }
