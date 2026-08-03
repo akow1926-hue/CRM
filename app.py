@@ -27,6 +27,31 @@ import washer_view
 st.set_page_config(page_title="Cosmo Cleaning Service CRM", layout="wide", page_icon="🧼")
 ui_theme.inject_theme()
 
+# --- ФОНОВЫЙ ЗАПУСК TELEGRAM БОТОВ (ДЛЯ STREAMLIT CLOUD / ONLINE) ---
+@st.cache_resource
+def start_background_bots():
+    import threading
+    import asyncio
+    try:
+        import run_bots
+        def run_bots_thread():
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(run_bots.main())
+            except Exception as e:
+                print(f"[Bot Background Error] {e}")
+
+        t = threading.Thread(target=run_bots_thread, daemon=True)
+        t.start()
+        print("🤖 [Background Bots] Telegram боты запущены в фоновом потоке!")
+        return t
+    except Exception as e:
+        print(f"[Background Bot Launch Failed] {e}")
+        return None
+
+start_background_bots()
+
 # --- ЯЗЫКОВОЙ ПАКЕТ (РУССКИЙ / O'ZBEKCHA) ---
 if "lang" not in st.session_state:
     st.session_state["lang"] = "ru"

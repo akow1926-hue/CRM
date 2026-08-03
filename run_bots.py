@@ -32,21 +32,24 @@ def load_config():
     return {}
 
 async def start_web_server():
-    app = web.Application()
-    app.router.add_get("/", courier_bot.handle_webapp_index)
-    app.router.add_get("/webapp", courier_bot.handle_webapp_index)
-    app.router.add_post("/api/login", courier_bot.handle_api_login)
-    app.router.add_get("/api/orders", courier_bot.handle_api_orders)
-    app.router.add_post("/api/orders/update_status", courier_bot.handle_api_update_status)
-    app.router.add_post("/api/orders/create", courier_bot.handle_api_create_order)
-    app.router.add_post("/api/orders/measure", courier_bot.handle_api_measure)
+    try:
+        app = web.Application()
+        app.router.add_get("/", courier_bot.handle_webapp_index)
+        app.router.add_get("/webapp", courier_bot.handle_webapp_index)
+        app.router.add_post("/api/login", courier_bot.handle_api_login)
+        app.router.add_get("/api/orders", courier_bot.handle_api_orders)
+        app.router.add_post("/api/orders/update_status", courier_bot.handle_api_update_status)
+        app.router.add_post("/api/orders/create", courier_bot.handle_api_create_order)
+        app.router.add_post("/api/orders/measure", courier_bot.handle_api_measure)
 
-    runner = web.AppRunner(app)
-    await runner.setup()
-    port = int(os.environ.get("PORT", 8080))
-    site = web.TCPSite(runner, "0.0.0.0", port)
-    await site.start()
-    print(f"🌐 [WebApp API] Сервер запущен на порту {port} (/webapp) !")
+        runner = web.AppRunner(app)
+        await runner.setup()
+        port = int(os.environ.get("PORT", 8080))
+        site = web.TCPSite(runner, "0.0.0.0", port)
+        await site.start()
+        print(f"🌐 [WebApp API] Сервер запущен на порту {port} (/webapp) !")
+    except Exception as e:
+        print(f"⚠️ [WebApp API Warning] Не удалось запустить локальный HTTP сервер: {e}")
 
 async def main():
     cfg = load_config()
