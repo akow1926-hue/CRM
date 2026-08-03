@@ -104,42 +104,47 @@
 
     .form-input, .form-select {
       width: 100%;
-      background: rgba(30, 41, 59, 0.8);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(30, 41, 59, 0.7);
+      border: 1.5px solid rgba(148, 163, 184, 0.2);
       border-radius: 12px;
-      padding: 12px 14px;
-      color: white;
-      font-size: 14px;
+      padding: 14px 16px;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 600;
       outline: none;
       transition: all 0.2s;
     }
 
     .form-input:focus, .form-select:focus {
-      border-color: var(--accent-blue);
-      background: rgba(30, 41, 59, 1);
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+      border-color: var(--accent-yellow);
+      box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.2);
     }
 
-    .btn-submit {
+    .btn-primary {
       width: 100%;
       background: linear-gradient(135deg, var(--accent-yellow) 0%, var(--accent-yellow-dark) 100%);
       color: #070c18;
       border: none;
       border-radius: 14px;
-      padding: 14px;
-      font-size: 15px;
+      padding: 15px;
+      font-size: 16px;
       font-weight: 800;
       cursor: pointer;
-      margin-top: 10px;
-      box-shadow: 0 4px 15px rgba(250, 204, 21, 0.3);
+      box-shadow: 0 8px 20px rgba(250, 204, 21, 0.3);
+      transition: transform 0.1s, box-shadow 0.2s;
+      margin-top: 8px;
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
     }
 
     /* HEADER */
-    .header {
+    .app-header {
       padding: 16px 20px;
-      background: rgba(15, 23, 42, 0.7);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid rgba(255,255,255,0.08);
+      background: rgba(15, 23, 42, 0.9);
+      border-bottom: 1px solid var(--card-border);
+      backdrop-filter: blur(10px);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -148,172 +153,119 @@
       z-index: 100;
     }
 
-    .logo-area {
+    .header-user {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
 
-    .logo-badge {
-      width: 40px;
-      height: 40px;
+    .user-avatar {
+      width: 38px;
+      height: 38px;
       border-radius: 12px;
-      background: linear-gradient(135deg, var(--accent-blue) 0%, #1e40af 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-    }
-
-    .app-title {
-      font-size: 16px;
-      font-weight: 800;
-      color: white;
-    }
-
-    .app-subtitle {
-      font-size: 11px;
-      color: var(--accent-yellow);
-      font-weight: 600;
-    }
-
-    .user-pill {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(30, 41, 59, 0.6);
-      border: 1px solid rgba(255,255,255,0.1);
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .avatar {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background: var(--accent-yellow);
-      color: #070c18;
+      background: linear-gradient(135deg, var(--accent-yellow) 0%, var(--accent-blue) 100%);
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 900;
-      font-size: 11px;
+      color: #070c18;
+      font-size: 16px;
     }
 
-    /* MAIN CONTAINER */
-    .container {
-      padding: 16px;
-      flex: 1;
-      max-width: 600px;
-      margin: 0 auto;
-      width: 100%;
-    }
-
-    /* METRICS DASHBOARD */
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-
-    .metric-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 14px;
-      padding: 10px 6px;
-      text-align: center;
-    }
-
-    .metric-num {
-      font-size: 18px;
+    .user-info h3 {
+      font-size: 15px;
       font-weight: 800;
-      color: var(--accent-yellow);
     }
 
-    .metric-lbl {
-      font-size: 10px;
-      color: var(--text-muted);
+    .user-info p {
+      font-size: 11px;
+      color: var(--accent-yellow);
       font-weight: 600;
-      margin-top: 2px;
+    }
+
+    .btn-logout {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+      padding: 6px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
     }
 
     /* TABS */
-    .nav-tabs {
+    .tabs-nav {
       display: flex;
       background: rgba(15, 23, 42, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 14px;
       padding: 4px;
-      margin-bottom: 16px;
-      gap: 4px;
+      margin: 14px 16px 8px 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      gap: 2px;
       overflow-x: auto;
     }
 
     .tab-btn {
       flex: 1;
-      min-width: 65px;
+      min-width: 60px;
+      padding: 10px 4px;
       background: transparent;
       border: none;
-      color: var(--text-muted);
-      padding: 8px 6px;
       border-radius: 10px;
+      color: var(--text-muted);
       font-size: 12px;
       font-weight: 700;
       cursor: pointer;
       transition: all 0.2s;
-      white-space: nowrap;
       text-align: center;
+      white-space: nowrap;
     }
 
     .tab-btn.active {
       background: var(--accent-blue);
-      color: white;
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
     }
 
-    /* SEARCH BAR */
-    .search-box {
-      margin-bottom: 14px;
+    /* MAIN CONTAINER */
+    .content-area {
+      padding: 12px 16px;
+      flex: 1;
     }
 
-    /* ORDER CARD */
     .order-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-left: 4px solid var(--accent-yellow);
-      border-radius: 16px;
+      border-radius: 18px;
       padding: 16px;
-      margin-bottom: 12px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      margin-bottom: 14px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
       backdrop-filter: blur(8px);
     }
 
     .order-header {
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      justify-content: space-between;
       margin-bottom: 8px;
     }
 
     .order-badge {
-      background: rgba(250, 204, 21, 0.15);
-      border: 1px solid var(--accent-yellow);
-      color: var(--accent-yellow);
+      background: linear-gradient(135deg, var(--accent-yellow) 0%, var(--accent-yellow-dark) 100%);
+      color: #070c18;
       padding: 4px 10px;
       border-radius: 8px;
-      font-size: 13px;
       font-weight: 800;
+      font-size: 13px;
     }
 
     .order-status {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
-      color: #38bdf8;
-      background: rgba(56, 189, 248, 0.15);
+      color: #60a5fa;
+      background: rgba(59, 130, 246, 0.2);
       padding: 3px 8px;
       border-radius: 6px;
     }
@@ -321,17 +273,16 @@
     .client-name {
       font-size: 16px;
       font-weight: 800;
-      color: white;
       margin-bottom: 4px;
     }
 
     .client-phone {
-      color: var(--accent-yellow);
-      text-decoration: none;
-      font-weight: 700;
       font-size: 14px;
+      color: var(--accent-yellow);
+      font-weight: 700;
+      text-decoration: none;
       display: inline-block;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
 
     .order-addr {
@@ -342,11 +293,12 @@
     }
 
     .order-details {
-      font-size: 12px;
-      color: var(--text-muted);
       background: rgba(30, 41, 59, 0.5);
-      padding: 8px 10px;
-      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: #94a3b8;
       margin-bottom: 12px;
     }
 
@@ -356,38 +308,30 @@
       gap: 8px;
     }
 
-    .action-row {
-      display: flex;
-      gap: 8px;
+    .btn-nav {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      color: #93c5fd;
+      border-radius: 10px;
+      padding: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      text-align: center;
+      display: block;
+      transition: background 0.2s;
     }
 
     .btn-action {
-      flex: 1;
-      background: rgba(59, 130, 246, 0.2);
-      border: 1px solid var(--accent-blue);
-      color: white;
-      padding: 10px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
       border-radius: 10px;
+      padding: 10px;
       font-size: 12px;
       font-weight: 700;
       cursor: pointer;
-      text-align: center;
       transition: all 0.2s;
-    }
-
-    .btn-nav {
-      background: rgba(250, 204, 21, 0.15);
-      border: 1px solid var(--accent-yellow);
-      color: var(--accent-yellow);
-      padding: 8px 12px;
-      border-radius: 10px;
-      font-size: 12px;
-      font-weight: 800;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
     }
 
     .empty-msg {
@@ -395,15 +339,6 @@
       padding: 40px 20px;
       color: var(--text-muted);
       font-size: 14px;
-    }
-
-    /* FORM CARD */
-    .form-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 18px;
-      padding: 20px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
     }
   </style>
 </head>
@@ -423,62 +358,38 @@
           <label class="form-label">Пароль</label>
           <input type="password" id="loginPass" class="form-input" placeholder="••••••••" required>
         </div>
-        <button type="submit" class="btn-submit">🔑 Войти в систему</button>
+        <button type="submit" class="btn-primary">🔑 Войти в систему</button>
       </form>
     </div>
   </div>
 
   <!-- HEADER -->
-  <div class="header">
-    <div class="logo-area">
-      <div class="logo-badge">🎧</div>
-      <div>
-        <div class="app-title">Cosmo CRM</div>
-        <div class="app-subtitle">Диспетчер</div>
+  <div class="app-header">
+    <div class="header-user">
+      <div id="userAvatar" class="user-avatar">D</div>
+      <div class="user-info">
+        <h3 id="userName">Диспетчер</h3>
+        <p>Cosmo CRM 🎧</p>
       </div>
     </div>
-    <div id="userBadge" class="user-pill" style="display:none;" onclick="logout()">
-      <div id="userAvatar" class="avatar">D</div>
-      <span id="userName">Диспетчер</span>
-      <span style="font-size:10px; color:#ef4444;">🚪</span>
-    </div>
+    <button onclick="logout()" class="btn-logout">🚪 Выйти</button>
   </div>
 
-  <!-- MAIN CONTENT -->
-  <div class="container">
-    
-    <!-- METRICS -->
-    <div class="metrics-grid">
-      <div class="metric-card">
-        <div id="cntPickup" class="metric-num">0</div>
-        <div class="metric-lbl">📥 Забор</div>
-      </div>
-      <div class="metric-card">
-        <div id="cntShop" class="metric-num">0</div>
-        <div class="metric-lbl">🧺 В цеху</div>
-      </div>
-      <div class="metric-card">
-        <div id="cntDelivery" class="metric-num">0</div>
-        <div class="metric-lbl">📦 Готовы</div>
-      </div>
-      <div class="metric-card">
-        <div id="cntDone" class="metric-num">0</div>
-        <div class="metric-lbl">✅ Завершено</div>
-      </div>
-    </div>
+  <!-- TABS -->
+  <div class="tabs-nav">
+    <button class="tab-btn active" onclick="switchTab('new')">➕ Новый</button>
+    <button class="tab-btn" onclick="switchTab('pickup')">📥 Забор</button>
+    <button class="tab-btn" onclick="switchTab('shop')">🧺 В цеху</button>
+    <button class="tab-btn" onclick="switchTab('delivery')">📦 Готовы</button>
+    <button class="tab-btn" onclick="switchTab('all')">📋 Все</button>
+  </div>
 
-    <!-- TABS -->
-    <div class="nav-tabs">
-      <button class="tab-btn active" onclick="switchTab('new')">➕ Новый</button>
-      <button class="tab-btn" onclick="switchTab('pickup')">📥 Забор</button>
-      <button class="tab-btn" onclick="switchTab('shop')">🧺 В цеху</button>
-      <button class="tab-btn" onclick="switchTab('delivery')">📦 Готовы</button>
-      <button class="tab-btn" onclick="switchTab('all')">📋 Все</button>
-    </div>
+  <!-- CONTENT -->
+  <div class="content-area">
 
-    <!-- TAB 1: CREATE NEW ORDER -->
+    <!-- TAB 1: NEW ORDER -->
     <div id="tabNew" class="tab-content">
-      <div class="form-card">
+      <div class="order-card" style="border-left-color: var(--accent-yellow);">
         <h3 style="font-size: 16px; font-weight: 800; color: var(--accent-yellow); margin-bottom: 14px;">➕ Оформить новый заказ</h3>
         <form onsubmit="handleCreateOrder(event)">
           <div class="form-group">
@@ -527,30 +438,30 @@
             <input type="text" id="newItems" class="form-input" placeholder="Забор 3 ковров">
           </div>
 
-          <button type="submit" class="btn-submit">🚀 Оформить и отправить курьеру</button>
+          <button type="submit" class="btn-primary">🚀 Оформить и отправить курьеру</button>
         </form>
       </div>
     </div>
 
-    <!-- TAB 2: PICKUP ORDERS -->
+    <!-- TAB 2: PICKUP -->
     <div id="tabPickup" class="tab-content" style="display:none;">
       <div id="pickupList"></div>
     </div>
 
-    <!-- TAB 3: IN SHOP ORDERS -->
+    <!-- TAB 3: SHOP -->
     <div id="tabShop" class="tab-content" style="display:none;">
       <div id="shopList"></div>
     </div>
 
-    <!-- TAB 4: DELIVERY ORDERS -->
+    <!-- TAB 4: DELIVERY -->
     <div id="tabDelivery" class="tab-content" style="display:none;">
       <div id="deliveryList"></div>
     </div>
 
-    <!-- TAB 5: ALL ORDERS + SEARCH -->
+    <!-- TAB 5: ALL + SEARCH -->
     <div id="tabAll" class="tab-content" style="display:none;">
-      <div class="search-box">
-        <input type="text" id="searchQuery" class="form-input" placeholder="🔍 Поиск по номеру, имени или ID..." oninput="renderOrders()">
+      <div style="margin-bottom: 12px;">
+        <input type="text" id="searchQuery" class="form-input" placeholder="🔍 Поиск по имени, номеру или ID..." oninput="renderOrders()">
       </div>
       <div id="allList"></div>
     </div>
@@ -566,7 +477,6 @@
 
     let currentUser = null;
     let ordersData = [];
-    const couriersList = ["Алишер Каримов", "Бобур Ибрагимов", "Сардор Турсунов", "Firuz", "Nazarov01"];
 
     window.onload = function() {
       const saved = localStorage.getItem('cosmo_disp_user');
@@ -582,11 +492,9 @@
       }
     };
 
-    async function handleLogin(e) {
+    function handleLogin(e) {
       e.preventDefault();
       const u = document.getElementById('loginUser').value.trim();
-      const p = document.getElementById('loginPass').value.trim();
-
       currentUser = { username: u, role: 'Dispatcher' };
       localStorage.setItem('cosmo_disp_user', JSON.stringify(currentUser));
       showUserApp();
@@ -597,7 +505,6 @@
       const uName = currentUser.username || 'Диспетчер';
       document.getElementById('userName').innerText = uName;
       document.getElementById('userAvatar').innerText = uName.charAt(0).toUpperCase();
-      document.getElementById('userBadge').style.display = 'flex';
       loadOrders();
     }
 
@@ -611,17 +518,12 @@
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
 
-      if (tabName === 'new') {
-        document.getElementById('tabNew').style.display = 'block';
-      } else if (tabName === 'pickup') {
-        document.getElementById('tabPickup').style.display = 'block';
-      } else if (tabName === 'shop') {
-        document.getElementById('tabShop').style.display = 'block';
-      } else if (tabName === 'delivery') {
-        document.getElementById('tabDelivery').style.display = 'block';
-      } else if (tabName === 'all') {
-        document.getElementById('tabAll').style.display = 'block';
-      }
+      if (tabName === 'new') document.getElementById('tabNew').style.display = 'block';
+      else if (tabName === 'pickup') document.getElementById('tabPickup').style.display = 'block';
+      else if (tabName === 'shop') document.getElementById('tabShop').style.display = 'block';
+      else if (tabName === 'delivery') document.getElementById('tabDelivery').style.display = 'block';
+      else if (tabName === 'all') document.getElementById('tabAll').style.display = 'block';
+
       if (event && event.target) event.target.classList.add('active');
     }
 
@@ -673,12 +575,6 @@
       const pickupOrders = ordersData.filter(o => (o.Статус || '').toLowerCase().includes('забор') || (o.Статус || '').toLowerCase().includes('ожид'));
       const shopOrders = ordersData.filter(o => (o.Статус || '').toLowerCase().includes('цех') || (o.Статус || '').toLowerCase().includes('мойк'));
       const deliveryOrders = ordersData.filter(o => (o.Статус || '').toLowerCase().includes('готов') || (o.Статус || '').toLowerCase().includes('достав'));
-      const doneOrders = ordersData.filter(o => (o.Статус || '').toLowerCase().includes('выполн') || (o.Статус || '').toLowerCase().includes('заверш'));
-
-      document.getElementById('cntPickup').innerText = pickupOrders.length;
-      document.getElementById('cntShop').innerText = shopOrders.length;
-      document.getElementById('cntDelivery').innerText = deliveryOrders.length;
-      document.getElementById('cntDone').innerText = doneOrders.length;
 
       const renderList = (list) => {
         if (!list || list.length === 0) return '<div class="empty-msg">📭 Нет заказов в этом статусе</div>';
@@ -698,14 +594,14 @@
               ${nav.isExact ? '<span style="color:#10b981; font-weight:bold;"> 📍 (GPS)</span>' : ''}
             </div>
             <div class="card-actions">
-              <div style="display:flex; gap:6px;">
+              <div style="display:flex; gap:6px; margin-bottom:6px;">
                 <a href="${nav.navi}" class="btn-nav" style="flex:1;">🧭 Навигатор</a>
-                <a href="${nav.ymaps}" target="_blank" class="btn-nav" style="flex:1; background:#3b82f6;">🗺️ Я.Карты</a>
+                <a href="${nav.ymaps}" target="_blank" class="btn-nav" style="flex:1; background:rgba(59, 130, 246, 0.2);">🗺️ Я.Карты</a>
               </div>
-              <div class="action-row" style="margin-top:6px;">
-                <button onclick="changeStatus('${o.ID}', 'Ожидает забора')" class="btn-action">📥 Забор</button>
-                <button onclick="changeStatus('${o.ID}', 'В цеху')" class="btn-action">🧺 В цех</button>
-                <button onclick="changeStatus('${o.ID}', 'Готов')" class="btn-action">📦 Готов</button>
+              <div style="display:flex; gap:6px;">
+                <button onclick="changeStatus('${o.ID}', 'Ожидает забора')" class="btn-action" style="flex:1; background:rgba(250,204,21,0.15); border-color:#facc15; color:#facc15;">📥 Забор</button>
+                <button onclick="changeStatus('${o.ID}', 'В цеху')" class="btn-action" style="flex:1; background:rgba(239,68,68,0.15); border-color:#ef4444; color:#fca5a5;">🧺 В цех</button>
+                <button onclick="changeStatus('${o.ID}', 'Готов')" class="btn-action" style="flex:1; background:rgba(59,130,246,0.15); border-color:#3b82f6; color:#93c5fd;">📦 Готов</button>
               </div>
             </div>
           </div>
@@ -736,7 +632,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ orderId, status: newStatus, courier: currentUser?.username })
         });
-        alert(`✅ Заказ №${orderId} переведен в статус: ${newStatus}`);
+        alert(`✅ Заказ №${orderId} обновлен! Статус: ${newStatus}`);
         loadOrders();
       } catch (e) {
         alert('⚠️ Ошибка сети: ' + e);
@@ -760,7 +656,7 @@
         });
         const data = await res.json();
         if (data.ok) {
-          alert(`🎉 Заказ №${data.orderId} успешно создан и передан курьеру ${courier}!`);
+          alert(`🎉 Заказ №${data.orderId} создан! Курьер: ${courier}`);
           document.getElementById('newClient').value = '';
           document.getElementById('newPhone').value = '';
           document.getElementById('newAddress').value = '';
