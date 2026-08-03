@@ -149,7 +149,6 @@ def get_courier_main_keyboard() -> ReplyKeyboardMarkup:
     if url.startswith("https://"):
         kb.append([KeyboardButton(text="📱 Открыть WebApp Курьера", web_app=WebAppInfo(url=url))])
     
-    kb.append([KeyboardButton(text="📍 Отправить текущую геопозицию", request_location=True)])
     kb.append([KeyboardButton(text="📥 Забор ковров"), KeyboardButton(text="🚚 Доставка ковров")])
     kb.append([KeyboardButton(text="➕ Новый заказ"), KeyboardButton(text="📏 Замерить ковер")])
     kb.append([KeyboardButton(text="📋 Мои заказы"), KeyboardButton(text="🔍 Поиск заказа")])
