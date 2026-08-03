@@ -21,6 +21,8 @@ from aiogram.types import (
     CallbackQuery
 )
 
+import orders_db
+
 # utf-8 for Windows console
 if hasattr(sys.stdout, 'reconfigure'):
     try:
@@ -103,12 +105,12 @@ def is_courier_role(role: str) -> bool:
     return any(k in r for k in ["courier", "курьер", "доставщик", "yuboruvchi", "kuryer", "admin", "админ", "диспетчер", "dispatcher"])
 
 def get_next_order_id() -> int:
-    orders = load_json_file(BACKUP_FILE, [])
+    orders = orders_db.get_orders()
     max_id = 5218
     if isinstance(orders, list):
         for o in orders:
             try:
-                val = int(float(str(o.get("ID", 0)).replace("TG-", "")))
+                val = int(float(orders_db.normalize_id(o.get("ID", 0))))
                 if val > max_id:
                     max_id = val
             except Exception:
@@ -169,6 +171,7 @@ def parse_coords(location_str: str, district: str = "") -> tuple | None:
 def get_order_inline_actions(order_id: str | int, status: str, address: str, district: str, location_str: str = "") -> InlineKeyboardMarkup:
     st_clean = str(status).lower()
     buttons = []
+    norm_id = orders_db.normalize_id(order_id)
 
     parsed = parse_coords(location_str, district)
     if parsed:
@@ -187,24 +190,24 @@ def get_order_inline_actions(order_id: str | int, status: str, address: str, dis
         ymaps_url = f"https://yandex.ru/maps/?text={encoded}"
         buttons.append([InlineKeyboardButton(text="🗺️ Открыть адрес в Я.Картах", url=ymaps_url)])
 
-    buttons.append([
-        InlineKeyboardButton(text="📍 Зафиксировать GPS геопозицию", callback_data=f"cour_loc_{order_id}")
-    ])
-
     if "забор" in st_clean or "ожид" in st_clean or "нов" in st_clean:
         buttons.append([
-            InlineKeyboardButton(text="🚗 Забрал ковры (В цех)", callback_data=f"cour_st_shop_{order_id}"),
-            InlineKeyboardButton(text="📏 Замерить", callback_data=f"cour_calc_{order_id}")
+            InlineKeyboardButton(text="🚗 Забрать в цех", callback_data=f"cour_st_shop_{norm_id}"),
+            InlineKeyboardButton(text="📍 Зафиксировать GPS", callback_data=f"cour_loc_{norm_id}")
+        ])
+        buttons.append([
+            InlineKeyboardButton(text="🧺 Указать детали/кол-во", callback_data=f"cour_items_{norm_id}"),
+            InlineKeyboardButton(text="📏 Замерить", callback_data=f"cour_calc_{norm_id}")
         ])
     elif "готов" in st_clean or "достав" in st_clean:
         buttons.append([
-            InlineKeyboardButton(text="💵 Доставлено (Наличные)", callback_data=f"cour_pay_cash_{order_id}"),
-            InlineKeyboardButton(text="💳 Доставлено (Карта/Click)", callback_data=f"cour_pay_card_{order_id}")
+            InlineKeyboardButton(text="💵 Доставлено (Наличные)", callback_data=f"cour_pay_cash_{norm_id}"),
+            InlineKeyboardButton(text="💳 Доставлено (Карта/Click)", callback_data=f"cour_pay_card_{norm_id}")
         ])
     else:
         buttons.append([
-            InlineKeyboardButton(text="📦 Изменить статус", callback_data=f"cour_edit_st_{order_id}"),
-            InlineKeyboardButton(text="📏 Замерить", callback_data=f"cour_calc_{order_id}")
+            InlineKeyboardButton(text="📦 Изменить статус", callback_data=f"cour_edit_st_{norm_id}"),
+            InlineKeyboardButton(text="📏 Замерить", callback_data=f"cour_calc_{norm_id}")
         ])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -413,15 +416,19 @@ async def handle_courier_messages(message: Message):
         return
 
     if text in ["📥 Забор ковров", "Забор"]:
-        orders = load_json_file(BACKUP_FILE, [])
-        pickup_orders = [o for o in orders if any(w in str(o.get("Статус", "")).lower() for w in ["забор", "ожид", "нов"])]
+        orders = orders_db.get_orders()
+        pickup_orders = [
+            o for o in orders
+            if any(w in str(o.get("Статус", "")).lower() for w in ["забор", "ожид", "нов"])
+            and not any(w in str(o.get("Статус", "")).lower() for w in ["цех", "цеху", "цехе", "мойк", "готов", "выполн"])
+        ]
         if not pickup_orders:
             await message.answer("📭 На данный момент нет новых заявок на забор ковров.")
             return
 
         await message.answer(f"📥 **Заявки на забор ({len(pickup_orders)} шт.):**", parse_mode="Markdown")
         for o in pickup_orders[:8]:
-            o_id = o.get("ID")
+            o_id = orders_db.normalize_id(o.get("ID"))
             card = (
                 f"📥 **ЗАБОР №{o_id}**\n"
                 f"👤 **Клиент:** {o.get('Клиент')}\n"
@@ -429,11 +436,11 @@ async def handle_courier_messages(message: Message):
                 f"🏠 **Адрес:** {o.get('Район')}, {o.get('Адрес')}\n"
                 f"🧺 **Детали:** {o.get('Размеры')}"
             )
-            await message.answer(card, reply_markup=get_order_inline_actions(o_id, o.get("Статус"), o.get("Адрес", ""), o.get("Район", "")), parse_mode="Markdown")
+            await message.answer(card, reply_markup=get_order_inline_actions(o_id, o.get("Статус"), o.get("Адрес", ""), o.get("Район", ""), o.get("Локация", "")), parse_mode="Markdown")
         return
 
     if text in ["🚚 Доставка ковров", "Доставка"]:
-        orders = load_json_file(BACKUP_FILE, [])
+        orders = orders_db.get_orders()
         delivery_orders = [o for o in orders if any(w in str(o.get("Статус", "")).lower() for w in ["готов", "достав"])]
         if not delivery_orders:
             await message.answer("📭 Нет готовых заказов на доставку.")
@@ -441,7 +448,7 @@ async def handle_courier_messages(message: Message):
 
         await message.answer(f"🚚 **Заказы на доставку ({len(delivery_orders)} шт.):**", parse_mode="Markdown")
         for o in delivery_orders[:8]:
-            o_id = o.get("ID")
+            o_id = orders_db.normalize_id(o.get("ID"))
             card = (
                 f"🚚 **ДОСТАВКА №{o_id}**\n"
                 f"👤 **Клиент:** {o.get('Клиент')}\n"
@@ -449,11 +456,11 @@ async def handle_courier_messages(message: Message):
                 f"🏠 **Адрес:** {o.get('Район')}, {o.get('Адрес')}\n"
                 f"💰 **К оплате:** `{o.get('Сумма')}` сум"
             )
-            await message.answer(card, reply_markup=get_order_inline_actions(o_id, o.get("Статус"), o.get("Адрес", ""), o.get("Район", "")), parse_mode="Markdown")
+            await message.answer(card, reply_markup=get_order_inline_actions(o_id, o.get("Статус"), o.get("Адрес", ""), o.get("Район", ""), o.get("Локация", "")), parse_mode="Markdown")
         return
 
     if text == "📋 Мои заказы":
-        orders = load_json_file(BACKUP_FILE, [])
+        orders = orders_db.get_orders()
         my_list = [o for o in orders if username.lower() in str(o.get("Курьер", "")).lower()]
         if not my_list:
             await message.answer("📭 У вас пока нет закрепленных заказов.")
@@ -461,7 +468,7 @@ async def handle_courier_messages(message: Message):
 
         msg = f"📋 **Все заказы курьера {username} ({len(my_list)} шт.):**\n\n"
         for o in my_list[:8]:
-            msg += f"🔹 **Заказ №{o.get('ID')}** | {o.get('Клиент')}\n🏠 {o.get('Район')}, {o.get('Адрес')}\n📊 Статус: **{o.get('Статус')}**\n\n"
+            msg += f"🔹 **Заказ №{orders_db.normalize_id(o.get('ID'))}** | {o.get('Клиент')}\n🏠 {o.get('Район')}, {o.get('Адрес')}\n📊 Статус: **{o.get('Статус')}**\n\n"
         await message.answer(msg, parse_mode="Markdown")
         return
 
@@ -478,7 +485,7 @@ async def handle_courier_messages(message: Message):
         save_json_file(SESSIONS_FILE, sessions)
 
         q = text.lower().strip()
-        orders = load_json_file(BACKUP_FILE, [])
+        orders = orders_db.get_orders()
         found = [o for o in orders if q in str(o.get("ID", "")).lower() or q in str(o.get("Телефон", "")).lower() or q in str(o.get("Клиент", "")).lower()]
 
         if not found:
@@ -486,7 +493,7 @@ async def handle_courier_messages(message: Message):
             return
 
         for o in found[:5]:
-            o_id = o.get("ID")
+            o_id = orders_db.normalize_id(o.get("ID"))
             card = (
                 f"🔎 **Заказ №{o_id}**\n"
                 f"👤 **Клиент:** {o.get('Клиент')}\n"
@@ -494,7 +501,7 @@ async def handle_courier_messages(message: Message):
                 f"🏠 **Адрес:** {o.get('Район')}, {o.get('Адрес')}\n"
                 f"📊 **Статус:** {o.get('Статус')}"
             )
-            await message.answer(card, reply_markup=get_order_inline_actions(o_id, o.get("Статус"), o.get("Адрес", ""), o.get("Район", "")), parse_mode="Markdown")
+            await message.answer(card, reply_markup=get_order_inline_actions(o_id, o.get("Статус"), o.get("Адрес", ""), o.get("Район", ""), o.get("Локация", "")), parse_mode="Markdown")
         return
 
     if text == "➕ Новый заказ":
@@ -557,9 +564,7 @@ async def handle_courier_messages(message: Message):
             "Причина": "Создано курьером через Бот"
         }
 
-        orders = load_json_file(BACKUP_FILE, [])
-        orders.insert(0, new_order)
-        save_json_file(BACKUP_FILE, orders)
+        orders_db.add_order(new_order)
 
         sess.pop("state", None)
         sessions[chat_id] = sess
@@ -570,6 +575,27 @@ async def handle_courier_messages(message: Message):
         # Notify dispatcher
         if notify_dispatcher_func:
             asyncio.create_task(notify_dispatcher_func(f"📥 **Новый заказ №{new_id}** от курьера **{username}**!\n👤 Клиент: {client}\n📞 Тел: {phone}\n🏠 Адрес: {addr}"))
+        return
+
+    if state == "cour_editing_items":
+        oid = sess.get("items_oid", "")
+        sess.pop("state", None)
+        sess.pop("items_oid", None)
+        sessions[chat_id] = sess
+        save_json_file(SESSIONS_FILE, sessions)
+
+        orders_db.update_order(oid, {"Размеры": text})
+
+        await message.answer(
+            f"✅ **Детали забора для Заказа №{oid} сохранены!**\n🧺 **Содержимое:** `{text}`",
+            reply_markup=get_courier_main_keyboard(),
+            parse_mode="Markdown"
+        )
+
+        if notify_dispatcher_func:
+            asyncio.create_task(notify_dispatcher_func(
+                f"🧺 **Курьер {username} указал детали забора для Заказа №{oid}!**\nДетали: {text}"
+            ))
         return
 
     if text == "📏 Замерить ковер":
@@ -597,15 +623,12 @@ async def handle_courier_messages(message: Message):
             total = int(area * price_per_sq)
 
             oid = sess.get("calc_oid", "")
-            orders = load_json_file(BACKUP_FILE, [])
-            for o in orders:
-                if str(o.get("ID")) == str(oid):
-                    o["Площадь"] = str(area)
-                    o["Сумма"] = str(total)
-                    o["Размеры"] = f"{w}m x {l}m ({area} кв.м)"
-                    break
+            orders_db.update_order(oid, {
+                "Площадь": str(area),
+                "Сумма": str(total),
+                "Размеры": f"{w}m x {l}m ({area} кв.м)"
+            })
 
-            save_json_file(BACKUP_FILE, orders)
             sess.pop("state", None)
             sessions[chat_id] = sess
             save_json_file(SESSIONS_FILE, sessions)
@@ -622,16 +645,16 @@ async def handle_courier_messages(message: Message):
 
 @router.callback_query(F.data.startswith("cour_claim_"))
 async def cb_cour_claim(callback: CallbackQuery):
-    order_id = callback.data.replace("cour_claim_", "").strip()
+    order_id = orders_db.normalize_id(callback.data.replace("cour_claim_", "").strip())
     chat_id = str(callback.message.chat.id)
     sessions = load_json_file(SESSIONS_FILE, {})
     sess = sessions.get(chat_id, {})
     username = sess.get("cour_username") or sess.get("username", "Курьер")
 
-    orders = load_json_file(BACKUP_FILE, [])
+    orders = orders_db.get_orders()
     target_order = None
     for o in orders:
-        if str(o.get("ID")) == str(order_id):
+        if orders_db.normalize_id(o.get("ID")) == order_id:
             target_order = o
             break
 
@@ -645,13 +668,11 @@ async def cb_cour_claim(callback: CallbackQuery):
         await callback.answer(f"⚠️ Заказ №{order_id} уже забронирован курьером {current_courier}!", show_alert=True)
         return
 
-    target_order["Курьер"] = username
-    target_order["Статус"] = "Принят курьером"
-    save_json_file(BACKUP_FILE, orders)
+    orders_db.update_order(order_id, {"Курьер": username, "Статус": "Принят курьером"})
 
     await callback.answer(f"🎉 Вы успешно приняли заказ №{order_id}!", show_alert=True)
 
-    actions_kb = get_order_inline_actions(order_id, target_order.get("Статус", ""), target_order.get("Адрес", ""), target_order.get("Район", ""), target_order.get("Локация", ""))
+    actions_kb = get_order_inline_actions(order_id, "Принят курьером", target_order.get("Адрес", ""), target_order.get("Район", ""), target_order.get("Локация", ""))
     
     card_text = (
         f"✅ **Заказ №{order_id} забронирован за вами ({username})!**\n\n"
@@ -676,22 +697,16 @@ async def cb_change_status(callback: CallbackQuery):
         return
 
     st_type = parts[2]
-    order_id = parts[3]
+    order_id = orders_db.normalize_id(parts[3])
     new_status = "В цеху" if st_type == "shop" else "В обработке"
 
     chat_id = str(callback.message.chat.id)
     sessions = load_json_file(SESSIONS_FILE, {})
     username = sessions.get(chat_id, {}).get("username", "Курьер")
 
-    orders = load_json_file(BACKUP_FILE, [])
-    for o in orders:
-        if str(o.get("ID")) == str(order_id):
-            o["Статус"] = new_status
-            o["Курьер"] = username
-            break
+    orders_db.update_order(order_id, {"Статус": new_status, "Курьер": username})
 
-    save_json_file(BACKUP_FILE, orders)
-    await callback.message.answer(f"✅ Заказ №{order_id} обновлен на: **{new_status}** ({username})", parse_mode="Markdown")
+    await callback.message.answer(f"✅ **Заказ №{order_id} обновлен на: {new_status}!** ({username})", parse_mode="Markdown")
 
     if notify_dispatcher_func:
         asyncio.create_task(notify_dispatcher_func(f"🚗 **Курьер {username} забрал заказ №{order_id} (В цеху)!**"))
@@ -704,25 +719,27 @@ async def cb_pay_done(callback: CallbackQuery):
         return
 
     pay_type_code = parts[2]
-    order_id = parts[3]
+    order_id = orders_db.normalize_id(parts[3])
     pay_type_name = "Наличные" if pay_type_code == "cash" else "Карта/Click"
 
     chat_id = str(callback.message.chat.id)
     sessions = load_json_file(SESSIONS_FILE, {})
     username = sessions.get(chat_id, {}).get("username", "Курьер")
 
-    orders = load_json_file(BACKUP_FILE, [])
+    orders = orders_db.get_orders()
     sum_val = "0"
     for o in orders:
-        if str(o.get("ID")) == str(order_id):
-            o["Статус"] = "Выполнен"
-            o["Тип оплаты"] = pay_type_name
+        if orders_db.normalize_id(o.get("ID")) == order_id:
             sum_val = str(o.get("Сумма", "0"))
-            o["Оплачено"] = sum_val
-            o["Курьер"] = username
             break
 
-    save_json_file(BACKUP_FILE, orders)
+    orders_db.update_order(order_id, {
+        "Статус": "Выполнен",
+        "Тип оплаты": pay_type_name,
+        "Оплачено": sum_val,
+        "Курьер": username
+    })
+
     await callback.message.answer(f"🎉 **Заказ №{order_id} выполнен!** Оплата: {sum_val} сум ({pay_type_name})", parse_mode="Markdown")
 
     if notify_dispatcher_func:
@@ -731,7 +748,7 @@ async def cb_pay_done(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("cour_calc_"))
 async def cb_start_calc(callback: CallbackQuery):
     await callback.answer()
-    order_id = callback.data.replace("cour_calc_", "").strip()
+    order_id = orders_db.normalize_id(callback.data.replace("cour_calc_", "").strip())
     chat_id = str(callback.message.chat.id)
     sessions = load_json_file(SESSIONS_FILE, {})
     sess = sessions.get(chat_id, {})
@@ -742,10 +759,28 @@ async def cb_start_calc(callback: CallbackQuery):
 
     await callback.message.answer(f"📏 Замер для №{order_id}: Введите Ширину и Длину через пробел (например: `2.5 3.0`):")
 
+@router.callback_query(F.data.startswith("cour_items_"))
+async def cb_edit_items_prompt(callback: CallbackQuery):
+    await callback.answer()
+    order_id = orders_db.normalize_id(callback.data.replace("cour_items_", "").strip())
+    chat_id = str(callback.message.chat.id)
+    sessions = load_json_file(SESSIONS_FILE, {})
+    sess = sessions.get(chat_id, {})
+    sess["state"] = "cour_editing_items"
+    sess["items_oid"] = order_id
+    sessions[chat_id] = sess
+    save_json_file(SESSIONS_FILE, sessions)
+
+    await callback.message.answer(
+        f"🧺 **Указание деталей/предметов для Заказа №{order_id}:**\n\n"
+        f"Введите в ответном сообщении количество и типы вещей (например: `3 ковра, 2 курпачи, 4 подушки`):",
+        parse_mode="Markdown"
+    )
+
 @router.callback_query(F.data.startswith("cour_loc_"))
 async def cb_request_loc(callback: CallbackQuery):
     await callback.answer()
-    order_id = callback.data.replace("cour_loc_", "").strip()
+    order_id = orders_db.normalize_id(callback.data.replace("cour_loc_", "").strip())
     chat_id = str(callback.message.chat.id)
     sessions = load_json_file(SESSIONS_FILE, {})
     sess = sessions.get(chat_id, {})
@@ -764,8 +799,8 @@ async def cb_request_loc(callback: CallbackQuery):
 
     await callback.message.answer(
         f"📍 **Фиксация GPS координаты для Заказа №{order_id}:**\n\n"
-        f"Пожалуйста, нажмите яркую кнопку ниже **«📍 Поделиться геопозицией Заказа №{order_id}»** или отправьте локацию в чат (📎 Скрепка -> Локация).\n\n"
-        f"Бот автоматически привяжет точные GPS координаты клиента к карточке заказа в CRM!",
+        f"Пожалуйста, нажмите кнопку **«📍 Поделиться геопозицией Заказа №{order_id}»** ниже или отправьте локацию в чат (📎 Скрепка -> Локация).\n\n"
+        f"Бот привяжет точные GPS координаты к заказу!",
         reply_markup=loc_kb,
         parse_mode="Markdown"
     )
@@ -814,28 +849,27 @@ async def handle_api_login(request):
         return web.json_response({"ok": False, "error": str(e)}, status=500)
 
 async def handle_api_orders(request):
-    orders = load_json_file(BACKUP_FILE, [])
+    orders = orders_db.get_orders()
     return web.json_response(orders)
 
 async def handle_api_update_status(request):
     try:
         data = await request.json()
-        order_id = str(data.get("orderId"))
+        order_id = orders_db.normalize_id(data.get("orderId"))
         new_status = data.get("status")
         pay_type = data.get("payType", "Наличные")
         courier = data.get("courier", "Курьер")
 
-        orders = load_json_file(BACKUP_FILE, [])
-        for o in orders:
-            if str(o.get("ID")) == order_id:
-                o["Статус"] = new_status
-                o["Курьер"] = courier
-                if new_status == "Выполнен":
-                    o["Тип оплаты"] = pay_type
-                    o["Оплачено"] = str(o.get("Сумма", "0"))
-                break
+        updates = {"Статус": new_status, "Курьер": courier}
+        if new_status == "Выполнен":
+            updates["Тип оплаты"] = pay_type
+            orders = orders_db.get_orders()
+            for o in orders:
+                if orders_db.normalize_id(o.get("ID")) == order_id:
+                    updates["Оплачено"] = str(o.get("Сумма", "0"))
+                    break
 
-        save_json_file(BACKUP_FILE, orders)
+        orders_db.update_order(order_id, updates)
 
         if notify_dispatcher_func:
             asyncio.create_task(notify_dispatcher_func(f"📲 **Обновление в WebApp!**\nЗаказ №{order_id} переведен в статус **{new_status}** ({courier})"))
@@ -890,9 +924,7 @@ async def handle_api_create_order(request):
             "Причина": "Создано через WebApp"
         }
 
-        orders = load_json_file(BACKUP_FILE, [])
-        orders.insert(0, new_order)
-        save_json_file(BACKUP_FILE, orders)
+        orders_db.add_order(new_order)
 
         if notify_courier_func:
             msg_text = (
@@ -932,7 +964,7 @@ async def handle_api_notify_couriers(request):
 async def handle_api_measure(request):
     try:
         data = await request.json()
-        order_id = str(data.get("orderId"))
+        order_id = orders_db.normalize_id(data.get("orderId"))
         w = float(data.get("width", 0))
         l = float(data.get("length", 0))
         price = float(data.get("price", 20000))
@@ -940,15 +972,11 @@ async def handle_api_measure(request):
         area = round(w * l, 2)
         total = int(area * price)
 
-        orders = load_json_file(BACKUP_FILE, [])
-        for o in orders:
-            if str(o.get("ID")) == order_id:
-                o["Площадь"] = str(area)
-                o["Сумма"] = str(total)
-                o["Размеры"] = f"Ковёр: {w}m x {l}m ({area} кв.м)"
-                break
-
-        save_json_file(BACKUP_FILE, orders)
+        orders_db.update_order(order_id, {
+            "Площадь": str(area),
+            "Сумма": str(total),
+            "Размеры": f"Ковёр: {w}m x {l}m ({area} кв.м)"
+        })
 
         if notify_dispatcher_func:
             asyncio.create_task(notify_dispatcher_func(f"📏 **Замер из WebApp (Заказ №{order_id}):**\nРазмер: {w}x{l} м ({area} кв.м)\nСумма: {total:,} сум"))
@@ -960,21 +988,14 @@ async def handle_api_measure(request):
 async def handle_api_update_location(request):
     try:
         data = await request.json()
-        order_id = str(data.get("orderId", ""))
+        order_id = orders_db.normalize_id(data.get("orderId", ""))
         lat = data.get("lat")
         lng = data.get("lng")
         loc_str = f"{lat}, {lng}" if (lat and lng) else str(data.get("location", "")).strip()
 
-        orders = load_json_file(BACKUP_FILE, [])
-        found = False
-        for o in orders:
-            if str(o.get("ID")) == order_id:
-                o["Локация"] = loc_str
-                found = True
-                break
+        found = orders_db.update_order(order_id, {"Локация": loc_str})
 
         if found:
-            save_json_file(BACKUP_FILE, orders)
             if notify_dispatcher_func:
                 asyncio.create_task(notify_dispatcher_func(f"📍 **GPS локация заказа №{order_id} обновлена из WebApp!** ({loc_str})"))
             return web.json_response({"ok": True, "location": loc_str})
@@ -1003,13 +1024,13 @@ async def handle_user_location(message: Message, bot: Bot):
     sess = sessions.get(chat_id, {})
     username = sess.get("cour_username") or sess.get("username", "")
 
-    orders = load_json_file(BACKUP_FILE, [])
+    orders = orders_db.get_orders()
     active_order = None
 
     pending_order_id = sess.get("pending_loc_order")
     if pending_order_id:
         for o in orders:
-            if str(o.get("ID")) == str(pending_order_id):
+            if orders_db.normalize_id(o.get("ID")) == orders_db.normalize_id(pending_order_id):
                 active_order = o
                 break
 
@@ -1024,24 +1045,35 @@ async def handle_user_location(message: Message, bot: Bot):
         active_order = orders[0]
 
     if active_order:
-        o_id = str(active_order.get("ID"))
-        active_order["Локация"] = loc_str
-        save_json_file(BACKUP_FILE, orders)
+        o_id = orders_db.normalize_id(active_order.get("ID"))
+        orders_db.update_order(o_id, {"Локация": loc_str})
         sess.pop("pending_loc_order", None)
         sessions[chat_id] = sess
         save_json_file(SESSIONS_FILE, sessions)
 
+        navi_url = f"yandexnavi://build_route_on_map?lat_to={lat}&lon_to={lng}"
+        ymaps_url = f"https://yandex.ru/maps/?rtext=~{lat},{lng}&rtt=auto"
+        gmaps_url = f"https://www.google.com/maps/dir/?api=1&destination={lat},{lng}"
+
         reply_txt = (
-            f"🎉 **GPS Геолокация получена и успешно привязана к заказу!**\n\n"
-            f"📦 **Заказ №:** `{o_id}`\n"
+            f"🎉 **Геолокация успешно привязана к Заказу №{o_id}!**\n\n"
             f"👤 **Клиент:** {active_order.get('Клиент', '-')}\n"
+            f"📞 **Тел:** `{format_phone(str(active_order.get('Телефон', '-')))}`\n"
             f"🏠 **Адрес:** {active_order.get('Район', '')}, {active_order.get('Адрес', '')}\n"
-            f"📍 **Координаты:** `{loc_str}`\n\n"
-            f"🧭 [Яндекс.Навигатор](yandexnavi://build_route_on_map?lat_to={lat}&lon_to={lng}) | "
-            f"🗺️ [Яндекс.Карты](https://yandex.ru/maps/?rtext=~{lat},{lng}&rtt=auto) | "
-            f"📍 [Google Maps](https://www.google.com/maps/dir/?api=1&destination={lat},{lng})"
+            f"📍 **GPS Координаты:** `{loc_str}`\n"
+            f"🧺 **Детали/Предметы:** {active_order.get('Размеры', 'Не указано')}\n"
+            f"📊 **Статус:** {active_order.get('Статус', '-')}\n\n"
+            f"🧭 [Яндекс.Навигатор]({navi_url}) | 🗺️ [Яндекс.Карты]({ymaps_url}) | 📍 [Google Maps]({gmaps_url})"
         )
-        await message.answer(reply_txt, reply_markup=get_courier_main_keyboard(), parse_mode="Markdown")
+
+        buttons = [
+            [InlineKeyboardButton(text="🚗 Забрать в цех", callback_data=f"cour_st_shop_{o_id}")],
+            [InlineKeyboardButton(text="📍 Изменить геолокацию", callback_data=f"cour_loc_{o_id}")],
+            [InlineKeyboardButton(text="🧺 Указать детали/предметы", callback_data=f"cour_items_{o_id}")]
+        ]
+
+        await message.answer(reply_txt, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode="Markdown")
+        await message.answer("👇 Меню курьера:", reply_markup=get_courier_main_keyboard())
 
         if notify_dispatcher_func:
             asyncio.create_task(notify_dispatcher_func(f"📍 **Курьер {username} зафиксировал GPS клиента для Заказа №{o_id}!** ({loc_str})"))

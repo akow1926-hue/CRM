@@ -21,6 +21,8 @@ from aiogram.types import (
     CallbackQuery
 )
 
+import orders_db
+
 # utf-8 for Windows console
 if hasattr(sys.stdout, 'reconfigure'):
     try:
@@ -391,7 +393,7 @@ async def handle_dispatcher_messages(message: Message):
         return
 
     if text in ["📊 Статистика", "Статистика"]:
-        orders = load_json_file(BACKUP_FILE, [])
+        orders = orders_db.get_orders()
         new_cnt = len([o for o in orders if "забор" in str(o.get("Статус", "")).lower() or "ожид" in str(o.get("Статус", "")).lower()])
         shop_cnt = len([o for o in orders if "цех" in str(o.get("Статус", "")).lower()])
         ready_cnt = len([o for o in orders if "готов" in str(o.get("Статус", "")).lower()])
@@ -465,7 +467,7 @@ async def handle_dispatcher_messages(message: Message):
         return
 
     if state == "disp_assign_step1":
-        oid = text.strip()
+        oid = orders_db.normalize_id(text.strip())
         sess["assign_oid"] = oid
         sess.pop("state", None)
         sessions[chat_id] = sess
@@ -492,7 +494,7 @@ async def handle_dispatcher_messages(message: Message):
         save_json_file(SESSIONS_FILE, sessions)
 
         q = text.lower().strip()
-        orders = load_json_file(BACKUP_FILE, [])
+        orders = orders_db.get_orders()
         found = [o for o in orders if q in str(o.get("ID", "")).lower() or q in str(o.get("Телефон", "")).lower() or q in str(o.get("Клиент", "")).lower()]
 
         if not found:
@@ -500,7 +502,7 @@ async def handle_dispatcher_messages(message: Message):
             return
 
         for o in found[:5]:
-            oid = o.get("ID")
+            oid = orders_db.normalize_id(o.get("ID"))
             card = (
                 f"🔎 **Заказ №{oid}**\n"
                 f"👤 **Клиент:** {o.get('Клиент')}\n"
@@ -546,7 +548,7 @@ async def handle_dispatcher_messages(message: Message):
 async def cb_disp_list(callback: CallbackQuery):
     await callback.answer()
     cat = callback.data.replace("disp_list_", "")
-    orders = load_json_file(BACKUP_FILE, [])
+    orders = orders_db.get_orders()
 
     if cat == "pickup":
         filtered = [o for o in orders if any(w in str(o.get("Статус", "")).lower() for w in ["забор", "ожид", "нов"])]
@@ -562,18 +564,19 @@ async def cb_disp_list(callback: CallbackQuery):
         title = "✅ **Выполненные заказы:**"
 
     if not filtered:
-        await callback.message.answer(f"{title}\n\n📭 Список пуст.")
+        await callback.message.answer(f"{title}\n\n📭 Нет заказов в этой категории.")
         return
 
-    msg = f"{title} ({len(filtered)} шт.)\n\n"
+    msg = f"{title}\n\n"
     for o in filtered[:10]:
-        msg += f"🔹 **№{o.get('ID')}** | {o.get('Клиент')} (`{o.get('Телефон')}`)\n🏠 {o.get('Адрес')}\n🚚 Курьер: `{o.get('Курьер')}` | 💰 `{o.get('Сумма')}` сум\n\n"
+        msg += f"🔹 **Заказ №{orders_db.normalize_id(o.get('ID'))}** | {o.get('Клиент')} ({o.get('Телефон')})\n🏠 {o.get('Адрес')}\n🚚 Курьер: {o.get('Курьер')} | Статус: **{o.get('Статус')}**\n\n"
+
     await callback.message.answer(msg, parse_mode="Markdown")
 
 @router.callback_query(F.data.startswith("disp_sel_cour_"))
 async def cb_disp_sel_cour(callback: CallbackQuery):
     await callback.answer()
-    cour_name = callback.data.replace("disp_sel_cour_", "")
+    cour_name = callback.data.replace("disp_sel_cour_", "").strip()
     chat_id = str(callback.message.chat.id)
     sessions = load_json_file(SESSIONS_FILE, {})
     sess = sessions.get(chat_id, {})
@@ -583,8 +586,10 @@ async def cb_disp_sel_cour(callback: CallbackQuery):
     phone = sess.get("disp_phone", "")
     addr = sess.get("disp_address", "")
 
+    from courier_bot import get_next_order_id
     new_id = get_next_order_id()
     now_str = datetime.now().strftime("%d.%m.%Y, %H:%M:%S")
+
     assigned_courier = "Не назначен" if cour_name == "all" else cour_name
 
     new_order = {
@@ -593,7 +598,7 @@ async def cb_disp_sel_cour(callback: CallbackQuery):
         "Клиент": client,
         "Телефон": phone,
         "Адрес": addr,
-        "Размеры": "Создано Диспетчером",
+        "Размеры": "Забор ковров",
         "Площадь": "0",
         "Сумма": "0",
         "Статус": "Ожидает забора",
@@ -607,9 +612,7 @@ async def cb_disp_sel_cour(callback: CallbackQuery):
         "Причина": "Оформлено Диспетчером в боте"
     }
 
-    orders = load_json_file(BACKUP_FILE, [])
-    orders.insert(0, new_order)
-    save_json_file(BACKUP_FILE, orders)
+    orders_db.add_order(new_order)
 
     sess.pop("state", None)
     sessions[chat_id] = sess
@@ -622,14 +625,14 @@ async def cb_disp_sel_cour(callback: CallbackQuery):
             claim_kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text=f"📥 Принять заказ №{new_id}", callback_data=f"cour_claim_{new_id}")]
             ])
-            asyncio.create_task(notify_courier_func(f"📥 **Новый заказ №{new_id}!Кто первый заберёт?**\n👤 Клиент: {client}\n📞 Тел: {phone}\n🏠 Адрес: {addr}", target_courier="all", reply_markup=claim_kb))
+            asyncio.create_task(notify_courier_func(f"📥 **Новый заказ №{new_id}! Кто первый заберёт?**\n👤 Клиент: {client}\n📞 Тел: {phone}\n🏠 Адрес: {addr}", target_courier="all", reply_markup=claim_kb))
         else:
             asyncio.create_task(notify_courier_func(f"📥 **Вам назначен новый заказ №{new_id}!**\n👤 Клиент: {client}\n📞 Тел: {phone}\n🏠 Адрес: {addr}", target_courier=cour_name))
 
 @router.callback_query(F.data.startswith("disp_st_menu_"))
 async def cb_disp_st_menu(callback: CallbackQuery):
     await callback.answer()
-    oid = callback.data.replace("disp_st_menu_", "").strip()
+    oid = orders_db.normalize_id(callback.data.replace("disp_st_menu_", "").strip())
     buttons = [
         [InlineKeyboardButton(text="📥 Ожидает забора", callback_data=f"disp_set_st_{oid}_pickup")],
         [InlineKeyboardButton(text="🧺 В цеху", callback_data=f"disp_set_st_{oid}_shop")],

@@ -522,23 +522,26 @@
     }
 
     async function loadOrders() {
+      try {
+        const res = await fetch(getApiUrl('/api/orders?_t=' + Date.now()));
+        if (res.ok) {
+          const remoteData = await res.json();
+          if (Array.isArray(remoteData)) {
+            ordersData = remoteData;
+            localStorage.setItem('cosmo_disp_orders', JSON.stringify(ordersData));
+            renderOrders();
+            return;
+          }
+        }
+      } catch (e) {}
+
       const cached = localStorage.getItem('cosmo_disp_orders');
       if (cached) {
         try { ordersData = JSON.parse(cached); } catch (e) {}
       } else if (window.initialOrders && Array.isArray(window.initialOrders)) {
         ordersData = window.initialOrders;
       }
-
-      try {
-        const res = await fetch(getApiUrl('/api/orders'));
-        if (res.ok) {
-          const remoteData = await res.json();
-          if (Array.isArray(remoteData) && remoteData.length > 0) {
-            ordersData = remoteData;
-            localStorage.setItem('cosmo_disp_orders', JSON.stringify(ordersData));
-          }
-        }
-      } catch (e) {}
+      renderOrders();
     }
 
     function getNavUrls(loc, address, district) {

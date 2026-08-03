@@ -542,6 +542,21 @@
     }
 
     async function loadOrders() {
+      try {
+        const res = await fetch(getApiUrl('/api/orders?_t=' + Date.now()));
+        if (res.ok) {
+          const remoteData = await res.json();
+          if (Array.isArray(remoteData)) {
+            ordersData = remoteData;
+            localStorage.setItem('cosmo_orders_data', JSON.stringify(ordersData));
+            renderOrders();
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('API fetch warning:', e);
+      }
+
       const cached = localStorage.getItem('cosmo_orders_data');
       if (cached) {
         try { ordersData = JSON.parse(cached); } catch (e) {}
@@ -549,20 +564,6 @@
         ordersData = window.initialOrders;
       }
       renderOrders();
-
-      try {
-        const res = await fetch(getApiUrl('/api/orders'));
-        if (res.ok) {
-          const remoteData = await res.json();
-          if (Array.isArray(remoteData) && remoteData.length > 0) {
-            ordersData = remoteData;
-            localStorage.setItem('cosmo_orders_data', JSON.stringify(ordersData));
-            renderOrders();
-          }
-        }
-      } catch (e) {
-        // Retain initial / cached orders
-      }
     }
 
     function getNavUrls(loc, address, district) {
