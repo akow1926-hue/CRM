@@ -1,0 +1,74 @@
+[2026-08-04 21:37:22] [INFO] [CosmoCRM]: [AUDIT] User='admin' Role='Администратор' Action='LOGIN_SUCCESS' TargetType='system' TargetID='1' IP='' Details=''
+[2026-08-04 21:37:32] [INFO] [CosmoCRM]: [AUDIT] User='admin' Role='Администратор' Action='LOGIN_SUCCESS' TargetType='system' TargetID='1' IP='' Details=''
+[2026-08-04 21:37:39] [INFO] [CosmoCRM]: Резервная копия успешно создана: crm_backup_20260804_213739.zip
+[2026-08-04 21:39:07] [INFO] [CosmoCRM]: [AUDIT] User='admin' Role='Администратор' Action='LOGIN_SUCCESS' TargetType='system' TargetID='1' IP='' Details=''
+[2026-08-04 21:39:07] [INFO] [CosmoCRM]: Резервная копия успешно создана: crm_backup_20260804_213907.zip
+[2026-08-04 21:39:07] [INFO] [CosmoCRM]: Integration test completed successfully.
+[2026-08-04 23:14:33] [INFO] [CosmoCRM]: [AUDIT] User='admin' Role='Администратор' Action='LOGIN_SUCCESS' TargetType='system' TargetID='1' IP='' Details=''
+[2026-08-04 23:25:26] [INFO] [CosmoCRM]: [AUDIT] User='admin' Role='Администратор' Action='LOGIN_SUCCESS' TargetType='system' TargetID='1' IP='' Details=''
+[2026-08-04 23:25:26] [INFO] [CosmoCRM]: Резервная копия успешно создана: crm_backup_20260804_232526.zip
+[2026-08-04 23:25:26] [INFO] [CosmoCRM]: Integration test completed successfully.
+[2026-08-04 23:25:54] [ERROR] [CosmoCRM]: ⚠️ [WebApp API Warning] Не удалось запустить HTTP сервер: [Errno 10048] error while attempting to bind on address ('0.0.0.0', 8080): [winerror 10048] обычно разрешается только одно использование адреса сокета (протокол/сетевой адрес/порт)
+Traceback (most recent call last):
+  File "C:\Users\AKOBIR\CRM\webapp\server.py", line 44, in start_web_server
+    await site.start()
+  File "C:\Python314\Lib\site-packages\aiohttp\web_runner.py", line 138, in start
+    self._server = await loop.create_server(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "C:\Python314\Lib\asyncio\base_events.py", line 1638, in create_server
+    raise OSError(err.errno, msg) from None
+OSError: [Errno 10048] error while attempting to bind on address ('0.0.0.0', 8080): [winerror 10048] обычно разрешается только одно использование адреса сокета (протокол/сетевой адрес/порт)
+[2026-08-04 23:25:54] [INFO] [CosmoCRM]: 🚀 [Режим: 2 Отдельных Бота]
+[2026-08-04 23:25:54] [INFO] [CosmoCRM]: 🚚 Запуск Бот Курьера...
+[2026-08-04 23:25:54] [INFO] [CosmoCRM]: 🎧 Запуск Бот Диспетчера...
+[2026-08-04 23:33:25] [ERROR] [CosmoCRM]: ⚠️ [WebApp API Warning] Не удалось запустить HTTP сервер: [Errno 10048] error while attempting to bind on address ('0.0.0.0', 8080): [winerror 10048] обычно разрешается только одно использование адреса сокета (протокол/сетевой адрес/порт)
+Traceback (most recent call last):
+  File "C:\Users\AKOBIR\CRM\webapp\server.py", line 44, in start_web_server
+    await site.start()
+  File "C:\Python314\Lib\site-packages\aiohttp\web_runner.py", line 138, in start
+    self._server = await loop.create_server(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "C:\Python314\Lib\asyncio\base_events.py", line 1638, in create_server
+    raise OSError(err.errno, msg) from None
+OSError: [Errno 10048] error while attempting to bind on address ('0.0.0.0', 8080): [winerror 10048] обычно разрешается только одно использование адреса сокета (протокол/сетевой адрес/порт)
+[2026-08-04 23:33:25] [INFO] [CosmoCRM]: 🚀 [Режим: 2 Отдельных Бота]
+[2026-08-04 23:33:25] [INFO] [CosmoCRM]: 🚚 Запуск Бот Курьера...
+[2026-08-04 23:33:25] [INFO] [CosmoCRM]: 🎧 Запуск Бот Диспетчера...
+[2026-08-04 23:37:46] [INFO] [CosmoCRM]: 🌐 [WebApp API] Сервер запущен на порту 8080 (/webapp) с защищённым CORS!
+[2026-08-04 23:37:46] [INFO] [CosmoCRM]: 🚀 [Режим: 2 Отдельных Бота]
+[2026-08-04 23:37:46] [INFO] [CosmoCRM]: 🚚 Запуск Бот Курьера...
+[2026-08-04 23:37:46] [INFO] [CosmoCRM]: 🎧 Запуск Бот Диспетчера...
+[2026-08-04 23:40:02] [ERROR] [CosmoCRM]: ⚠️ [WebApp API Warning] Не удалось запустить HTTP сервер: [Errno 10048] error while attempting to bind on address ('0.0.0.0', 8080): [winerror 10048] обычно разрешается только одно использование адреса сокета (протокол/сетевой адрес/порт)
+Traceback (most recent call last):
+  File "C:\Users\AKOBIR\CRM\webapp\server.py", line 46, in start_web_server
+    await site.start()
+  File "C:\Python314\Lib\site-packages\aiohttp\web_runner.py", line 138, in start
+    self._server = await loop.create_server(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "C:\Python314\Lib\asyncio\base_events.py", line 1638, in create_server
+    raise OSError(err.errno, msg) from None
+OSError: [Errno 10048] error while attempting to bind on address ('0.0.0.0', 8080): [winerror 10048] обычно разрешается только одно использование адреса сокета (протокол/сетевой адрес/порт)
+[2026-08-04 23:40:02] [INFO] [CosmoCRM]: 🚀 [Режим: 2 Отдельных Бота]
+[2026-08-04 23:40:02] [INFO] [CosmoCRM]: 🚚 Запуск Бот Курьера...
+[2026-08-04 23:40:02] [INFO] [CosmoCRM]: 🎧 Запуск Бот Диспетчера...
+[2026-08-04 23:40:59] [INFO] [CosmoCRM]: 🌐 [WebApp API] Сервер запущен на порту 8080 (/webapp) с защищённым CORS!
+[2026-08-04 23:40:59] [INFO] [CosmoCRM]: 🚀 [Режим: 2 Отдельных Бота]
+[2026-08-04 23:40:59] [INFO] [CosmoCRM]: 🚚 Запуск Бот Курьера...
+[2026-08-04 23:41:00] [INFO] [CosmoCRM]: 🎧 Запуск Бот Диспетчера...
+[2026-08-05 20:32:37] [INFO] [CosmoCRM]: 🌐 [WebApp API] Сервер запущен на порту 8080 (/webapp) с защищённым CORS!
+[2026-08-05 20:32:37] [INFO] [CosmoCRM]: 🚀 [Режим: 2 Отдельных Бота]
+[2026-08-05 20:32:37] [INFO] [CosmoCRM]: 🚚 Запуск Бот Курьера...
+[2026-08-05 20:32:37] [INFO] [CosmoCRM]: 🎧 Запуск Бот Диспетчера...
+[2026-08-05 23:54:30] [INFO] [CosmoCRM]: 🌐 [WebApp API] Сервер запущен на порту 8080 (/webapp) с защищённым CORS!
+[2026-08-05 23:54:30] [INFO] [CosmoCRM]: 🚀 [Режим: 2 Отдельных Бота]
+[2026-08-05 23:54:30] [INFO] [CosmoCRM]: 🚚 Запуск Бот Курьера...
+[2026-08-05 23:54:30] [INFO] [CosmoCRM]: 🎧 Запуск Бот Диспетчера...

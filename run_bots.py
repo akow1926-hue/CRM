@@ -1,16 +1,16 @@
 import os
 import sys
-import json
 import asyncio
 from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher
-from aiohttp import web
+from aiogram.fsm.storage.memory import MemoryStorage
+from config import settings
+from core import logger
+from webapp import server, api
+from bots.courier import handlers as courier_handlers
+from bots.dispatcher import handlers as dispatcher_handlers
 
-import courier_bot
-import dispatcher_bot
-
-# utf-8 for Windows console
 if hasattr(sys.stdout, 'reconfigure'):
     try:
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -20,89 +20,27 @@ if hasattr(sys.stdout, 'reconfigure'):
 
 load_dotenv()
 
-CONFIG_FILE = "telegram_config.json"
-
-def load_config():
-    cfg = {}
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-        except Exception as e:
-            print(f"[Config Error] {e}")
-
-    try:
-        import streamlit as st
-        if hasattr(st, "secrets"):
-            tg_sec = st.secrets.get("telegram", st.secrets)
-            for k in ["courier_bot_token", "dispatcher_bot_token", "bot_token", "chat_id"]:
-                if not cfg.get(k) and k in tg_sec:
-                    cfg[k] = str(tg_sec[k])
-            if not cfg.get("courier_chats") and "courier_chats" in tg_sec:
-                cfg["courier_chats"] = dict(tg_sec["courier_chats"])
-            if not cfg.get("dispatcher_chats") and "dispatcher_chats" in tg_sec:
-                cfg["dispatcher_chats"] = dict(tg_sec["dispatcher_chats"])
-    except Exception:
-        pass
-
-    return cfg
-
-@web.middleware
-async def cors_middleware(request, handler):
-    if request.method == "OPTIONS":
-        response = web.Response(status=200)
-    else:
-        try:
-            response = await handler(request)
-        except web.HTTPException as ex:
-            response = ex
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
-    return response
-
-async def start_web_server():
-    try:
-        app = web.Application(middlewares=[cors_middleware])
-        app.router.add_get("/", courier_bot.handle_webapp_index)
-        app.router.add_get("/webapp", courier_bot.handle_webapp_index)
-        app.router.add_get("/dispatcher", courier_bot.handle_webapp_index)
-        app.router.add_post("/api/login", courier_bot.handle_api_login)
-        app.router.add_get("/api/orders", courier_bot.handle_api_orders)
-        app.router.add_post("/api/orders/update_status", courier_bot.handle_api_update_status)
-        app.router.add_post("/api/orders/update_location", courier_bot.handle_api_update_location)
-        app.router.add_post("/api/orders/create", courier_bot.handle_api_create_order)
-        app.router.add_post("/api/orders/measure", courier_bot.handle_api_measure)
-        app.router.add_post("/api/notify_couriers", courier_bot.handle_api_notify_couriers)
-
-        runner = web.AppRunner(app)
-        await runner.setup()
-        port = int(os.environ.get("PORT", 8080))
-        site = web.TCPSite(runner, "0.0.0.0", port)
-        await site.start()
-        print(f"🌐 [WebApp API] Сервер запущен на порту {port} (/webapp) !")
-    except Exception as e:
-        print(f"⚠️ [WebApp API Warning] Не удалось запустить локальный HTTP сервер: {e}")
 
 async def main():
-    cfg = load_config()
-    
-    courier_token = cfg.get("courier_bot_token") or cfg.get("bot_token") or os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    cfg = settings.load_telegram_config()
+
+    courier_token = cfg.get("courier_bot_token") or os.environ.get("COURIER_BOT_TOKEN") or os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     dispatcher_token = cfg.get("dispatcher_bot_token") or os.environ.get("DISPATCHER_BOT_TOKEN", "").strip()
 
     if not courier_token:
-        print("[CRITICAL] Токен для Telegram бота не найден в telegram_config.json или .env!")
+        print("[CRITICAL] Токен для Telegram бота не найден в .env или telegram_config.json!")
         return
 
-    # WebApp Server
-    await start_web_server()
+    # Start WebApp REST API Server
+    await server.start_web_server()
 
-    # Define notification hooks
+    storage = MemoryStorage()
+
     c_bot_instance = None
     d_bot_instance = None
 
     async def notify_dispatchers(text: str):
-        cfg_latest = load_config()
+        cfg_latest = settings.load_telegram_config()
         disp_chats = cfg_latest.get("dispatcher_chats", {})
         target_bot = d_bot_instance or c_bot_instance
         if target_bot:
@@ -112,61 +50,70 @@ async def main():
                 except Exception as e:
                     print(f"[Notify Dispatcher Error] {e}")
 
-    async def notify_courier(text: str, target_courier: str = "all", reply_markup = None):
-        cfg_latest = load_config()
+    async def notify_couriers(text: str, target_courier: str = "all", reply_markup=None):
+        cfg_latest = settings.load_telegram_config()
         courier_chats = cfg_latest.get("courier_chats", {})
         target_bot = c_bot_instance or d_bot_instance
-        if target_bot:
-            if target_courier == "all":
-                for c_id in set(courier_chats.values()):
-                    try:
-                        await target_bot.send_message(chat_id=c_id, text=text, parse_mode="Markdown", reply_markup=reply_markup)
-                    except Exception as e:
-                        print(f"[Notify Courier Error] {e}")
+        if target_bot and courier_chats:
+            target_clean = str(target_courier or "all").strip().lower()
+
+            target_ids = set()
+            if target_clean in ["all", "не назначен", "none", "", "все", "все курьеры"]:
+                target_ids = set(courier_chats.values())
             else:
-                c_id = courier_chats.get(target_courier.lower())
-                if c_id:
-                    try:
-                        await target_bot.send_message(chat_id=c_id, text=text, parse_mode="Markdown", reply_markup=reply_markup)
-                    except Exception as e:
-                        print(f"[Notify Courier Error] {e}")
+                for uname, cid in courier_chats.items():
+                    u_clean = str(uname).lower()
+                    if u_clean == target_clean or target_clean in u_clean or u_clean in target_clean:
+                        target_ids.add(cid)
+                if not target_ids:
+                    target_ids = set(courier_chats.values())
 
-    courier_bot.set_notify_dispatcher_hook(notify_dispatchers)
-    dispatcher_bot.set_notify_courier_hook(notify_courier)
+            for c_id in target_ids:
+                try:
+                    await target_bot.send_message(chat_id=c_id, text=text, parse_mode="Markdown", reply_markup=reply_markup)
+                except Exception as e:
+                    print(f"[Notify Courier Error] Could not send to {c_id}: {e}")
 
-    # Check if we have two distinct tokens
+    courier_handlers.set_notify_dispatcher_hook(notify_dispatchers)
+    dispatcher_handlers.set_notify_courier_hook(notify_couriers)
+    api.set_notify_hooks(c_func=notify_couriers, d_func=notify_dispatchers)
+
     has_two_separate_tokens = bool(dispatcher_token and dispatcher_token != courier_token)
 
     if has_two_separate_tokens:
-        print("🚀 [Режим: 2 Отдельных Бота]")
-        print("🚚 Запуск Бот Курьера...")
+        logger.log_info("🚀 [Режим: 2 Отдельных Бота]")
+        logger.log_info("🚚 Запуск Бот Курьера...")
         c_bot_instance = Bot(token=courier_token)
-        dp_courier = Dispatcher()
-        dp_courier.include_router(courier_bot.router)
+        dp_courier = Dispatcher(storage=storage)
+        dp_courier.include_router(courier_handlers.router)
 
-        print("🎧 Запуск Бот Диспетчера...")
+        logger.log_info("🎧 Запуск Бот Диспетчера...")
         d_bot_instance = Bot(token=dispatcher_token)
-        dp_dispatcher = Dispatcher()
-        dp_dispatcher.include_router(dispatcher_bot.router)
+        dp_dispatcher = Dispatcher(storage=storage)
+        dp_dispatcher.include_router(dispatcher_handlers.router)
 
-        await asyncio.gather(
-            dp_courier.start_polling(c_bot_instance),
-            dp_dispatcher.start_polling(d_bot_instance)
-        )
+        try:
+            await asyncio.gather(
+                dp_courier.start_polling(c_bot_instance),
+                dp_dispatcher.start_polling(d_bot_instance)
+            )
+        except Exception as e:
+            logger.log_error("Ошибка при запуске ботов", e)
     else:
-        print("🚀 [Режим: Единый токен с разделением ролей Диспетчера и Курьера]")
-        print("💡 Если укажете второй токен 'dispatcher_bot_token' в telegram_config.json, боты разделятся на 2 разных аккаунта!")
-        
+        logger.log_info("🚀 [Режим: Единый токен с разделением ролей Диспетчера и Курьера]")
         c_bot_instance = Bot(token=courier_token)
         d_bot_instance = c_bot_instance
 
-        dp = Dispatcher()
-        # Order of routers: dispatcher_bot router first, then courier_bot router
-        dp.include_router(dispatcher_bot.router)
-        dp.include_router(courier_bot.router)
+        dp = Dispatcher(storage=storage)
+        dp.include_router(dispatcher_handlers.router)
+        dp.include_router(courier_handlers.router)
 
-        print("✅ Telegram-бот готов к работе (Диспетчер & Курьер)!")
-        await dp.start_polling(c_bot_instance)
+        logger.log_info("✅ Telegram-бот готов к работе (Диспетчер & Курьер)!")
+        try:
+            await dp.start_polling(c_bot_instance)
+        except Exception as e:
+            logger.log_error("Ошибка при запуске единого бота", e)
+
 
 if __name__ == "__main__":
     try:

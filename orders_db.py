@@ -1,46 +1,34 @@
 import os
 import sys
 import json
-import re
 from datetime import datetime
+import db
 
 CONFIG_FILE = "telegram_config.json"
 BACKUP_FILE = "backup_orders.json"
 GSHEET_CONFIG_FILE = "gsheet_config.json"
 KEY_FILE = "key.json"
 
+
 def normalize_id(val) -> str:
-    if val is None or val == "":
-        return ""
-    s = str(val).strip()
-    if s.endswith(".0"):
-        s = s[:-2]
-    if s.startswith("TG-") or s.startswith("tg-"):
-        s = s[3:]
-    return s
+    return db.normalize_id(val)
+
 
 def load_orders_from_file() -> list:
-    if os.path.exists(BACKUP_FILE):
-        try:
-            with open(BACKUP_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, list):
-                    for o in data:
-                        if isinstance(o, dict) and "ID" in o:
-                            o["ID"] = normalize_id(o["ID"])
-                    return data
-        except Exception as e:
-            print(f"[JSON Load Error] {e}")
-    return []
+    """Delegates to db module (SQLite with thread locks)"""
+    return db.get_orders()
+
 
 def save_orders_to_file(orders: list) -> bool:
+    """Delegates saving to db module"""
     try:
-        with open(BACKUP_FILE, "w", encoding="utf-8") as f:
-            json.dump(orders, f, ensure_ascii=False, indent=2)
+        for o in orders:
+            db.add_order(o)
         return True
     except Exception as e:
-        print(f"[JSON Save Error] {e}")
+        print(f"[orders_db save error] {e}")
         return False
+
 
 def connect_gsheet():
     if not os.path.exists(KEY_FILE):
@@ -57,16 +45,17 @@ def connect_gsheet():
                         gsheet_url = cfg.get("gsheet_url").strip()
             except Exception:
                 pass
-        db = client.open_by_url(gsheet_url)
-        sheet = db.sheet1
-        return db, sheet
+        gs_db = client.open_by_url(gsheet_url)
+        sheet = gs_db.sheet1
+        return gs_db, sheet
     except Exception as e:
         print(f"[GSheet Connect Error] {e}")
         return None, None
 
+
 def get_orders() -> list:
-    """Returns clean orders, syncing from Google Sheets if available"""
-    db, sheet = connect_gsheet()
+    """Returns orders from SQLite database, syncing from Google Sheets if available."""
+    gs_db, sheet = connect_gsheet()
     if sheet is not None:
         try:
             records = sheet.get_all_records()
@@ -77,30 +66,20 @@ def get_orders() -> list:
                     if "ID" in r_dict:
                         r_dict["ID"] = normalize_id(r_dict["ID"])
                     clean_records.append(r_dict)
-                save_orders_to_file(clean_records)
+                    db.add_order(r_dict)
                 return clean_records
         except Exception as e:
             print(f"[GSheet Fetch Warning] {e}")
-    return load_orders_from_file()
+    return db.get_orders()
+
 
 def update_order(order_id: str | int, updates: dict) -> bool:
-    """Updates order in backup_orders.json AND in Google Sheets"""
+    """Updates order in SQLite database AND Google Sheets."""
     target_id = normalize_id(order_id)
-    orders = load_orders_from_file()
-    found = False
-
-    for o in orders:
-        if normalize_id(o.get("ID")) == target_id:
-            for k, v in updates.items():
-                o[k] = v
-            found = True
-            break
-
-    if found:
-        save_orders_to_file(orders)
+    found = db.update_order(target_id, updates)
 
     # Sync update to Google Sheets
-    db, sheet = connect_gsheet()
+    gs_db, sheet = connect_gsheet()
     if sheet is not None:
         try:
             row = None
@@ -132,26 +111,12 @@ def update_order(order_id: str | int, updates: dict) -> bool:
 
     return found
 
+
 def add_order(order_data: dict) -> bool:
-    """Adds a new order to backup_orders.json AND Google Sheets"""
-    orders = load_orders_from_file()
-    new_id = order_data.get("ID")
-    if not new_id:
-        max_id = 5218
-        for o in orders:
-            try:
-                v = int(normalize_id(o.get("ID")))
-                if v > max_id:
-                    max_id = v
-            except Exception:
-                pass
-        new_id = str(max_id + 1)
-    order_data["ID"] = normalize_id(new_id)
+    """Adds a new order to SQLite database AND Google Sheets."""
+    success = db.add_order(order_data)
 
-    orders.insert(0, order_data)
-    save_orders_to_file(orders)
-
-    db, sheet = connect_gsheet()
+    gs_db, sheet = connect_gsheet()
     if sheet is not None:
         try:
             sheet.append_row([
@@ -176,4 +141,4 @@ def add_order(order_data: dict) -> bool:
         except Exception as e:
             print(f"[GSheet Add Order Warning] {e}")
 
-    return True
+    return success

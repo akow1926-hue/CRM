@@ -1,7 +1,11 @@
 {
   "8572290480": {},
   "1145121997": {
-    "disp_username": "admin",
-    "disp_role": "Администратор"
+    "last_msg_ids": [
+      244
+    ],
+    "cour_username": "akobir",
+    "cour_role": "Доставщик (Курьер)",
+    "state": "create_order_step1"
   }
 }

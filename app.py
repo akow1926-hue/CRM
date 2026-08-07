@@ -107,7 +107,16 @@ def start_background_bots():
     import threading
     import asyncio
     import importlib
+    import socket
     try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        is_port_in_use = (sock.connect_ex(('127.0.0.1', 8080)) == 0)
+        sock.close()
+
+        if is_port_in_use:
+            print("🤖 [Background Bots] Боты/сервер уже запущены автономно (порт 8080 занят). Пропуск встроенного запуска.")
+            return None
+
         import courier_bot
         import dispatcher_bot
         import run_bots
@@ -716,15 +725,27 @@ def send_telegram_notification(msg, target_couriers=None):
         else:
             c_names = []
 
+        matched_any = False
         for cname in c_names:
             cname_clean = cname.lower()
-            found_cid = None
+            if cname_clean in ["all", "все", "все курьеры", "не назначен"]:
+                for key_c, val_cid in courier_chats.items():
+                    if str(val_cid).strip():
+                        chat_ids_to_send.add(str(val_cid).strip())
+                matched_any = True
+                break
+            
             for key_c, val_cid in courier_chats.items():
-                if key_c.lower() == cname_clean or cname_clean in key_c.lower():
-                    found_cid = val_cid
-                    break
-            if found_cid and str(found_cid).strip():
-                chat_ids_to_send.add(str(found_cid).strip())
+                if key_c.lower() in cname_clean or cname_clean in key_c.lower():
+                    if str(val_cid).strip():
+                        chat_ids_to_send.add(str(val_cid).strip())
+                        matched_any = True
+
+        if not matched_any and courier_chats:
+            # Fallback if specific matching didn't yield any chat ID
+            for key_c, val_cid in courier_chats.items():
+                if str(val_cid).strip():
+                    chat_ids_to_send.add(str(val_cid).strip())
     else:
         # If no target specified, send to all registered couriers
         for cname, cid_val in courier_chats.items():
@@ -1330,14 +1351,14 @@ if not st.session_state["logged_in"]:
             login_submit = st.form_submit_button(t["submit_login"])
             
         if login_submit:
-            user_row = users_df[users_df["Username"] == username_input]
-            if user_row.empty:
-                st.error(t["error_not_found"])
+            import auth
+            ok, user, err_msg = auth.authenticate_user(username_input, password_input)
+            if not ok:
+                st.error(err_msg)
             else:
-                db_password = str(user_row.iloc[0]["Password"]).strip()
-                db_status = user_row.iloc[0]["Status"]
-                db_role = user_row.iloc[0]["Role"]
-                
+                db_status = user.get("Status", "Активен")
+                db_role = user.get("Role", "Администратор")
+
                 role_eng_map = {
                     "Администратор": "Administrator", "Administrator": "Administrator", "Admin": "Administrator",
                     "Диспетчер": "Dispatcher", "Dispetcher": "Dispatcher",
@@ -1346,16 +1367,14 @@ if not st.session_state["logged_in"]:
                     "Чистильщик от волос": "Cleaner", "Yung va sochdan tozalovchi": "Cleaner"
                 }
                 final_role = role_eng_map.get(db_role, db_role)
-                
-                if password_input != db_password:
-                    st.error(t["error_password"])
-                elif db_status == "Ожидает одобрения":
+
+                if db_status == "Ожидает одобрения":
                     st.warning(t["warn_approval"])
                 elif db_status == "Активен":
                     st.session_state["logged_in"] = True
-                    st.session_state["username"] = username_input
+                    st.session_state["username"] = user["Username"]
                     st.session_state["role"] = final_role
-                    st.query_params["user"] = username_input
+                    st.query_params["user"] = user["Username"]
                     st.query_params["role"] = final_role
                     st.success(t["success_login"])
                     st.rerun()
