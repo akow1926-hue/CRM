@@ -1,8 +1,10 @@
 import re
 import asyncio
-from aiogram import Router, F, Bot, State
+from aiogram import Router, F, Bot
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
 from aiogram.filters import CommandStart, Command, StateFilter
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove, ReplyKeyboardRemove
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 from database import orders_repo, users_repo
 from core import auth, logger
 from bots.courier.keyboards import (
@@ -20,17 +22,17 @@ def set_notify_dispatcher_hook(fn):
     notify_dispatcher_func = fn
 
 
-class CourierLoginStates(State):
+class CourierLoginStates(StatesGroup):
     waiting_login = State()
     waiting_password = State()
 
 
-class CourierMeasureStates(State):
+class CourierMeasureStates(StatesGroup):
     waiting_width = State()
     waiting_length = State()
 
 
-class CourierSearchStates(State):
+class CourierSearchStates(StatesGroup):
     waiting_order_id = State()
 
 
