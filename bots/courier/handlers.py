@@ -165,7 +165,7 @@ async def handle_pickup_orders(message: Message):
         await message.answer(txt, reply_markup=kb, parse_mode="Markdown")
 
 
-@router.message(F.text == "🚚 Доставка ковров")
+@router.message(F.text.in_(["🚚 На доставку", "🚚 Доставка ковров"]))
 async def handle_delivery_orders(message: Message):
     orders = orders_repo.get_orders()
     delivery = [o for o in orders if "доставк" in str(o.get("Статус", "")).lower() or "готов" in str(o.get("Статус", "")).lower()]

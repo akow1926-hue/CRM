@@ -20,24 +20,19 @@ def get_courier_webapp_url() -> str:
 
 
 def get_courier_login_keyboard() -> ReplyKeyboardMarkup:
-    kb = []
-    url = get_courier_webapp_url()
-    if url.startswith("https://"):
-        kb.append([KeyboardButton(text="📱 Открыть WebApp Курьера", web_app=WebAppInfo(url=url))])
-    kb.append([KeyboardButton(text="🔑 Войти по логину и паролю")])
+    kb = [
+        [KeyboardButton(text="🔑 Войти по логину и паролю")]
+    ]
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
 
 def get_courier_main_keyboard() -> ReplyKeyboardMarkup:
-    kb = []
-    url = get_courier_webapp_url()
-    if url.startswith("https://"):
-        kb.append([KeyboardButton(text="📱 Открыть WebApp Курьера", web_app=WebAppInfo(url=url))])
-    
-    kb.append([KeyboardButton(text="📦 Готовые заказы"), KeyboardButton(text="📥 Забор ковров")])
-    kb.append([KeyboardButton(text="🚚 Доставка ковров"), KeyboardButton(text="📋 Мои заказы")])
-    kb.append([KeyboardButton(text="🔍 Поиск заказа")])
-    kb.append([KeyboardButton(text="🚪 Выйти из аккаунта (/logout)")])
+    kb = [
+        [KeyboardButton(text="📥 Забор ковров"), KeyboardButton(text="📦 Готовые заказы")],
+        [KeyboardButton(text="🚚 На доставку"), KeyboardButton(text="📋 Мои заказы")],
+        [KeyboardButton(text="📍 Отправить моё GPS местоположение", request_location=True)],
+        [KeyboardButton(text="🔍 Поиск заказа"), KeyboardButton(text="🚪 Выйти из аккаунта (/logout)")]
+    ]
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
 

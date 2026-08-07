@@ -19,21 +19,16 @@ def get_dispatcher_webapp_url() -> str:
 
 
 def get_dispatcher_login_keyboard() -> ReplyKeyboardMarkup:
-    kb = []
-    url = get_dispatcher_webapp_url()
-    if url.startswith("https://"):
-        kb.append([KeyboardButton(text="🖥️ Открыть CRM Диспетчера", web_app=WebAppInfo(url=url))])
-    kb.append([KeyboardButton(text="🔑 Войти по логину и паролю")])
+    kb = [
+        [KeyboardButton(text="🔑 Войти по логину и паролю")]
+    ]
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
 
 def get_dispatcher_main_keyboard() -> ReplyKeyboardMarkup:
-    kb = []
-    url = get_dispatcher_webapp_url()
-    if url.startswith("https://"):
-        kb.append([KeyboardButton(text="🖥️ Открыть CRM Диспетчера", web_app=WebAppInfo(url=url))])
-    
-    kb.append([KeyboardButton(text="➕ Создать заказ"), KeyboardButton(text="📋 Все заказы")])
-    kb.append([KeyboardButton(text="🚚 Назначить курьера"), KeyboardButton(text="🔍 Поиск заказа")])
-    kb.append([KeyboardButton(text="🚪 Выйти из аккаунта (/logout)")])
+    kb = [
+        [KeyboardButton(text="➕ Создать заказ"), KeyboardButton(text="📋 Все заказы")],
+        [KeyboardButton(text="🚚 Назначить курьера"), KeyboardButton(text="🔍 Поиск заказа")],
+        [KeyboardButton(text="🚪 Выйти из аккаунта (/logout)")]
+    ]
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
