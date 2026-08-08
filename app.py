@@ -51,8 +51,8 @@ if mode in ["courier", "webapp", "mobile"]:
             pass
 
     try:
-        with open("backup_orders.json", "r", encoding="utf-8") as f:
-            orders_data = f.read()
+        import db
+        orders_data = json.dumps(db.get_orders(), ensure_ascii=False)
     except Exception:
         orders_data = "[]"
     try:
@@ -85,8 +85,8 @@ elif mode in ["dispatcher", "disp"]:
         except Exception:
             pass
     try:
-        with open("backup_orders.json", "r", encoding="utf-8") as f:
-            orders_data = f.read()
+        import db
+        orders_data = json.dumps(db.get_orders(), ensure_ascii=False)
     except Exception:
         orders_data = "[]"
     try:
@@ -582,53 +582,42 @@ if "logged_in" not in st.session_state or not st.session_state.get("logged_in"):
         st.session_state["username"] = ""
         st.session_state["role"] = ""
 
-BACKUP_FILE = "backup_orders.json"
-USERS_BACKUP_FILE = "backup_users.json"
-
 DEFAULT_USERS_DATA = [
-    {"Username": "admin", "Password": "admin123", "Role": "Администратор", "Status": "Активен"},
-    {"Username": "Алишер Каримов", "Password": "123456", "Role": "Доставщик (Курьер)", "Status": "Активен"},
-    {"Username": "Бобур Ибрагимов", "Password": "123456", "Role": "Доставщик (Курьер)", "Status": "Активен"},
-    {"Username": "Сардор Турсунов", "Password": "123456", "Role": "Доставщик (Курьер)", "Status": "Активен"},
-    {"Username": "washer", "Password": "123456", "Role": "Мойщик", "Status": "Активен"}
+    {"Username": "admin", "Password": "admin123", "Role": "Администратор", "Status": "Активен"}
 ]
 
 
 def save_local_users(df):
-    """Авто-бекап пользователей в локальный JSON файл"""
-    try:
-        df.to_json(USERS_BACKUP_FILE, orient="records", force_ascii=False, indent=2)
-    except Exception:
-        pass
+    """Синхронизация пользователей в Google Sheets через db модуль"""
+    pass
 
 
 def load_local_users():
-    """Загрузка данных пользователей из локального бекапа"""
-    if os.path.exists(USERS_BACKUP_FILE):
-        try:
-            return pd.read_json(USERS_BACKUP_FILE)
-        except Exception:
-            pass
-    df = pd.DataFrame(DEFAULT_USERS_DATA)
-    save_local_users(df)
-    return df
+    """Загрузка данных пользователей из Google Sheets"""
+    try:
+        import db
+        users = db.get_users()
+        if users:
+            return pd.DataFrame(users)
+    except Exception:
+        pass
+    return pd.DataFrame(DEFAULT_USERS_DATA)
 
 
 def save_local_backup(df):
-    """Авто-бекап данных заказов в локальный JSON файл"""
-    try:
-        df.to_json(BACKUP_FILE, orient="records", force_ascii=False, indent=2)
-    except Exception:
-        pass
+    """Синхронизация заказов в Google Sheets через db модуль"""
+    pass
 
 
 def load_local_backup():
-    """Загрузка данных заказов из локального бекапа при отсутствии сети"""
-    if os.path.exists(BACKUP_FILE):
-        try:
-            return pd.read_json(BACKUP_FILE)
-        except Exception:
-            pass
+    """Загрузка данных заказов из Google Sheets"""
+    try:
+        import db
+        orders = db.get_orders()
+        if orders:
+            return pd.DataFrame(orders)
+    except Exception:
+        pass
     return pd.DataFrame(columns=EXPECTED_HEADERS)
 
 

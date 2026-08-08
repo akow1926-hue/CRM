@@ -9,6 +9,13 @@ gsheet_config.json
 backup_orders.json
 backup_users.json
 
+# Databases & Backups
+*.db
+crm.db
+backups/
+logs/
+.cosmo_db.json
+
 # Python & IDE
 __pycache__/
 *.py[cod]

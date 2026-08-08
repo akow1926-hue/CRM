@@ -1,39 +1,74 @@
 import json
-import sqlite3
+import threading
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
-from database.db import get_db_connection, _db_lock
-from config import settings
+from database.db import _db_lock, get_worksheet_safe, add_audit_log
+
+_users_cache: List[Dict[str, Any]] = [
+    {
+        "id": 1,
+        "Username": "admin",
+        "Password": "admin123",
+        "Role": "Администратор",
+        "Status": "Активен",
+        "TelegramID": "",
+        "Phone": "+998 90 123 45 67",
+        "Name": "Администратор"
+    }
+]
+_sessions_cache: Dict[str, Dict[str, Any]] = {}
+_last_fetch_time = 0
+CACHE_TTL = 30
 
 
 def sync_to_json_files():
-    try:
-        users = get_users()
-        with open(settings.BACKUP_USERS_FILE, "w", encoding="utf-8") as f:
-            json.dump(users, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print(f"[JSON Sync Users Error] {e}")
+    # Deprecated backup sync - no longer using local files
+    pass
 
 
-def get_users() -> List[Dict[str, Any]]:
+def _row_to_user_dict(r: Dict[str, Any], idx: int = 1) -> Dict[str, Any]:
+    return {
+        "id": r.get("ID") or idx,
+        "Username": str(r.get("Username") or r.get("username") or "").strip(),
+        "Password": str(r.get("Password") or r.get("password") or "").strip(),
+        "Role": str(r.get("Role") or r.get("role") or "Курьер").strip(),
+        "Status": str(r.get("Status") or r.get("status") or "Активен").strip(),
+        "TelegramID": str(r.get("TelegramID") or r.get("telegram_id") or "").strip(),
+        "Phone": str(r.get("Phone") or r.get("phone") or "").strip(),
+        "Name": str(r.get("Name") or r.get("name") or r.get("Username") or "").strip()
+    }
+
+
+def get_users(force_refresh: bool = False) -> List[Dict[str, Any]]:
+    global _users_cache, _last_fetch_time
+    now = datetime.now().timestamp()
+
     with _db_lock:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users ORDER BY id ASC;")
-        rows = cursor.fetchall()
-        conn.close()
+        if not force_refresh and _users_cache and (now - _last_fetch_time < CACHE_TTL):
+            return list(_users_cache)
 
-    res = []
-    for r in rows:
-        res.append({
-            "id": r["id"],
-            "Username": r["username"],
-            "Password": r["password"],
-            "Role": r["role"],
-            "Status": r["status"] or "Активен",
-            "TelegramID": r["telegram_id"] or ""
-        })
-    return res
+    try:
+        # Check 'Сотрудники' or 'Пользователи'
+        ws = get_worksheet_safe("Сотрудники") or get_worksheet_safe("Пользователи")
+        if ws:
+            records = ws.get_all_records()
+            if records:
+                users = []
+                for i, r in enumerate(records, start=1):
+                    u = _row_to_user_dict(r, i)
+                    if u["Username"]:
+                        users.append(u)
+
+                if users:
+                    with _db_lock:
+                        _users_cache = users
+                        _last_fetch_time = now
+                    return list(users)
+    except Exception as e:
+        print(f"[Google Sheets get_users Error] {e}")
+
+    with _db_lock:
+        return list(_users_cache)
 
 
 def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
@@ -41,24 +76,11 @@ def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
         return None
     u_clean = username.strip().lower()
 
-    with _db_lock:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE LOWER(username) = ?;", (u_clean,))
-        r = cursor.fetchone()
-        conn.close()
-
-    if not r:
-        return None
-
-    return {
-        "id": r["id"],
-        "Username": r["username"],
-        "Password": r["password"],
-        "Role": r["role"],
-        "Status": r["status"] or "Активен",
-        "TelegramID": r["telegram_id"] or ""
-    }
+    users = get_users()
+    for u in users:
+        if u["Username"].strip().lower() == u_clean:
+            return dict(u)
+    return None
 
 
 def get_user_by_telegram_id(telegram_id: Any) -> Optional[Dict[str, Any]]:
@@ -66,24 +88,11 @@ def get_user_by_telegram_id(telegram_id: Any) -> Optional[Dict[str, Any]]:
     if not tg_clean:
         return None
 
-    with _db_lock:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE telegram_id = ?;", (tg_clean,))
-        r = cursor.fetchone()
-        conn.close()
-
-    if not r:
-        return None
-
-    return {
-        "id": r["id"],
-        "Username": r["username"],
-        "Password": r["password"],
-        "Role": r["role"],
-        "Status": r["status"] or "Активен",
-        "TelegramID": r["telegram_id"] or ""
-    }
+    users = get_users()
+    for u in users:
+        if str(u.get("TelegramID", "")).strip() == tg_clean:
+            return dict(u)
+    return None
 
 
 def add_user(username: str, password: str, role: str, status: str = "Активен", telegram_id: str = "") -> bool:
@@ -93,130 +102,133 @@ def add_user(username: str, password: str, role: str, status: str = "Актив�
         return False
 
     hashed_pw = security.hash_password(password) if not password.startswith("pbkdf2:") else password
-    now_str = datetime.now().isoformat()
+    new_user = {
+        "id": len(_users_cache) + 1,
+        "Username": u_clean,
+        "Password": hashed_pw,
+        "Role": role,
+        "Status": status,
+        "TelegramID": str(telegram_id),
+        "Phone": "",
+        "Name": u_clean
+    }
 
     with _db_lock:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        _users_cache = [u for u in _users_cache if u["Username"].lower() != u_clean.lower()]
+        _users_cache.append(new_user)
+
+    def _async_add_sheet():
         try:
-            cursor.execute("""
-                INSERT INTO users (username, password, role, status, telegram_id, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?);
-            """, (u_clean, hashed_pw, role, status, str(telegram_id).strip(), now_str, now_str))
-            conn.commit()
-            conn.close()
-            sync_to_json_files()
-            return True
-        except sqlite3.IntegrityError:
-            conn.close()
-            return False
+            ws = get_worksheet_safe("Сотрудники") or get_worksheet_safe("Пользователи")
+            if ws:
+                ws.append_row([
+                    new_user["id"],
+                    new_user["Username"],
+                    new_user["Password"],
+                    new_user["Role"],
+                    new_user["Status"],
+                    new_user["TelegramID"],
+                    new_user["Phone"],
+                    new_user["Name"]
+                ])
+        except Exception as e:
+            print(f"[Google Sheets add_user Error] {e}")
+
+    threading.Thread(target=_async_add_sheet, daemon=True).start()
+    return True
 
 
-def update_user_password(username: str, new_hashed_password: str) -> bool:
+def update_user_password(username: str, new_password_hash: str) -> bool:
     u_clean = username.strip().lower()
-    now_str = datetime.now().isoformat()
     with _db_lock:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            UPDATE users SET password = ?, updated_at = ? WHERE LOWER(username) = ?;
-        """, (new_hashed_password, now_str, u_clean))
-        conn.commit()
-        conn.close()
-    sync_to_json_files()
+        for u in _users_cache:
+            if u["Username"].lower() == u_clean:
+                u["Password"] = new_password_hash
+                break
+
+    def _async_update():
+        try:
+            ws = get_worksheet_safe("Сотрудники") or get_worksheet_safe("Пользователи")
+            if ws:
+                col_users = ws.col_values(2)  # Username column
+                for i, uname in enumerate(col_users[1:], start=2):
+                    if uname.strip().lower() == u_clean:
+                        ws.update_cell(i, 3, new_password_hash)  # Password column
+                        break
+        except Exception as e:
+            print(f"[Google Sheets update_password Error] {e}")
+
+    threading.Thread(target=_async_update, daemon=True).start()
     return True
 
 
 def bind_telegram_id(username: str, telegram_id: Any) -> bool:
     u_clean = username.strip().lower()
     tg_str = str(telegram_id).strip()
-    now_str = datetime.now().isoformat()
+
     with _db_lock:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            UPDATE users SET telegram_id = ?, updated_at = ? WHERE LOWER(username) = ?;
-        """, (tg_str, now_str, u_clean))
-        conn.commit()
-        conn.close()
-    sync_to_json_files()
+        for u in _users_cache:
+            if u["Username"].lower() == u_clean:
+                u["TelegramID"] = tg_str
+                break
+
+    def _async_update():
+        try:
+            ws = get_worksheet_safe("Сотрудники") or get_worksheet_safe("Пользователи")
+            if ws:
+                col_users = ws.col_values(2)
+                for i, uname in enumerate(col_users[1:], start=2):
+                    if uname.strip().lower() == u_clean:
+                        ws.update_cell(i, 6, tg_str)
+                        break
+        except Exception as e:
+            print(f"[Google Sheets bind_telegram Error] {e}")
+
+    threading.Thread(target=_async_update, daemon=True).start()
     return True
 
 
-# Sessions & Audit Logs
-def create_session(token: str, username: str, role: str, telegram_id: str = "", ip_address: str = "", ttl_hours: int = 24) -> bool:
-    now = datetime.now()
-    exp = now + timedelta(hours=ttl_hours)
-
+def create_session(token: str, user_id: Any, username: str, role: str, telegram_id: str = "", ip_address: str = "", expires_hours: int = 168) -> bool:
+    expires_at = (datetime.now() + timedelta(hours=expires_hours)).isoformat()
+    now_str = datetime.now().isoformat()
     with _db_lock:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT OR REPLACE INTO sessions (token, username, role, telegram_id, created_at, expires_at, last_active_at, ip_address)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?);
-        """, (token, username, role, str(telegram_id), now.isoformat(), exp.isoformat(), now.isoformat(), ip_address))
-        conn.commit()
-        conn.close()
+        _sessions_cache[token] = {
+            "token": token,
+            "user_id": user_id,
+            "username": username,
+            "role": role,
+            "telegram_id": telegram_id,
+            "created_at": now_str,
+            "expires_at": expires_at,
+            "last_active_at": now_str,
+            "ip_address": ip_address
+        }
     return True
 
 
 def get_session(token: str) -> Optional[Dict[str, Any]]:
-    cleanup_expired_sessions()
     with _db_lock:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM sessions WHERE token = ?;", (token,))
-        r = cursor.fetchone()
-
-        if r:
-            now_str = datetime.now().isoformat()
-            cursor.execute("UPDATE sessions SET last_active_at = ? WHERE token = ?;", (now_str, token))
-            conn.commit()
-            conn.close()
-            return {
-                "token": r["token"],
-                "username": r["username"],
-                "role": r["role"],
-                "telegram_id": r["telegram_id"],
-                "created_at": r["created_at"],
-                "expires_at": r["expires_at"],
-                "last_active_at": r["last_active_at"],
-                "ip_address": r["ip_address"]
-            }
-        conn.close()
+        sess = _sessions_cache.get(token)
+        if sess:
+            if sess.get("expires_at") > datetime.now().isoformat():
+                sess["last_active_at"] = datetime.now().isoformat()
+                return dict(sess)
+            else:
+                del _sessions_cache[token]
     return None
 
 
 def delete_session(token: str) -> bool:
     with _db_lock:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM sessions WHERE token = ?;", (token,))
-        conn.commit()
-        conn.close()
-    return True
+        if token in _sessions_cache:
+            del _sessions_cache[token]
+            return True
+    return False
 
 
 def cleanup_expired_sessions():
     now_str = datetime.now().isoformat()
     with _db_lock:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM sessions WHERE expires_at < ?;", (now_str,))
-        conn.commit()
-        conn.close()
-
-
-def add_audit_log(username: str, role: str, action: str, target_type: str = "order", target_id: str = "", details: Optional[Dict[str, Any]] = None, ip_address: str = ""):
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    details_json = json.dumps(details or {}, ensure_ascii=False)
-
-    with _db_lock:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO audit_logs (timestamp, username, role, action, target_type, target_id, details_json, ip_address)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?);
-        """, (now_str, username, role, action, target_type, target_id, details_json, ip_address))
-        conn.commit()
-        conn.close()
+        expired = [t for t, s in _sessions_cache.items() if s.get("expires_at", "") < now_str]
+        for t in expired:
+            del _sessions_cache[t]

@@ -1,10 +1,9 @@
 import os
 import sys
 import json
-import sqlite3
 import threading
-from datetime import datetime
-from config import settings
+from datetime import datetime, timedelta
+from typing import Dict, List, Any, Optional
 
 if hasattr(sys.stdout, 'reconfigure'):
     try:
@@ -13,16 +12,23 @@ if hasattr(sys.stdout, 'reconfigure'):
     except Exception:
         pass
 
-_db_lock = threading.Lock()
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KEY_FILE = os.path.join(BASE_DIR, "key.json")
+GSHEET_CONFIG_FILE = os.path.join(BASE_DIR, "gsheet_config.json")
+DEFAULT_GSHEET_URL = "https://docs.google.com/spreadsheets/d/1zYbTgS1aQc-1aeP0EeAo-KeohbTAyGYumJLQQxmBZRk/edit"
 
+_db_lock = threading.RLock()
+_gs_client = None
+_gs_doc = None
+_last_doc_time = 0
 
-def get_db_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(settings.DB_FILE, timeout=30.0)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA busy_timeout=5000;")
-    conn.execute("PRAGMA foreign_keys=ON;")
-    return conn
+# In-memory storage cache for ultra-fast instant UI responsiveness
+_cache_orders: List[Dict[str, Any]] = []
+_cache_users: List[Dict[str, Any]] = []
+_cache_sessions: Dict[str, Dict[str, Any]] = {}
+_cache_audit_logs: List[Dict[str, Any]] = []
+_last_orders_fetch = 0
+_last_users_fetch = 0
 
 
 def normalize_id(val) -> str:
@@ -36,156 +42,105 @@ def normalize_id(val) -> str:
     return s
 
 
+def get_gsheet_url() -> str:
+    if os.path.exists(GSHEET_CONFIG_FILE):
+        try:
+            with open(GSHEET_CONFIG_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if data.get("gsheet_url"):
+                    return data.get("gsheet_url").strip()
+        except Exception:
+            pass
+    return DEFAULT_GSHEET_URL
+
+
+def get_gsheet_doc():
+    global _gs_client, _gs_doc, _last_doc_time
+    now = datetime.now().timestamp()
+    if _gs_doc is not None and (now - _last_doc_time < 300):
+        return _gs_doc
+
+    if not os.path.exists(KEY_FILE):
+        return None
+
+    try:
+        import gspread
+        _gs_client = gspread.service_account(filename=KEY_FILE)
+        url = get_gsheet_url()
+        _gs_doc = _gs_client.open_by_url(url)
+        _last_doc_time = now
+        return _gs_doc
+    except Exception as e:
+        print(f"[Google Sheets Connect Warning] {e}")
+        return None
+
+
+def get_worksheet_safe(name: str):
+    doc = get_gsheet_doc()
+    if not doc:
+        return None
+    try:
+        return doc.worksheet(name)
+    except Exception:
+        # Fallback search by title
+        try:
+            for s in doc.worksheets():
+                if s.title.lower() == name.lower():
+                    return s
+        except Exception:
+            pass
+    return None
+
+
 def init_db():
+    """Initializes Google Sheets worksheets and loads primary memory cache."""
+    print("[Google Sheets Database Engine] Initializing Google Sheets as primary DB...")
+    doc = get_gsheet_doc()
+    if doc:
+        try:
+            titles = [s.title for s in doc.worksheets()]
+            print(f"[Google Sheets DB] Connected to: '{doc.title}'. Active sheets: {titles}")
+        except Exception as e:
+            print(f"[Google Sheets Init Warning] {e}")
+
+
+def add_audit_log(username: str, role: str, action: str, details: str = "", ip_address: str = ""):
+    now_str = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+    entry = {
+        "timestamp": now_str,
+        "username": username,
+        "role": role,
+        "action": action,
+        "details": details,
+        "ip_address": ip_address
+    }
     with _db_lock:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        _cache_audit_logs.insert(0, entry)
+        if len(_cache_audit_logs) > 1000:
+            _cache_audit_logs.pop()
 
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                role TEXT NOT NULL,
-                status TEXT DEFAULT 'Активен',
-                telegram_id TEXT DEFAULT '',
-                created_at TEXT,
-                updated_at TEXT
-            );
-        """)
+    # Async log to Google Sheets in background thread
+    def _async_write():
+        try:
+            ws = get_worksheet_safe("Журнал Действий")
+            if ws:
+                ws.append_row([now_str, username, role, action, details, ip_address])
+        except Exception:
+            pass
 
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS orders (
-                id TEXT PRIMARY KEY,
-                date TEXT,
-                client TEXT,
-                phone TEXT,
-                address TEXT,
-                district TEXT,
-                language TEXT,
-                sizes TEXT,
-                area TEXT DEFAULT '0',
-                total_price TEXT DEFAULT '0',
-                paid_amount TEXT DEFAULT '0',
-                payment_type TEXT DEFAULT '-',
-                status TEXT DEFAULT 'Ожидает забора',
-                courier TEXT DEFAULT '',
-                dispatcher TEXT DEFAULT '',
-                location TEXT DEFAULT '-',
-                debt_reason TEXT DEFAULT '-',
-                created_at TEXT,
-                updated_at TEXT
-            );
-        """)
+    threading.Thread(target=_async_write, daemon=True).start()
 
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS sessions (
-                token TEXT PRIMARY KEY,
-                user_id INTEGER,
-                username TEXT NOT NULL,
-                role TEXT NOT NULL,
-                telegram_id TEXT DEFAULT '',
-                created_at TEXT NOT NULL,
-                expires_at TEXT NOT NULL,
-                last_active_at TEXT NOT NULL,
-                ip_address TEXT DEFAULT ''
-            );
-        """)
 
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS audit_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT NOT NULL,
-                username TEXT NOT NULL,
-                role TEXT NOT NULL,
-                action TEXT NOT NULL,
-                target_type TEXT DEFAULT 'order',
-                target_id TEXT DEFAULT '',
-                details_json TEXT DEFAULT '{}',
-                ip_address TEXT DEFAULT ''
-            );
-        """)
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS sms_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT NOT NULL,
-                phone TEXT NOT NULL,
-                message TEXT NOT NULL,
-                status TEXT DEFAULT 'sent',
-                response TEXT DEFAULT ''
-            );
-        """)
-
-        conn.commit()
-
-        # Migrate Users
-        cursor.execute("SELECT COUNT(*) FROM users;")
-        if cursor.fetchone()[0] == 0 and os.path.exists(settings.BACKUP_USERS_FILE):
-            try:
-                from core import security
-                with open(settings.BACKUP_USERS_FILE, "r", encoding="utf-8") as f:
-                    users_data = json.load(f)
-                    now_str = datetime.now().isoformat()
-                    for u in users_data:
-                        un = str(u.get("Username") or u.get("username") or "").strip()
-                        pw = str(u.get("Password") or u.get("password") or "").strip()
-                        rl = str(u.get("Role") or u.get("role") or "").strip()
-                        st = str(u.get("Status") or u.get("status") or "Активен").strip()
-                        tg = str(u.get("TelegramID") or u.get("telegram_id") or "").strip()
-                        if un and pw:
-                            if not pw.startswith("pbkdf2:"):
-                                pw = security.hash_password(pw)
-                            cursor.execute("""
-                                INSERT OR IGNORE INTO users (username, password, role, status, telegram_id, created_at, updated_at)
-                                VALUES (?, ?, ?, ?, ?, ?, ?);
-                            """, (un, pw, rl, st, tg, now_str, now_str))
-                conn.commit()
-            except Exception as e:
-                print(f"[DB Migration Error Users] {e}")
-
-        # Migrate Orders
-        cursor.execute("SELECT COUNT(*) FROM orders;")
-        if cursor.fetchone()[0] == 0 and os.path.exists(settings.BACKUP_ORDERS_FILE):
-            try:
-                with open(settings.BACKUP_ORDERS_FILE, "r", encoding="utf-8") as f:
-                    orders_data = json.load(f)
-                    now_str = datetime.now().isoformat()
-                    for o in orders_data:
-                        oid = normalize_id(o.get("ID"))
-                        if oid:
-                            cursor.execute("""
-                                INSERT OR IGNORE INTO orders (
-                                    id, date, client, phone, address, district, language,
-                                    sizes, area, total_price, paid_amount, payment_type,
-                                    status, courier, dispatcher, location, debt_reason,
-                                    created_at, updated_at
-                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-                            """, (
-                                oid,
-                                str(o.get("Дата", "")),
-                                str(o.get("Клиент", "")),
-                                str(o.get("Телефон", "")),
-                                str(o.get("Адрес", "")),
-                                str(o.get("Район", "")),
-                                str(o.get("Язык", "")),
-                                str(o.get("Размеры", "")),
-                                str(o.get("Площадь", "0")),
-                                str(o.get("Сумма", "0")),
-                                str(o.get("Оплачено", "0")),
-                                str(o.get("Тип оплаты", "-")),
-                                str(o.get("Статус", "Ожидает забора")),
-                                str(o.get("Курьер", "")),
-                                str(o.get("Диспетчер", "")),
-                                str(o.get("Локация", "-")),
-                                str(o.get("Причина", "-")),
-                                now_str,
-                                now_str
-                            ))
-                conn.commit()
-            except Exception as e:
-                print(f"[DB Migration Error Orders] {e}")
-
-        conn.close()
-
-init_db()
+def get_audit_logs(limit: int = 100) -> List[Dict[str, Any]]:
+    with _db_lock:
+        if _cache_audit_logs:
+            return _cache_audit_logs[:limit]
+    try:
+        ws = get_worksheet_safe("Журнал Действий")
+        if ws:
+            rows = ws.get_all_records()
+            if rows:
+                return rows[-limit:][::-1]
+    except Exception:
+        pass
+    return []
